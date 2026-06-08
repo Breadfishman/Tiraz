@@ -1,0 +1,8 @@
+dist
+coverage
+node_modules
+misc
+package-lock.json
+
+# Hand-curated design doc with aligned tables — not formatter-owned.
+SPEC.md
