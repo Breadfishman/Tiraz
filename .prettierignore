@@ -6,3 +6,6 @@ package-lock.json
 
 # Hand-curated design doc with aligned tables — not formatter-owned.
 SPEC.md
+
+# Vendored third-party skill content — preserved verbatim, never reformatted.
+skills

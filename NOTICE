@@ -1,0 +1,48 @@
+Tiraz
+Copyright 2026 Faris
+
+This product includes design "skills" vendored from third parties under their
+original licenses. Each vendored skill retains its upstream license alongside it
+in skills/<name>/LICENSE (or LICENSE.txt). The combined work is distributed under
+the Apache License, Version 2.0 (see LICENSE).
+
+================================================================================
+Vendored skills
+================================================================================
+
+frontend-design
+  Source:  https://github.com/anthropics/skills/tree/main/skills/frontend-design
+  License: Apache-2.0
+  Copyright 2025 Anthropic, PBC
+  License text: skills/frontend-design/LICENSE.txt
+
+impeccable  (SKILL.md + reference/ only; the detector under scripts/ is NOT
+            vendored — it is consumed via `npx impeccable detect`, SPEC §9)
+  Source:  https://github.com/pbakaus/impeccable
+  License: Apache-2.0
+  Copyright 2025-2026 Paul Bakaus
+  License text: skills/impeccable/LICENSE
+  NB: impeccable itself builds on Anthropic's frontend-design (Apache-2.0,
+      Copyright 2025 Anthropic, PBC) and incorporates typography guidance merged
+      from ehmo's typecraft-guide-skill (https://github.com/ehmo/typecraft-guide-skill).
+
+design-taste-frontend, redesign-existing-projects, minimalist-ui,
+industrial-brutalist-ui, high-end-visual-design, full-output-enforcement,
+image-to-code, stitch-design-taste, imagegen-frontend-web, brandkit
+  Source:  https://github.com/Leonxlnx/taste-skill
+  License: MIT
+  Copyright (c) 2026 Leonxlnx
+  License text: skills/<name>/LICENSE
+
+================================================================================
+Not bundled
+================================================================================
+
+emilkowalski-skill — Emil Kowalski's motion/polish skill
+  Source:  https://emilkowal.ski/skill  (npx skills add emilkowalski/skill)
+  NOT vendored: no license is stated upstream, so it is installed on demand
+  only (invoked via `tiraz review`), never redistributed by Tiraz. See SPEC §13.
+
+The taste-skill variants design-taste-frontend-v1 (taste-skill-v1), gpt-taste
+(gpt-tasteskill), and imagegen-frontend-mobile are intentionally excluded
+(SPEC §4).

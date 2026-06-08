@@ -2,7 +2,8 @@ import js from '@eslint/js';
 import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
-  { ignores: ['dist', 'coverage', 'node_modules'] },
+  // `skills/` holds vendored third-party skill content — never our code to lint.
+  { ignores: ['dist', 'coverage', 'node_modules', 'skills'] },
   {
     files: ['**/*.ts'],
     extends: [
