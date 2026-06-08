@@ -14,10 +14,15 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
   passing) — with the lint floor as a hard gate; `selectSurvivors` is the human override.
 - **DAG rendering** (`core/tree.ts`): `renderTree` (lineage + composite/taste/lint per node) and
   `renderStatus` (per-status summary) for the `tree` / `status` commands.
+- **Search controller** (`core/search.ts` + `gen.ts` refactor): `generateVariant` extracted as the
+  per-genome primitive; `seedGenomes` (round-0 diversity spanning both primaries), and
+  `generateGeneration` / `breedGeneration` (mutate survivors → children) materialize and persist a
+  generation over the injected agent/renderer. Tested with real git + manifest and fakes.
+- **CLI**: `tiraz tree`, `tiraz status`, and `tiraz select <nodes…>` are wired and runnable today
+  (manifest-only — verified end-to-end against a real manifest).
 
-  _Next in this phase:_ the search controller (multi-variant round-0 gen + breed orchestration
-  over the injected agent/renderer) tying gen → score → prune → select → breed into the loop, plus
-  the `gen --factor` / `tree` / `select` / `breed` CLI wiring.
+  _Remaining:_ the `tiraz gen --factor` / `tiraz breed` CLI commands depend on the live `Renderer`
+  (deferred to a browser-capable environment); the controller functions they call are done + tested.
 
 ### Phase 2 — Three-term fitness (in progress)
 

@@ -36,16 +36,17 @@ skills untouched.
 
 ## Planned
 
-| Command                        | Status | Phase | Notes                                                                                   |
-| ------------------------------ | ------ | ----- | --------------------------------------------------------------------------------------- |
-| `tiraz gen`                    | 🚧     | 1     | Single-variant pipeline exists as `core/gen.ts`; CLI command + live renderer pending    |
-| `tiraz adopt` / `tiraz init`   | 📋     | 1 / 6 | Attach to an existing repo (core) / scaffold a greenfield project                       |
-| `tiraz lint` / `tiraz score`   | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending       |
-| `tiraz tree` / `tiraz status`  | 🚧     | 3     | Renderers done in core (`tree.ts`); CLI wiring pending                                  |
-| `tiraz select` / `tiraz breed` | 🚧     | 3 / 4 | `select` + mutation done in core (`beam.ts`/`genome.ts`); loop controller + CLI pending |
-| `tiraz diff`                   | 📋     | 4     | Compare two variants' genomes + outputs                                                 |
-| `tiraz promote`                | 📋     | 4     | Integration: open a PR. Greenfield: merge to main.                                      |
-| `tiraz review`                 | 📋     | 7     | Invoke Emil's skill for motion/polish review                                            |
-| `tiraz export`                 | 📋     | 6     | Emit handoff artifacts (Stitch / v0 / Claude Design)                                    |
+| Command                       | Status | Phase | Notes                                                                                |
+| ----------------------------- | ------ | ----- | ------------------------------------------------------------------------------------ |
+| `tiraz gen`                   | 🚧     | 1     | Single-variant pipeline exists as `core/gen.ts`; CLI command + live renderer pending |
+| `tiraz adopt` / `tiraz init`  | 📋     | 1 / 6 | Attach to an existing repo (core) / scaffold a greenfield project                    |
+| `tiraz lint` / `tiraz score`  | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending    |
+| `tiraz tree` / `tiraz status` | ✅     | 3     | Wired and runnable today (manifest-only)                                             |
+| `tiraz select`                | ✅     | 3     | Wired and runnable today (manifest-only)                                             |
+| `tiraz gen` / `tiraz breed`   | 🚧     | 1 / 3 | Controller done + tested in core (`gen.ts`/`search.ts`); CLI needs the live renderer |
+| `tiraz diff`                  | 📋     | 4     | Compare two variants' genomes + outputs                                              |
+| `tiraz promote`               | 📋     | 4     | Integration: open a PR. Greenfield: merge to main.                                   |
+| `tiraz review`                | 📋     | 7     | Invoke Emil's skill for motion/polish review                                         |
+| `tiraz export`                | 📋     | 6     | Emit handoff artifacts (Stitch / v0 / Claude Design)                                 |
 
 See [SPEC.md §5](../SPEC.md) for the full intended command surface and options.

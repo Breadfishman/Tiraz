@@ -1,6 +1,8 @@
 import { Command } from 'commander';
 import { describeError } from './core/config';
+import { registerSelectCommand } from './cli/select';
 import { registerSkillsCommand } from './cli/skills';
+import { registerTreeCommands } from './cli/tree';
 
 /** Kept in sync with package.json's `version` field. */
 const VERSION = '0.0.0';
@@ -16,6 +18,8 @@ export function buildProgram(): Command {
     .description('A design-taste engine for AI coding agents.')
     .version(VERSION, '-v, --version');
   registerSkillsCommand(program);
+  registerTreeCommands(program);
+  registerSelectCommand(program);
   return program;
 }
 

@@ -38,6 +38,7 @@ what is implemented and how the modules fit together.
 | `score.ts`           | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)    |
 | `beam.ts`            | `pruneGeneration` (3 modes) + `selectSurvivors` — the prune/select decision logic |
 | `tree.ts`            | `renderTree` / `renderStatus` — text rendering of the variant DAG                 |
+| `search.ts`          | `seedGenomes` + `generateGeneration` / `breedGeneration` — the beam-search loop   |
 
 The CLI layer (`src/cli/`) is thin commander wiring over this logic and is exercised by the
 built-bin smoke tests rather than unit-covered.
