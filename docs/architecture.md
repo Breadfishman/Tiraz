@@ -19,23 +19,25 @@ what is implemented and how the modules fit together.
 
 ## Module map (`src/core/`)
 
-| Module               | Responsibility                                                                  |
-| -------------------- | ------------------------------------------------------------------------------- |
-| `config.ts`          | `TirazConfig` zod schema (single source of truth); load + minimal-diff update   |
-| `skills-registry.ts` | The skill registry; resolve the active set; toggle + diversity helpers          |
-| `skills-install.ts`  | Write the resolved skill set into `<worktree>/.claude/skills/`                  |
-| `genome.ts`          | `Genome` / `GraftSpec` — the reproducible inputs that produced a variant        |
-| `manifest.ts`        | `VariantNode` / `Fitness` / `Manifest` — the DAG of variants, persisted to disk |
-| `agent.ts`           | The swappable `Agent` interface, prompt composition, the Claude Code adapter    |
-| `worktree.ts`        | `git worktree` orchestration + dev-server port assignment                       |
-| `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire)                         |
-| `render.ts`          | The `Renderer` interface (render a target + screenshot it)                      |
-| `gen.ts`             | `runGen` — the single-variant generation pipeline                               |
-| `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations     |
-| `ds-adherence.ts`    | Design-system adherence scorer (used values vs the repo's tokens/components)    |
-| `fitness.ts`         | Assembles the three-term `Fitness` composite (lint floor gates, then blend)     |
-| `taste-judge.ts`     | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)  |
-| `score.ts`           | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)  |
+| Module               | Responsibility                                                                    |
+| -------------------- | --------------------------------------------------------------------------------- |
+| `config.ts`          | `TirazConfig` zod schema (single source of truth); load + minimal-diff update     |
+| `skills-registry.ts` | The skill registry; resolve the active set; toggle + diversity helpers            |
+| `skills-install.ts`  | Write the resolved skill set into `<worktree>/.claude/skills/`                    |
+| `genome.ts`          | `Genome` / `GraftSpec` — the reproducible inputs that produced a variant          |
+| `manifest.ts`        | `VariantNode` / `Fitness` / `Manifest` — the DAG of variants, persisted to disk   |
+| `agent.ts`           | The swappable `Agent` interface, prompt composition, the Claude Code adapter      |
+| `worktree.ts`        | `git worktree` orchestration + dev-server port assignment                         |
+| `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire)                           |
+| `render.ts`          | The `Renderer` interface (render a target + screenshot it)                        |
+| `gen.ts`             | `runGen` — the single-variant generation pipeline                                 |
+| `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations       |
+| `ds-adherence.ts`    | Design-system adherence scorer (used values vs the repo's tokens/components)      |
+| `fitness.ts`         | Assembles the three-term `Fitness` composite (lint floor gates, then blend)       |
+| `taste-judge.ts`     | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)    |
+| `score.ts`           | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)    |
+| `beam.ts`            | `pruneGeneration` (3 modes) + `selectSurvivors` — the prune/select decision logic |
+| `tree.ts`            | `renderTree` / `renderStatus` — text rendering of the variant DAG                 |
 
 The CLI layer (`src/cli/`) is thin commander wiring over this logic and is exercised by the
 built-bin smoke tests rather than unit-covered.

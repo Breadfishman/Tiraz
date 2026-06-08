@@ -5,6 +5,20 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ## [Unreleased]
 
+### Phase 3 — Beam search (in progress)
+
+- **Mutation** (`core/genome.ts`): `mutateGenome` applies one small deterministic perturbation
+  (nudge a dial or append a command) and records the parent — the breeding operator (SPEC §7).
+- **Prune + select** (`core/beam.ts`): `pruneGeneration` implements all three modes — `human-only`
+  (annotate only), `lint-gated` (drop lint failures, rank the rest), `auto-beam` (keep top `width`
+  passing) — with the lint floor as a hard gate; `selectSurvivors` is the human override.
+- **DAG rendering** (`core/tree.ts`): `renderTree` (lineage + composite/taste/lint per node) and
+  `renderStatus` (per-status summary) for the `tree` / `status` commands.
+
+  _Next in this phase:_ the search controller (multi-variant round-0 gen + breed orchestration
+  over the injected agent/renderer) tying gen → score → prune → select → breed into the loop, plus
+  the `gen --factor` / `tree` / `select` / `breed` CLI wiring.
+
 ### Phase 2 — Three-term fitness (in progress)
 
 - **Lint floor** (`core/lint.ts`): wraps `impeccable detect --json` (via an injectable

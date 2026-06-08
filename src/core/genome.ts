@@ -56,3 +56,57 @@ export function parseGenomeId(id: string): { generation: number; node: number } 
   }
   return { generation: Number(generation), node: Number(node) };
 }
+
+function clampDial(value: number): number {
+  return Math.min(10, Math.max(1, value));
+}
+
+/** Deterministic single-axis mutations (SPEC §7): nudge one dial, or append one command. */
+const DIAL_MUTATIONS = [
+  { dial: 'variance', delta: 1 },
+  { dial: 'variance', delta: -1 },
+  { dial: 'motion', delta: 1 },
+  { dial: 'motion', delta: -1 },
+  { dial: 'density', delta: 1 },
+  { dial: 'density', delta: -1 },
+] as const;
+const COMMAND_MUTATIONS = ['/bolder', '/distill', '/animate', '/quieter'] as const;
+const MUTATION_COUNT = DIAL_MUTATIONS.length + COMMAND_MUTATIONS.length;
+
+export interface MutationContext {
+  /** The child's genome id. */
+  id: string;
+  createdAt: string;
+}
+
+/**
+ * Produce a child genome by applying one small, deterministic mutation to `parent`, chosen by
+ * `index` (SPEC §7 — mutation breeding). The child records `parent.id` as its sole parent.
+ */
+export function mutateGenome(parent: Genome, ctx: MutationContext, index: number): Genome {
+  const pick = ((index % MUTATION_COUNT) + MUTATION_COUNT) % MUTATION_COUNT;
+  const dials = { ...parent.dials };
+  let commands = parent.commands;
+
+  if (pick < DIAL_MUTATIONS.length) {
+    const mutation = DIAL_MUTATIONS[pick];
+    if (mutation !== undefined) {
+      dials[mutation.dial] = clampDial(dials[mutation.dial] + mutation.delta);
+    }
+  } else {
+    const command = COMMAND_MUTATIONS[pick - DIAL_MUTATIONS.length];
+    if (command !== undefined) {
+      commands = [...parent.commands, command];
+    }
+  }
+
+  return {
+    ...parent,
+    id: ctx.id,
+    parents: [parent.id],
+    dials,
+    commands,
+    seed: parent.seed + index + 1,
+    createdAt: ctx.createdAt,
+  };
+}

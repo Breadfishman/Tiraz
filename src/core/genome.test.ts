@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Genome } from './genome';
-import { GenomeSchema, GraftSpecSchema, genomeId, parseGenomeId } from './genome';
+import { GenomeSchema, GraftSpecSchema, genomeId, mutateGenome, parseGenomeId } from './genome';
 
 const base: Genome = {
   id: 'g0-n0',
@@ -75,5 +75,40 @@ describe('genomeId / parseGenomeId', () => {
   it('returns null for a malformed id', () => {
     expect(parseGenomeId('not-an-id')).toBeNull();
     expect(parseGenomeId('g2-x3')).toBeNull();
+  });
+});
+
+describe('mutateGenome', () => {
+  const ctx = { id: 'g1-n0', createdAt: '2026-06-08T01:00:00.000Z' };
+
+  it('records the parent and stamps the new id/timestamp', () => {
+    const child = mutateGenome(base, ctx, 0);
+    expect(child.parents).toEqual(['g0-n0']);
+    expect(child.id).toBe('g1-n0');
+    expect(child.createdAt).toBe('2026-06-08T01:00:00.000Z');
+    expect(child.seed).toBe(base.seed + 0 + 1);
+  });
+
+  it('nudges a single dial up or down by index', () => {
+    expect(mutateGenome(base, ctx, 0).dials.variance).toBe(6); // +1
+    expect(mutateGenome(base, ctx, 1).dials.variance).toBe(4); // -1
+    expect(mutateGenome(base, ctx, 2).dials.motion).toBe(6); // +1
+  });
+
+  it('clamps dials to the 1–10 range', () => {
+    const maxed = { ...base, dials: { variance: 10, motion: 1, density: 5 } };
+    expect(mutateGenome(maxed, ctx, 0).dials.variance).toBe(10); // +1 clamped
+    expect(mutateGenome(maxed, ctx, 3).dials.motion).toBe(1); // -1 clamped
+  });
+
+  it('appends a command for higher indices', () => {
+    const child = mutateGenome(base, ctx, 6); // first command mutation
+    expect(child.commands).toEqual(['/bolder']);
+    expect(child.dials).toEqual(base.dials);
+  });
+
+  it('wraps negative indices into range', () => {
+    expect(() => mutateGenome(base, ctx, -1)).not.toThrow();
+    expect(mutateGenome(base, ctx, -1).parents).toEqual(['g0-n0']);
   });
 });
