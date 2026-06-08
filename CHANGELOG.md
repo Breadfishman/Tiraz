@@ -5,6 +5,20 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ## [Unreleased]
 
+### Phase 2 — Three-term fitness (in progress)
+
+- **Lint floor** (`core/lint.ts`): wraps `impeccable detect --json` (via an injectable
+  `CommandRunner`), defensively validates the findings array, maps severities to weighted
+  violations, and gates pass/fail against `config.lintThreshold`.
+- **Design-system adherence** (`core/ds-adherence.ts`): pure scorer diffing a variant's used
+  values + components against the repo's design system → 0–100 + off-system list (Tier-2 registry
+  components are whitelisted).
+- **Composite** (`core/fitness.ts`): assembles the three-term `Fitness`; the lint floor gates
+  (fail → composite 0), otherwise a configured weighted blend of DS-adherence + taste.
+
+  _Next in this phase:_ the VLM **taste judge** (mixed-model pairwise tournament → ranking, SPEC
+  §9) and the `score` orchestration that writes `Fitness` across a generation.
+
 ### Phase 1 — Agent + single variant (in progress)
 
 - **Data model** (`core/genome.ts`, `core/manifest.ts`): `Genome` / `GraftSpec` and

@@ -40,7 +40,7 @@ skills untouched.
 | ------------------------------ | ------ | ----- | ------------------------------------------------------------------------------------ |
 | `tiraz gen`                    | 🚧     | 1     | Single-variant pipeline exists as `core/gen.ts`; CLI command + live renderer pending |
 | `tiraz adopt` / `tiraz init`   | 📋     | 1 / 6 | Attach to an existing repo (core) / scaffold a greenfield project                    |
-| `tiraz lint` / `tiraz score`   | 📋     | 2     | Deterministic linter (floor) and full three-term fitness                             |
+| `tiraz lint` / `tiraz score`   | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending    |
 | `tiraz tree` / `tiraz status`  | 📋     | 3     | Render the variant DAG: lineage, scores, status                                      |
 | `tiraz select` / `tiraz breed` | 📋     | 3 / 4 | Mark survivors / mutate + recombine into the next generation                         |
 | `tiraz diff`                   | 📋     | 4     | Compare two variants' genomes + outputs                                              |

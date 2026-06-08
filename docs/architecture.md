@@ -31,6 +31,9 @@ what is implemented and how the modules fit together.
 | `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire)                         |
 | `render.ts`          | The `Renderer` interface (render a target + screenshot it)                      |
 | `gen.ts`             | `runGen` — the single-variant generation pipeline                               |
+| `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations     |
+| `ds-adherence.ts`    | Design-system adherence scorer (used values vs the repo's tokens/components)    |
+| `fitness.ts`         | Assembles the three-term `Fitness` composite (lint floor gates, then blend)     |
 
 The CLI layer (`src/cli/`) is thin commander wiring over this logic and is exercised by the
 built-bin smoke tests rather than unit-covered.
