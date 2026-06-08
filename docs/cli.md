@@ -38,7 +38,6 @@ skills untouched.
 
 | Command                       | Status | Phase | Notes                                                                                |
 | ----------------------------- | ------ | ----- | ------------------------------------------------------------------------------------ |
-| `tiraz gen`                   | 🚧     | 1     | Single-variant pipeline exists as `core/gen.ts`; CLI command + live renderer pending |
 | `tiraz adopt` / `tiraz init`  | 📋     | 1 / 6 | Attach to an existing repo (core) / scaffold a greenfield project                    |
 | `tiraz lint` / `tiraz score`  | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending    |
 | `tiraz tree` / `tiraz status` | ✅     | 3     | Wired and runnable today (manifest-only)                                             |
