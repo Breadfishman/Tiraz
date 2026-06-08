@@ -15,9 +15,16 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
   components are whitelisted).
 - **Composite** (`core/fitness.ts`): assembles the three-term `Fitness`; the lint floor gates
   (fail → composite 0), otherwise a configured weighted blend of DS-adherence + taste.
+- **Taste judge** (`core/taste-judge.ts`): a mixed-model pairwise tournament (SPEC §9) — every pair
+  judged by every lens in both orders (cancels position bias), tallied into a ranking + derived
+  score. Depends only on a `PairwiseJudge` interface (default 3-lens panel: 2× Opus, 1× Sonnet).
+- **Scoring** (`core/score.ts`): `runScore` computes the lint floor + DS-adherence per node, runs
+  the taste tournament across a generation, assembles each node's composite, marks it `scored`, and
+  persists the manifest — satisfying Phase 2's "done when".
 
-  _Next in this phase:_ the VLM **taste judge** (mixed-model pairwise tournament → ranking, SPEC
-  §9) and the `score` orchestration that writes `Fitness` across a generation.
+  _Deferred external adapters_ (behind the injected interfaces, to be built where they can run):
+  the live `PairwiseJudge` (Anthropic vision API), and the design-system / used-value collectors
+  that feed DS-adherence. Plus the `tiraz lint` / `tiraz score` CLI wiring.
 
 ### Phase 1 — Agent + single variant (in progress)
 

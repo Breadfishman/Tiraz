@@ -34,6 +34,8 @@ what is implemented and how the modules fit together.
 | `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations     |
 | `ds-adherence.ts`    | Design-system adherence scorer (used values vs the repo's tokens/components)    |
 | `fitness.ts`         | Assembles the three-term `Fitness` composite (lint floor gates, then blend)     |
+| `taste-judge.ts`     | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)  |
+| `score.ts`           | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)  |
 
 The CLI layer (`src/cli/`) is thin commander wiring over this logic and is exercised by the
 built-bin smoke tests rather than unit-covered.
@@ -47,7 +49,10 @@ it is testable without the real thing:
   via an injectable `CommandRunner`; tests inject a fake runner.
 - **`Renderer`** (`render.ts`) — renders a variant's target and captures a screenshot. The live
   adapter (Playwright + a booted harness server) needs a browser; `runGen` is tested with a fake.
-- **`CommandRunner`** (`agent.ts`) — the one process-spawning primitive, reused by `worktree.ts`.
+- **`CommandRunner`** (`agent.ts`) — the one process-spawning primitive, reused by `worktree.ts`
+  and `lint.ts` (which shells out to `impeccable detect`).
+- **`PairwiseJudge`** (`taste-judge.ts`) — compares two screenshots for a lens. The live adapter is
+  an Anthropic vision model; the tournament + `runScore` are tested with a deterministic fake.
 
 ## State on disk (in the target project)
 
