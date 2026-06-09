@@ -50,6 +50,13 @@ describe('composePrompt', () => {
     expect(prompt).toContain('You may draw from: react-bits, 21st-registry');
   });
 
+  it('advertises capability libraries when provided, and omits the section when empty', () => {
+    const withCaps = composePrompt(base, ['frontend-design'], ['GSAP', 'Motion', 'Three.js']);
+    expect(withCaps).toContain('## Available capability libraries');
+    expect(withCaps).toContain('GSAP, Motion, Three.js');
+    expect(composePrompt(base, ['frontend-design'])).not.toContain('## Available capability');
+  });
+
   it('omits the axes line when a graft has no axes', () => {
     const prompt = composePrompt(
       { ...base, graft: { parents: ['a', 'b'], instructions: 'graft' } },

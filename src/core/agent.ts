@@ -28,10 +28,15 @@ export interface Agent {
 
 /**
  * Compose the agent prompt from a genome + its resolved active skill ids (SPEC §8): brief,
- * target scope, active skills, dials, commands, recombination instructions, and permitted
- * Tier-2 sources. Pure and deterministic — absent genome fields produce no section.
+ * target scope, active skills, dials, commands, recombination instructions, permitted Tier-2
+ * sources, and the available capability libraries (§10). Pure and deterministic — absent genome
+ * fields and an empty `capabilities` list produce no section.
  */
-export function composePrompt(genome: Genome, activeSkillIds: string[]): string {
+export function composePrompt(
+  genome: Genome,
+  activeSkillIds: string[],
+  capabilities: string[] = [],
+): string {
   const lines: string[] = [
     '# Tiraz variant brief',
     '',
@@ -74,6 +79,14 @@ export function composePrompt(genome: Genome, activeSkillIds: string[]): string 
     lines.push(
       '## Permitted component sources (use sparingly)',
       `You may draw from: ${genome.sources.join(', ')}. Prefer the design system first.`,
+      '',
+    );
+  }
+
+  if (capabilities.length > 0) {
+    lines.push(
+      '## Available capability libraries',
+      `Installed and available for animation / 3D / video: ${capabilities.join(', ')}. Use them where they raise craft, not by default.`,
       '',
     );
   }

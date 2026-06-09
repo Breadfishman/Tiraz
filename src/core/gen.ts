@@ -6,6 +6,7 @@ import type { TirazConfig } from './config';
 import { loadConfig } from './config';
 import type { DetectedHarness, HarnessKind } from './detect';
 import { detectHarness } from './detect';
+import { resolveCapabilities } from './capabilities';
 import type { Genome } from './genome';
 import { genomeId } from './genome';
 import type { Manifest, VariantNode } from './manifest';
@@ -43,6 +44,8 @@ export interface GenerateVariantContext {
   generation: number;
   port: number;
   harness: DetectedHarness;
+  /** Capability-library names available this run (SPEC §10), advertised to the agent. */
+  capabilities?: string[];
 }
 
 /**
@@ -76,7 +79,7 @@ export async function generateVariant(
     worktreeDir: worktreePath,
   });
 
-  const prompt = composePrompt(ctx.genome, activeSkillIds);
+  const prompt = composePrompt(ctx.genome, activeSkillIds, ctx.capabilities ?? []);
   const agentResult = await deps.agent.run({
     cwd: worktreePath,
     prompt,
@@ -162,9 +165,10 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
 
   const harness = await detectHarness(opts.cwd, opts.harness);
   const port = assignPort(usedPorts(manifest));
+  const capabilities = resolveCapabilities(config.modules).libraries.map((c) => c.name);
 
   const node = await generateVariant(
-    { cwd: opts.cwd, mode: config.mode, genome, generation, port, harness },
+    { cwd: opts.cwd, mode: config.mode, genome, generation, port, harness, capabilities },
     deps,
   );
 

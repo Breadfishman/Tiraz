@@ -15,6 +15,7 @@ import {
   saveManifest,
   upsertNode,
 } from './manifest';
+import { resolveCapabilities } from './capabilities';
 import { seedPrimaries } from './skills-registry';
 import { resolveSources } from './sources';
 import { assignPort } from './worktree';
@@ -64,7 +65,7 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
 /** Materialize a list of genomes into a new generation and persist them. */
 async function materialize(
   cwd: string,
-  mode: TirazConfig['mode'],
+  config: TirazConfig,
   manifest: Manifest,
   genomes: Genome[],
   generation: number,
@@ -73,12 +74,18 @@ async function materialize(
 ): Promise<VariantNode[]> {
   const harness = await detectHarness(cwd, harnessKind);
   const ports = new Set(usedPorts(manifest));
+  const capabilities = resolveCapabilities(config.modules).libraries.map((c) => c.name);
 
   const nodes: VariantNode[] = [];
   for (const genome of genomes) {
     const port = assignPort(ports);
     ports.add(port);
-    nodes.push(await generateVariant({ cwd, mode, genome, generation, port, harness }, deps));
+    nodes.push(
+      await generateVariant(
+        { cwd, mode: config.mode, genome, generation, port, harness, capabilities },
+        deps,
+      ),
+    );
   }
 
   let updated = manifest;
@@ -123,7 +130,7 @@ export async function generateGeneration(
     ...(opts.target !== undefined ? { target: opts.target } : {}),
   });
 
-  return materialize(opts.cwd, config.mode, manifest, genomes, generation, opts.harness, deps);
+  return materialize(opts.cwd, config, manifest, genomes, generation, opts.harness, deps);
 }
 
 export interface BreedOptions {
@@ -168,7 +175,7 @@ export async function breedGeneration(opts: BreedOptions, deps: GenDeps): Promis
     }
   }
 
-  return materialize(opts.cwd, config.mode, manifest, childGenomes, generation, opts.harness, deps);
+  return materialize(opts.cwd, config, manifest, childGenomes, generation, opts.harness, deps);
 }
 
 export interface RecombineOptions {
@@ -217,7 +224,7 @@ export async function recombineVariant(
 
   const nodes = await materialize(
     opts.cwd,
-    config.mode,
+    config,
     manifest,
     [child],
     generation,

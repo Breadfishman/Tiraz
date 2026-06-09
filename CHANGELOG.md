@@ -5,6 +5,18 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ## [Unreleased]
 
+### Phase 7 — Polish (in progress)
+
+- **Motion/polish review** (`core/review.ts` + `tiraz review [node]`): `reviewVariant` installs Emil
+  Kowalski's skill on demand (via the agent-skills CLI into the variant's worktree — **never
+  vendored**, no stated license, SPEC §13) and runs the agent there with it active to critique
+  motion + craft. Defaults to the run's `final` variant (else most recent). Orchestration tested with
+  injected agent/runner (install + node-selection + failure paths); the live `claude` run is deferred.
+- **Capabilities advertised to the agent** (`core/agent.ts`): `composePrompt` now lists the available
+  capability libraries (resolved from `config.modules`, SPEC §10) so a variant knows what animation /
+  3D / video tools it may use. Threaded through `generateVariant` / `runGen` / the search
+  `materialize` step (which now takes the full config to resolve them).
+
 ### Phase 6 — Greenfield mode + modules + interop (in progress)
 
 - **21st Magic agent backend** (`core/agent.ts`): `MagicAgent` implements the `Agent` interface as an

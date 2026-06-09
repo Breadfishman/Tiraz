@@ -105,6 +105,14 @@ Emit a handoff artifact for an external tool (SPEC §12bis):
 Options: `--node <id>` sources the design intent from a manifest variant (else config defaults);
 `--brief <text>` overrides the embedded brief; `--out <file>` overrides the output path.
 
+### `tiraz review [node]` ✅
+
+Review a variant's **motion + polish** using Emil Kowalski's skill (SPEC §9). Emil's skill has no
+stated license, so it is **never vendored** — `review` installs it on demand (via the agent-skills
+CLI) into the variant's worktree, then runs the agent there with it active and prints the critique.
+Defaults to the run's `final` variant (else the most recent). Runs the real agent — deferred to an
+environment with `claude` + network.
+
 ## Planned
 
 | Command                      | Status | Phase | Notes                                                                                |
@@ -112,6 +120,5 @@ Options: `--node <id>` sources the design intent from a manifest variant (else c
 | `tiraz lint` / `tiraz score` | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending    |
 | `tiraz gen` / `tiraz breed`  | 🚧     | 1 / 3 | Controller done + tested in core (`gen.ts`/`search.ts`); CLI needs the live renderer |
 | `tiraz recombine`            | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI needs the live renderer  |
-| `tiraz review`               | 📋     | 7     | Invoke Emil's skill for motion/polish review                                         |
 
 See [SPEC.md §5](../SPEC.md) for the full intended command surface and options.

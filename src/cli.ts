@@ -5,6 +5,7 @@ import { registerDiffCommand } from './cli/diff';
 import { registerExportCommand } from './cli/export';
 import { registerInitCommand } from './cli/init';
 import { registerPromoteCommand } from './cli/promote';
+import { registerReviewCommand } from './cli/review';
 import { registerSelectCommand } from './cli/select';
 import { registerSkillsCommand } from './cli/skills';
 import { registerSourcesCommand } from './cli/sources';
@@ -32,6 +33,7 @@ export function buildProgram(): Command {
   registerInitCommand(program);
   registerExportCommand(program);
   registerAdoptCommand(program);
+  registerReviewCommand(program);
   return program;
 }
 
