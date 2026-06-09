@@ -5,24 +5,26 @@ into a _bred_ population of frontend variants, then converges on the best one th
 fitness-gated beam search — **inside your real codebase and design system**. Its job is to stop
 AI-built UIs from looking AI-built, without the integration tax of generate-in-a-vacuum tools.
 
-> **Status: all build phases (0–7) implemented.** The full orchestration is in place — skills,
-> three-term fitness, beam search, recombination/diff/promote, the two-tier component sourcing +
-> capability stack, greenfield `init`, integration `adopt`, interop `export`, and Emil's `review`.
-> The remaining work is the **live external adapters** (Playwright renderer, the Anthropic vision
-> taste judge, DS-adherence collectors, and the `claude`/Magic agent runs) — all behind tested
-> interfaces, pending a browser + API-key environment. See [CHANGELOG](./CHANGELOG.md) for the
-> per-phase detail and [SPEC.md](./SPEC.md) for the full design.
+> **Status: end-to-end working.** All build phases (0–7) plus the live adapters (Playwright renderer,
+> vision taste judge, DS-adherence collectors) are implemented and verified live — the full
+> `gen → score → select → breed → promote` loop runs against a real repo, with a live `dashboard` to
+> review variants. Output is "getting there but still lacking" (quality is the active focus).
+> **Resuming or picking up on another machine? Start with [docs/status.md](./docs/status.md)** —
+> current state, setup, the live-loop runbook, and the backlog. See [CHANGELOG](./CHANGELOG.md) for
+> per-change detail and [SPEC.md](./SPEC.md) for the design.
 
 ## Documentation
 
-| Doc                                              | What it covers                                          |
-| ------------------------------------------------ | ------------------------------------------------------- |
-| [SPEC.md](./SPEC.md)                             | The full design spec (vision, all resolved decisions)   |
-| [docs/architecture.md](./docs/architecture.md)   | How the pieces fit: layers, modules, the `gen` pipeline |
-| [docs/cli.md](./docs/cli.md)                     | Command reference, with implementation status           |
-| [docs/configuration.md](./docs/configuration.md) | `tiraz.config.json` reference                           |
-| [docs/skills.md](./docs/skills.md)               | The skill registry, toggling, vendoring + licensing     |
-| [CONTRIBUTING.md](./CONTRIBUTING.md)             | Dev setup, the QA gate, and code conventions            |
+| Doc                                              | What it covers                                            |
+| ------------------------------------------------ | --------------------------------------------------------- |
+| [docs/status.md](./docs/status.md)               | **Start here to resume** — state, setup, runbook, backlog |
+| [SPEC.md](./SPEC.md)                             | The full design spec (vision, all resolved decisions)     |
+| [docs/architecture.md](./docs/architecture.md)   | How the pieces fit: layers, modules, the `gen` pipeline   |
+| [docs/cli.md](./docs/cli.md)                     | Command reference, with implementation status             |
+| [docs/configuration.md](./docs/configuration.md) | `tiraz.config.json` reference                             |
+| [docs/testing.md](./docs/testing.md)             | The four test tiers, incl. the live runbook               |
+| [docs/skills.md](./docs/skills.md)               | The skill registry, toggling, vendoring + licensing       |
+| [CONTRIBUTING.md](./CONTRIBUTING.md)             | Dev setup, the QA gate, and code conventions              |
 
 `SPEC.md` is the design intent (the whole vision); the `docs/` describe what is actually
 implemented today.
