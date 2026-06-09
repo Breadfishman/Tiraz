@@ -43,6 +43,8 @@ what is implemented and how the modules fit together.
 | `export.ts`              | Interop export adapters (§12bis) — Stitch DESIGN.md / v0 prompt / Claude Design brief   |
 | `fitness.ts`             | Assembles the three-term `Fitness` composite (lint floor gates, then blend)             |
 | `taste-judge.ts`         | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)          |
+| `vision-judge.ts`        | Live `PairwiseJudge`: lens prompt + verdict parsing (pure); vision call injected        |
+| `anthropic-io.ts`        | Real Anthropic vision call + image reads for the judge (coverage-excluded glue)         |
 | `score.ts`               | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)          |
 | `beam.ts`                | `pruneGeneration` (3 modes) + `selectSurvivors` — the prune/select decision logic       |
 | `tree.ts`                | `renderTree` / `renderStatus` — text rendering of the variant DAG                       |
@@ -69,7 +71,9 @@ it is testable without the real thing:
 - **`CommandRunner`** (`agent.ts`) — the one process-spawning primitive, reused by `worktree.ts`,
   `lint.ts` (which shells out to `impeccable detect`), and `promote.ts` (`git` merge / `gh pr`).
 - **`PairwiseJudge`** (`taste-judge.ts`) — compares two screenshots for a lens. The live adapter is
-  an Anthropic vision model; the tournament + `runScore` are tested with a deterministic fake.
+  `VisionPairwiseJudge` (`vision-judge.ts`): pure lens-prompt building + verdict parsing around an
+  injected vision call, whose real Anthropic implementation lives in `anthropic-io.ts` (needs
+  `ANTHROPIC_API_KEY`). The tournament + `runScore` are tested with a deterministic fake.
 
 ## State on disk (in the target project)
 

@@ -8,6 +8,6 @@ export default defineConfig({
   sourcemap: true,
   dts: false,
   banner: { js: '#!/usr/bin/env node' },
-  // Optional dependency, lazy-imported by the live renderer — never bundle it.
-  external: ['playwright'],
+  // Optional deps, lazy-imported by the live adapters (renderer / vision judge) — never bundle them.
+  external: ['playwright', '@anthropic-ai/sdk'],
 });

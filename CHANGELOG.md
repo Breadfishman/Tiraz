@@ -7,6 +7,13 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Live taste judge — vision `PairwiseJudge`** (`core/vision-judge.ts` + `core/anthropic-io.ts`):
+  `VisionPairwiseJudge` implements the `PairwiseJudge` interface (SPEC §9). `buildJudgePrompt`
+  (lens-scoped rubric, brief, neutral A/B labels so ids never leak) and `parseVerdict` (extract JSON
+  from model prose, zod-validate, map A/B → ids, default to A on garbage) are pure + fully tested,
+  including a full `runTasteTournament` run over a fake completion. The real Anthropic vision call +
+  image-file reads live in `anthropic-io.ts` (lazy-imports the optional `@anthropic-ai/sdk`, needs
+  `ANTHROPIC_API_KEY`; coverage-excluded, external in the bundle). `createVisionJudge()` wires it up.
 - **Live renderer — harness brain** (`core/render-harness.ts`): the pure, fully-tested foundation the
   Playwright renderer builds on — `harnessServeCommand` (boot Storybook / Ladle / Histoire on a
   port), `parseTarget` + `resolveRenderUrl` (a scoped `--target` → the URL it renders at; Storybook
