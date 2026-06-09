@@ -73,11 +73,24 @@ const fakeRunner =
     Promise.resolve(result);
 
 describe('ClaudeCodeAgent', () => {
-  it('builds headless print-mode args', () => {
+  it('builds headless print-mode args with an edit-applying permission mode', () => {
     const agent = new ClaudeCodeAgent({
       runner: fakeRunner({ exitCode: 0, stdout: '', stderr: '' }),
     });
-    expect(agent.buildArgs({ cwd: '/x', prompt: 'hello', skills: [] })).toEqual(['-p', 'hello']);
+    expect(agent.buildArgs({ cwd: '/x', prompt: 'hello', skills: [] })).toEqual([
+      '-p',
+      '--permission-mode',
+      'acceptEdits',
+      'hello',
+    ]);
+  });
+
+  it('honours a custom permission mode', () => {
+    const agent = new ClaudeCodeAgent({
+      runner: fakeRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      permissionMode: 'bypassPermissions',
+    });
+    expect(agent.buildArgs({ cwd: '/x', prompt: 'p', skills: [] })).toContain('bypassPermissions');
   });
 
   it('reports success and returns stdout', async () => {

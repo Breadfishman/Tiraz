@@ -131,21 +131,29 @@ export interface ClaudeCodeAgentOptions {
   runner?: CommandRunner;
   /** The Claude Code binary; defaults to `claude`. */
   binary?: string;
+  /**
+   * Headless permission mode. Defaults to `acceptEdits` so the agent actually applies file edits in
+   * its (isolated) variant worktree without a TTY prompt — `-p` alone leaves edits unapproved and
+   * the variant comes back unchanged. Use `bypassPermissions` if a variant must also run commands.
+   */
+  permissionMode?: string;
 }
 
 /** {@link Agent} backed by Claude Code in headless/print mode (`claude -p`). */
 export class ClaudeCodeAgent implements Agent {
   private readonly runner: CommandRunner;
   private readonly binary: string;
+  private readonly permissionMode: string;
 
   constructor(opts: ClaudeCodeAgentOptions = {}) {
     this.runner = opts.runner ?? spawnRunner;
     this.binary = opts.binary ?? 'claude';
+    this.permissionMode = opts.permissionMode ?? 'acceptEdits';
   }
 
   /** Build the headless CLI args. Kept separate so it can be asserted without spawning. */
   buildArgs(opts: AgentRunOptions): string[] {
-    return ['-p', opts.prompt];
+    return ['-p', '--permission-mode', this.permissionMode, opts.prompt];
   }
 
   async run(opts: AgentRunOptions): Promise<AgentResult> {

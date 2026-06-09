@@ -7,6 +7,15 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **First real Tier-4 run — two product bugs fixed.** Ran the full greenfield flow live
+  (`tiraz init --next` → add Storybook + a Hero story → `tiraz gen --count 2`) and it bred two
+  genuinely distinct, designed hero variants, each rendered + screenshotted by the live Playwright
+  renderer. Two bugs surfaced and were fixed:
+  - **scaffold** (`fix(scaffold)`): `init` hung because `shadcn init` ran before `npm install` (no
+    `node_modules`) and could prompt — now deps install first and shadcn runs `--defaults --yes`.
+  - **agent** (`core/agent.ts`): headless `claude -p` made no edits (no TTY to approve them), so
+    variants came back unchanged. `ClaudeCodeAgent` now passes `--permission-mode acceptEdits`
+    (configurable via `permissionMode`) so the agent applies edits in its isolated worktree.
 - **`breed` + `recombine` CLI wired live** (`cli/breed.ts`, `cli/recombine.ts`): `tiraz breed
 <survivors…> [--factor n]` mutates survivors into the next generation; `tiraz recombine <a> <b>
 --graft "<text>" [--axes …]` does the human-directed two-parent graft. Both drive the real agent +
