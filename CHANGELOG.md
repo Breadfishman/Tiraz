@@ -7,6 +7,14 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **More options at the start + reliable rendering** (feedback-driven). (1) `seedGenomes` now gives
+  each round-0 variant a distinct **overlay + dial profile** (balanced / calm-minimalist /
+  bold-brutalist / kinetic-soft / high-variance editorial) on top of the primary span — so a round
+  offers genuinely different options instead of near-duplicates. (2) `tiraz dashboard` now **warms
+  each variant's story URL** before serving (Storybook/Vite compile stories lazily on first request,
+  which showed a blank frame on first click). (3) the generation prompt now tells the agent **not to
+  reference external/asset URLs that may 404**, so sub-features actually render.
+
 - **Breeding now refines the parent (commit variants + branch children off them)** (`gen.ts`,
   `search.ts`, `agent.ts`). Two linked fixes: (1) `generateVariant` now **commits the agent's work**
   onto the variant's branch — previously a variant's design was left uncommitted, so its branch was

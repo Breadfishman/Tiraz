@@ -43,7 +43,15 @@ async function initRepo(): Promise<string> {
 
 async function skillsSource(): Promise<string> {
   const dir = await tempDir('tiraz-skills-');
-  for (const id of ['frontend-design', 'impeccable', 'design-taste-frontend']) {
+  // Includes the overlay skills the diverse seed profiles resolve to (minimalist/brutalist/soft).
+  for (const id of [
+    'frontend-design',
+    'impeccable',
+    'design-taste-frontend',
+    'minimalist-ui',
+    'industrial-brutalist-ui',
+    'high-end-visual-design',
+  ]) {
     await mkdir(path.join(dir, id), { recursive: true });
     await writeFile(path.join(dir, id, 'SKILL.md'), `# ${id}\n`, 'utf8');
   }
@@ -88,7 +96,7 @@ afterEach(async () => {
 });
 
 describe('seedGenomes', () => {
-  it('spans both primaries and varies the variance dial', () => {
+  it('spans both primaries and gives each variant a distinct overlay+dial profile', () => {
     const config = TirazConfigSchema.parse({ mode: 'greenfield' });
     const genomes = seedGenomes(config, 4, {
       brief: 'b',
@@ -98,8 +106,9 @@ describe('seedGenomes', () => {
     expect(genomes.map((g) => g.id)).toEqual(['g0-n0', 'g0-n1', 'g0-n2', 'g0-n3']);
     expect(genomes[0]?.primary).toBe('impeccable');
     expect(genomes[1]?.primary).toBe('design-taste-frontend');
-    // variance nudged by (i % 3) - 1 around the default of 5 → 4,5,6,4
-    expect(genomes.map((g) => g.dials.variance)).toEqual([4, 5, 6, 4]);
+    // Genuinely diverse starting points: not all the same overlay or dial profile.
+    expect(new Set(genomes.map((g) => g.overlay)).size).toBeGreaterThan(1);
+    expect(new Set(genomes.map((g) => JSON.stringify(g.dials))).size).toBeGreaterThan(1);
   });
 });
 

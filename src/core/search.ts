@@ -25,10 +25,6 @@ export class SearchError extends Error {
   override readonly name = 'SearchError';
 }
 
-function clampDial(value: number): number {
-  return Math.min(10, Math.max(1, value));
-}
-
 export interface SeedContext {
   brief: string;
   target?: string;
@@ -37,9 +33,22 @@ export interface SeedContext {
 }
 
 /**
+ * Distinct round-0 "looks" (SPEC §4 — primary-as-diversity + the dials). Each gives a meaningfully
+ * different starting point (overlay + dial profile), so a round of N variants spans real options
+ * instead of near-duplicates. Cycled across the population alongside the primary span.
+ */
+const SEED_PROFILES: { overlay: Genome['overlay']; dials: Genome['dials'] }[] = [
+  { overlay: 'none', dials: { variance: 5, motion: 5, density: 5 } }, // balanced
+  { overlay: 'minimalist', dials: { variance: 3, motion: 2, density: 3 } }, // calm, airy
+  { overlay: 'brutalist', dials: { variance: 8, motion: 4, density: 7 } }, // bold, dense
+  { overlay: 'soft', dials: { variance: 6, motion: 8, density: 4 } }, // expressive, kinetic
+  { overlay: 'none', dials: { variance: 9, motion: 6, density: 5 } }, // high-variance editorial
+];
+
+/**
  * Seed `count` diverse round-0 genomes (SPEC §4, §7): span the available primaries (both in
- * greenfield; the single forced primary in integration) and nudge the variance dial per index so
- * no two variants start identical.
+ * greenfield; the single forced primary in integration) AND cycle distinct overlay+dial profiles,
+ * so a round offers genuinely different options rather than near-identical variants.
  */
 export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext): Genome[] {
   const primaries = seedPrimaries(config.mode);
@@ -47,12 +56,14 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
   return Array.from({ length: count }, (_unused, i) => {
     const primarySkill = primaries[i % primaries.length];
     const primary = primarySkill?.primaryKey ?? config.primary;
+    // Profiles offset by the primary index so the two primaries don't get identical profiles.
+    const profile = SEED_PROFILES[(i + (i % primaries.length)) % SEED_PROFILES.length];
     return {
       id: genomeId(ctx.generation, i),
       parents: [],
       primary,
-      overlay: config.overlay,
-      dials: { ...config.dials, variance: clampDial(config.dials.variance + ((i % 3) - 1)) },
+      overlay: profile?.overlay ?? config.overlay,
+      dials: profile?.dials ?? config.dials,
       commands: [],
       seed: i,
       brief: ctx.brief,

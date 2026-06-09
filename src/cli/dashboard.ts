@@ -104,6 +104,11 @@ export function registerDashboardCommand(program: Command): void {
           servers.map(async (s) => {
             try {
               await waitForServer(s.origin, { attempts: 180 });
+              // Warm the actual story URL so its bundle is pre-compiled — Storybook/Vite build the
+              // story lazily on first request, so without this the first view shows a blank frame.
+              if (s.url !== null) {
+                await waitForServer(s.url, { attempts: 60 });
+              }
               s.ready = true;
             } catch {
               console.warn(`  ${s.id} did not become ready (shown as not running)`);

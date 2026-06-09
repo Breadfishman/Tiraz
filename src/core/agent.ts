@@ -38,6 +38,8 @@ function designSystemSection(system: DesignSystem | undefined): string[] {
     'This repo has a real design system. Use its tokens / utility classes and existing components.',
     'Raw off-system literals (hex/rgb/hsl colours, px/rem sizes, ad-hoc fonts) are SCORED AGAINST you',
     'and are the #1 reason output reads as generic AI work. Prefer tokens over literal values.',
+    'Do NOT reference external image/font URLs or asset paths that may 404 — use inline SVG, CSS, or',
+    'the existing public assets so every feature actually renders.',
   ];
   for (const [category, vals] of categories) {
     lines.push(`- ${category}: ${vals.slice(0, 8).join(', ')}`);
