@@ -75,7 +75,6 @@ export async function scaffoldProject(
       opts.cwd,
       runner,
     );
-    await run('npx', ['astro', 'add', 'tailwind', '--yes'], dir, runner);
   } else {
     await run(
       'npx',
@@ -97,12 +96,17 @@ export async function scaffoldProject(
     );
   }
 
-  await run('npx', ['shadcn@latest', 'init', '-y'], dir, runner);
-
+  // Install base deps (+ the capability stack) FIRST, so the tools below can detect the project and
+  // run non-interactively. `npm install` with no extra args reconciles the framework's package.json.
   const installed = scaffoldPackages(opts.modules);
-  if (installed.length > 0) {
-    await run('npm', ['install', ...installed], dir, runner);
+  await run('npm', ['install', ...installed], dir, runner);
+
+  if (opts.framework === 'astro') {
+    await run('npx', ['astro', 'add', 'tailwind', '--yes'], dir, runner);
   }
+
+  // `--defaults --yes` keeps shadcn fully non-interactive (no base-color / style prompts).
+  await run('npx', ['shadcn@latest', 'init', '--defaults', '--yes'], dir, runner);
 
   // The framework CLI creates the project dir; ensure it exists before writing config (no-op in
   // real runs, and lets the config land even if a step was a no-op).
