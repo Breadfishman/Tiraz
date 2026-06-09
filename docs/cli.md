@@ -134,12 +134,22 @@ needs `ANTHROPIC_API_KEY` (judge) and `npx impeccable` (lint floor).
 
 - `-g, --generation <n>` — generation to score (default: the latest).
 
+### `tiraz breed <survivors...>` ✅ (live)
+
+Breed the next generation by mutating each survivor (SPEC §7) — drives the agent + renderer like
+`gen`. `-f, --factor <n>` sets children per survivor (default `config.beam.factor`); `--harness`
+overrides detection.
+
+### `tiraz recombine <parentA> <parentB>` ✅ (live)
+
+Human-directed two-parent graft (SPEC §7): `-g, --graft "<instruction>"` (required) drives the
+recombination; `--axes <list>` optionally scopes it (`typography,palette,motion,layout,spacing`).
+Drives the agent + renderer.
+
 ## Planned
 
-| Command           | Status | Phase | Notes                                                                        |
-| ----------------- | ------ | ----- | ---------------------------------------------------------------------------- |
-| `tiraz lint`      | 🚧     | 2     | Lint floor runs inside `score`; a standalone `tiraz lint` command is pending |
-| `tiraz breed`     | 🚧     | 3     | `breedGeneration` done + tested in core (`search.ts`); CLI wiring pending    |
-| `tiraz recombine` | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI wiring pending   |
+| Command      | Status | Phase | Notes                                                                        |
+| ------------ | ------ | ----- | ---------------------------------------------------------------------------- |
+| `tiraz lint` | 🚧     | 2     | Lint floor runs inside `score`; a standalone `tiraz lint` command is pending |
 
 See [SPEC.md §5](../SPEC.md) for the full intended command surface and options.

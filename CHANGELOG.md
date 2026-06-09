@@ -7,6 +7,17 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **`breed` + `recombine` CLI wired live** (`cli/breed.ts`, `cli/recombine.ts`): `tiraz breed
+<survivors…> [--factor n]` mutates survivors into the next generation; `tiraz recombine <a> <b>
+--graft "<text>" [--axes …]` does the human-directed two-parent graft. Both drive the real agent +
+  renderer (their `breedGeneration` / `recombineVariant` controllers were already tested). This
+  completes the CLI surface for the gen → score → select → breed/recombine → promote loop.
+- **Testing tiers** (`docs/testing.md` + `playwright-io.e2e.test.ts`): documented the four test tiers
+  (hermetic unit gate → manifest CLI pipeline → live renderer → full live loop). Added a committed
+  e2e test that drives the **real** `playwrightScreenshot` against a static page (skipped in the
+  normal gate; run with `TIRAZ_E2E=1` after `npx playwright install chromium`) — verified producing a
+  valid PNG. The manifest-backed CLI pipeline (adopt → tree → diff → select → export) was verified
+  end-to-end against the built binary.
 - **DS-adherence collectors + `tiraz score` wired live** (`core/ds-collect.ts`,
   `core/ds-collect-io.ts`, `cli/score.ts`): pure extractors — `parseCssCustomProperties` +
   `categorizeToken` + `buildDesignSystem` (repo design tokens from CSS custom properties) and
