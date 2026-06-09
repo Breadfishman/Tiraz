@@ -11,6 +11,16 @@ Status legend: ✅ implemented · 🚧 partial · 📋 planned (with the phase i
 
 ## Implemented
 
+### `tiraz adopt` ✅
+
+Attach Tiraz to an existing repo in **integration mode** (SPEC §3). Detects the host framework (from
+`package.json`) and the render harness (Storybook → Ladle → Histoire), then writes a
+`tiraz.config.json` with `mode: integration` — conforming to the existing stack, never imposing one.
+An unrecognized framework leaves the configured default untouched.
+
+- `--harness <kind>` — override harness detection (`storybook` | `ladle` | `histoire` | `scratch` |
+  `app`).
+
 ### `tiraz skills list` ✅
 
 Print the skill registry and mark which skills are active for the current `tiraz.config.json`
@@ -99,7 +109,6 @@ Options: `--node <id>` sources the design intent from a manifest variant (else c
 
 | Command                      | Status | Phase | Notes                                                                                |
 | ---------------------------- | ------ | ----- | ------------------------------------------------------------------------------------ |
-| `tiraz adopt`                | 📋     | 6     | Attach to an existing repo: detect stack + write integration config                  |
 | `tiraz lint` / `tiraz score` | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending    |
 | `tiraz gen` / `tiraz breed`  | 🚧     | 1 / 3 | Controller done + tested in core (`gen.ts`/`search.ts`); CLI needs the live renderer |
 | `tiraz recombine`            | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI needs the live renderer  |

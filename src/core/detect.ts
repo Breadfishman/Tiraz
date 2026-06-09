@@ -40,6 +40,40 @@ function hasDep(deps: Record<string, string>, matches: (name: string) => boolean
   return Object.keys(deps).some(matches);
 }
 
+export interface DetectedFramework {
+  /** Canonical framework id, or `null` if none could be identified. */
+  framework: string | null;
+  reason: string;
+}
+
+/** Ordered framework probes — most specific first (e.g. SvelteKit before Svelte, Next before React). */
+const FRAMEWORK_PROBES: { id: string; match: (name: string) => boolean }[] = [
+  { id: 'next', match: (n) => n === 'next' },
+  { id: 'astro', match: (n) => n === 'astro' },
+  { id: 'remix', match: (n) => n.startsWith('@remix-run/') },
+  { id: 'nuxt', match: (n) => n === 'nuxt' || n === 'nuxt3' },
+  { id: 'sveltekit', match: (n) => n === '@sveltejs/kit' },
+  { id: 'gatsby', match: (n) => n === 'gatsby' },
+  { id: 'vue', match: (n) => n === 'vue' },
+  { id: 'svelte', match: (n) => n === 'svelte' },
+  { id: 'vite', match: (n) => n === 'vite' },
+  { id: 'react', match: (n) => n === 'react' },
+];
+
+/**
+ * Identify the host framework from the repo's `package.json` (SPEC §3 — detect and conform). Returns
+ * `null` when nothing recognizable is present, so `adopt` can leave the configured default untouched.
+ */
+export async function detectFramework(repoRoot: string): Promise<DetectedFramework> {
+  const deps = await readPackageDeps(repoRoot);
+  for (const probe of FRAMEWORK_PROBES) {
+    if (hasDep(deps, probe.match)) {
+      return { framework: probe.id, reason: `found ${probe.id} in package.json dependencies` };
+    }
+  }
+  return { framework: null, reason: 'no known framework found in package.json' };
+}
+
 /**
  * Resolve the render harness for a repo (SPEC §11): explicit override → detect an existing
  * playground (Storybook → Ladle → Histoire) → fall back to `scratch` (a v2 stretch goal).

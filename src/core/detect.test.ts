@@ -2,7 +2,7 @@ import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { detectHarness } from './detect';
+import { detectFramework, detectHarness } from './detect';
 
 const tmpDirs: string[] = [];
 
@@ -76,5 +76,32 @@ describe('detectHarness', () => {
   it('treats a malformed package.json as no dependencies', async () => {
     const dir = await project({ packageJson: '{ not json' });
     expect((await detectHarness(dir)).kind).toBe('scratch');
+  });
+});
+
+describe('detectFramework', () => {
+  it('identifies the framework from package.json deps', async () => {
+    const next = await project({ packageJson: { dependencies: { next: '^15', react: '^19' } } });
+    expect((await detectFramework(next)).framework).toBe('next');
+
+    const astro = await project({ packageJson: { dependencies: { astro: '^5' } } });
+    expect((await detectFramework(astro)).framework).toBe('astro');
+  });
+
+  it('prefers the more specific framework (SvelteKit over Svelte, Next over React)', async () => {
+    const kit = await project({
+      packageJson: { devDependencies: { '@sveltejs/kit': '^2', svelte: '^5' } },
+    });
+    expect((await detectFramework(kit)).framework).toBe('sveltekit');
+  });
+
+  it('detects Remix from its scoped packages', async () => {
+    const remix = await project({ packageJson: { dependencies: { '@remix-run/node': '^2' } } });
+    expect((await detectFramework(remix)).framework).toBe('remix');
+  });
+
+  it('returns null when no known framework is present', async () => {
+    const dir = await project({ packageJson: { dependencies: { lodash: '^4' } } });
+    expect((await detectFramework(dir)).framework).toBeNull();
   });
 });

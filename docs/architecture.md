@@ -28,7 +28,8 @@ what is implemented and how the modules fit together.
 | `manifest.ts`        | `VariantNode` / `Fitness` / `Manifest` — the DAG of variants, persisted to disk       |
 | `agent.ts`           | The swappable `Agent` interface, prompt composition, the Claude Code adapter          |
 | `worktree.ts`        | `git worktree` orchestration + dev-server port assignment                             |
-| `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire)                               |
+| `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire) + host-framework detection    |
+| `adopt.ts`           | `adoptProject` — integration attach: detect stack + harness, write integration config |
 | `render.ts`          | The `Renderer` interface (render a target + screenshot it)                            |
 | `gen.ts`             | `runGen` — the single-variant generation pipeline                                     |
 | `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations           |

@@ -7,6 +7,12 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Phase 6 — Greenfield mode + modules + interop (in progress)
 
+- **Integration attach** (`core/adopt.ts` + `tiraz adopt`): `adoptProject` detects the host framework
+  (new `detectFramework` in `detect.ts` — Next / Astro / Remix / Nuxt / SvelteKit / Gatsby / Vue /
+  Svelte / Vite / React, most-specific-first) and the render harness, then writes an integration
+  `tiraz.config.json` (`mode: integration`) — conforming to the existing stack, never imposing one.
+  An unrecognized framework leaves the configured default untouched. Tested + verified end-to-end.
+
 - **Greenfield scaffolder** (`core/scaffold.ts` + `tiraz init`): `scaffoldProject` drives the
   official CLIs through the injected `CommandRunner` — Astro + Tailwind (or Next.js via `--next`,
   Tailwind built in), then shadcn/ui — installs the pinned capability stack for the enabled modules,
