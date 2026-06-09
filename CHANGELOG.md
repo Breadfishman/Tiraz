@@ -7,6 +7,15 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **DS-adherence collectors + `tiraz score` wired live** (`core/ds-collect.ts`,
+  `core/ds-collect-io.ts`, `cli/score.ts`): pure extractors — `parseCssCustomProperties` +
+  `categorizeToken` + `buildDesignSystem` (repo design tokens from CSS custom properties) and
+  `extractUsedValues` + `mergeUsedValues` (a variant's off-system colour/spacing literals + imported
+  components) — are fully tested; the bounded repo/worktree file-walk that feeds them lives in
+  `ds-collect-io.ts` (coverage-excluded). `tiraz score [--generation n]` assembles the full
+  three-term fitness: the `impeccable` lint floor, DS-adherence (collected system vs used), and the
+  live vision taste judge → each node's composite in the manifest. This closes the
+  gen → score → select → breed loop. Needs `ANTHROPIC_API_KEY` + `npx impeccable`.
 - **Live taste judge — vision `PairwiseJudge`** (`core/vision-judge.ts` + `core/anthropic-io.ts`):
   `VisionPairwiseJudge` implements the `PairwiseJudge` interface (SPEC §9). `buildJudgePrompt`
   (lens-scoped rubric, brief, neutral A/B labels so ids never leak) and `parseVerdict` (extract JSON

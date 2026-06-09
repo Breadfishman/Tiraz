@@ -124,12 +124,22 @@ component playground in the target repo, and Playwright browsers (`npx playwrigh
 - `-b, --brief <text>` (required) · `-c, --count <n>` (default 3) · `-t, --target <scope>` ·
   `--harness <kind>`.
 
+### `tiraz score` ✅ (live)
+
+Score a generation with the full three-term fitness (SPEC §9): the **lint floor** (`impeccable
+detect`, a gate), **DS-adherence** (the variant's used colour/spacing literals + components vs the
+repo's CSS-variable tokens — Tier-2 sources whitelisted), and the **vision taste judge** (the
+mixed-model pairwise tournament). Writes each node's composite to the manifest. Wired and runnable;
+needs `ANTHROPIC_API_KEY` (judge) and `npx impeccable` (lint floor).
+
+- `-g, --generation <n>` — generation to score (default: the latest).
+
 ## Planned
 
-| Command                      | Status | Phase | Notes                                                                             |
-| ---------------------------- | ------ | ----- | --------------------------------------------------------------------------------- |
-| `tiraz lint` / `tiraz score` | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending |
-| `tiraz breed`                | 🚧     | 3     | `breedGeneration` done + tested in core (`search.ts`); CLI wiring pending         |
-| `tiraz recombine`            | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI wiring pending        |
+| Command           | Status | Phase | Notes                                                                        |
+| ----------------- | ------ | ----- | ---------------------------------------------------------------------------- |
+| `tiraz lint`      | 🚧     | 2     | Lint floor runs inside `score`; a standalone `tiraz lint` command is pending |
+| `tiraz breed`     | 🚧     | 3     | `breedGeneration` done + tested in core (`search.ts`); CLI wiring pending    |
+| `tiraz recombine` | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI wiring pending   |
 
 See [SPEC.md §5](../SPEC.md) for the full intended command surface and options.

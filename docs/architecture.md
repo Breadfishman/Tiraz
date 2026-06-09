@@ -37,6 +37,8 @@ what is implemented and how the modules fit together.
 | `gen.ts`                 | `runGen` — the single-variant generation pipeline                                       |
 | `lint.ts`                | Lint floor — wraps `impeccable detect`, maps findings → weighted violations             |
 | `ds-adherence.ts`        | DS-adherence scorer (used values vs tokens/components; whitelists Tier-2 sources)       |
+| `ds-collect.ts`          | DS-adherence collectors (pure): parse repo tokens from CSS vars; extract used literals  |
+| `ds-collect-io.ts`       | File-walking for the collectors (coverage-excluded glue)                                |
 | `sources.ts`             | Two-tier component-source registry (Tier-1 bundled / Tier-2 fetch) + ToS gating         |
 | `capabilities.ts`        | Capability-library registry (animation / scroll / 3D / video, §10) gated by modules     |
 | `scaffold.ts`            | Greenfield `init` scaffolder — drives Astro/Next + Tailwind + shadcn + module deps      |

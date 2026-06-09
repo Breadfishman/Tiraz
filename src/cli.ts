@@ -7,6 +7,7 @@ import { registerGenCommand } from './cli/gen';
 import { registerInitCommand } from './cli/init';
 import { registerPromoteCommand } from './cli/promote';
 import { registerReviewCommand } from './cli/review';
+import { registerScoreCommand } from './cli/score';
 import { registerSelectCommand } from './cli/select';
 import { registerSkillsCommand } from './cli/skills';
 import { registerSourcesCommand } from './cli/sources';
@@ -36,6 +37,7 @@ export function buildProgram(): Command {
   registerAdoptCommand(program);
   registerReviewCommand(program);
   registerGenCommand(program);
+  registerScoreCommand(program);
   return program;
 }
 
