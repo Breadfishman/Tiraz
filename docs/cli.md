@@ -34,6 +34,17 @@ Write the resolved active skill set into `<worktree>/.claude/skills/` (defaults 
 directory). Removes previously-installed registry skills (clean toggle) while leaving the user's own
 skills untouched.
 
+### `tiraz sources list|enable|disable` ✅
+
+Inspect and toggle the two-tier component-source menu (SPEC §12).
+
+- `tiraz sources list` — print the registry, marking which sources are available to variants for the
+  current config (Tier-1 bundled are always available; Tier-2 fetch as configured) and flagging
+  restricted sources.
+- `tiraz sources enable <id>` / `disable <id>` — toggle a **restricted** Tier-2 source (currently
+  `aceternity`) and persist it to `tiraz.config.json`. Enabling prints the source's ToS warning.
+  Non-restricted sources are configured via the `sources.fetch` list, not this toggle.
+
 ### `tiraz tree` / `tiraz status` ✅
 
 Render the variant DAG (lineage, scores, status) and a per-status summary of the current run.

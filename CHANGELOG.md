@@ -5,6 +5,22 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ## [Unreleased]
 
+### Phase 5 — Component sourcing (in progress)
+
+- **Source registry** (`core/sources.ts`): the two-tier menu (SPEC §12) as typed data — Tier-1
+  bundled (Magic UI, MIT) and Tier-2 fetch-only (React Bits, 21st registry, Aceternity), each with
+  its verified license. `resolveSources` splits bundled vs permitted fetch and gates the restricted
+  Aceternity behind its own toggle, surfacing its ToS warning when enabled. `isFromPermittedSource`
+  recognizes a fetched component by its `source/Component` prefix.
+- **Linter whitelisting** (`core/ds-adherence.ts`): `scoreDsAdherence` takes the variant's permitted
+  Tier-2 sources and treats components fetched from them as on-system — so an intentionally-pulled
+  Tier-2 component isn't penalized as off-system slop (SPEC §9/§12). `score.ts` passes each node's
+  `genome.sources` through.
+- **Wiring**: `seedGenomes` / `runGen` record the resolved permitted sources on each genome (was the
+  raw `config.sources.fetch`), so the Aceternity toggle and validation flow through.
+- **CLI**: `tiraz sources list | enable <id> | disable <id>` — inspect the menu and toggle the
+  restricted source, with the ToS warning printed on enable. Wired and runnable today.
+
 ### Phase 4 — Recombination, diff & promote (in progress)
 
 - **Recombination** (`core/genome.ts` + `core/search.ts`): `recombineGenome` grafts two parents

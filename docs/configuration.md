@@ -28,12 +28,27 @@ every default.
 Nested objects are all-or-nothing: omit a block to get its default, or provide it with all required
 fields.
 
+## `sources` — two-tier component menu (SPEC §12)
+
+Diversity of component sources is itself an anti-slop mechanism, and **each source's license dictates
+its tier**:
+
+- **Tier-1 `bundled`** — vendored into Tiraz, always available. `magic-ui` (MIT).
+- **Tier-2 `fetch`** — the agent copies components into _your_ repo on demand (never redistributed
+  by Tiraz): `react-bits` (MIT + Commons Clause), `21st-registry` (community). Usage is sparing by
+  design — a way out of a local optimum, not a default crutch. A genome records the permitted Tier-2
+  sources it may draw from, and the DS-adherence term whitelists components fetched from them so they
+  aren't flagged as off-system.
+
+Inspect and toggle the menu with [`tiraz sources`](./cli.md#tiraz-sources-listenabledisable-).
+
 ## `sources.aceternity`
 
-Off by default. Enabling Aceternity surfaces a Terms-of-Service warning: its terms are restrictive —
-fine for personal / non-distributed projects, risky for enterprise/commercial work. Tiraz never
-bundles it; components are only fetched into your repo on demand. See
-[docs/skills.md](./skills.md) and [SPEC.md §12/§13](../SPEC.md).
+Off by default. Aceternity is a Tier-2 source gated behind its own toggle (not the `fetch` list)
+because its terms are restrictive. Enabling it — via `tiraz sources enable aceternity` or setting
+this flag — surfaces a Terms-of-Service warning: fine for personal / non-distributed projects, risky
+for enterprise/commercial work. Tiraz never bundles it; components are only fetched into your repo on
+demand. See [docs/skills.md](./skills.md) and [SPEC.md §12/§13](../SPEC.md).
 
 ## Example
 

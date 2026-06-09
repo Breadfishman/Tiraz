@@ -4,6 +4,7 @@ import { registerDiffCommand } from './cli/diff';
 import { registerPromoteCommand } from './cli/promote';
 import { registerSelectCommand } from './cli/select';
 import { registerSkillsCommand } from './cli/skills';
+import { registerSourcesCommand } from './cli/sources';
 import { registerTreeCommands } from './cli/tree';
 
 /** Kept in sync with package.json's `version` field. */
@@ -20,6 +21,7 @@ export function buildProgram(): Command {
     .description('A design-taste engine for AI coding agents.')
     .version(VERSION, '-v, --version');
   registerSkillsCommand(program);
+  registerSourcesCommand(program);
   registerTreeCommands(program);
   registerSelectCommand(program);
   registerDiffCommand(program);

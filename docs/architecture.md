@@ -32,7 +32,8 @@ what is implemented and how the modules fit together.
 | `render.ts`          | The `Renderer` interface (render a target + screenshot it)                          |
 | `gen.ts`             | `runGen` — the single-variant generation pipeline                                   |
 | `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations         |
-| `ds-adherence.ts`    | Design-system adherence scorer (used values vs the repo's tokens/components)        |
+| `ds-adherence.ts`    | DS-adherence scorer (used values vs tokens/components; whitelists Tier-2 sources)   |
+| `sources.ts`         | Two-tier component-source registry (Tier-1 bundled / Tier-2 fetch) + ToS gating     |
 | `fitness.ts`         | Assembles the three-term `Fitness` composite (lint floor gates, then blend)         |
 | `taste-judge.ts`     | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)      |
 | `score.ts`           | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)      |
