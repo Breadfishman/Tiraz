@@ -5,6 +5,8 @@
  * `DesignSystem` from the repo are adapters layered on top.
  */
 
+import { isFromPermittedSource } from './sources';
+
 /** The repo's allowed on-system values, by category, plus a blessed component allowlist. */
 export interface DesignSystem {
   /** Category (e.g. "color", "spacing", "radius", "fontSize") → allowed values. */
@@ -33,12 +35,25 @@ export interface DsAdherenceResult {
   details: OffSystemValue[];
 }
 
+export interface DsAdherenceOptions {
+  /**
+   * Tier-2 source ids this variant was permitted to fetch from (SPEC §12). A used component
+   * belonging to one of these is whitelisted — not penalized as off-system.
+   */
+  whitelistedSources?: readonly string[];
+}
+
 function normalize(value: string): string {
   return value.trim().toLowerCase();
 }
 
 /** Score a variant's design-system adherence by diffing used values against the system. */
-export function scoreDsAdherence(system: DesignSystem, used: UsedValues): DsAdherenceResult {
+export function scoreDsAdherence(
+  system: DesignSystem,
+  used: UsedValues,
+  options: DsAdherenceOptions = {},
+): DsAdherenceResult {
+  const whitelistedSources = options.whitelistedSources ?? [];
   const off: OffSystemValue[] = [];
   let total = 0;
   let onSystem = 0;
@@ -58,7 +73,10 @@ export function scoreDsAdherence(system: DesignSystem, used: UsedValues): DsAdhe
   const allowedComponents = new Set(system.components.map(normalize));
   for (const component of used.components) {
     total += 1;
-    if (allowedComponents.has(normalize(component))) {
+    if (
+      allowedComponents.has(normalize(component)) ||
+      isFromPermittedSource(component, whitelistedSources)
+    ) {
       onSystem += 1;
     } else {
       off.push({ category: 'component', value: component });

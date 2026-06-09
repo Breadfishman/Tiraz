@@ -19,6 +19,7 @@ import {
 import type { Renderer } from './render';
 import { installResolvedSkills } from './skills-install';
 import { resolveActiveSkills } from './skills-registry';
+import { resolveSources } from './sources';
 import { addWorktree, assignPort } from './worktree';
 
 export class GenError extends Error {
@@ -143,6 +144,7 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
   const id = genomeId(generation, 0);
   const now = deps.now ?? (() => new Date().toISOString());
   const resolved = resolveActiveSkills(config);
+  const permittedSources = resolveSources(config.sources).permittedIds;
 
   const genome: Genome = {
     id,
@@ -155,7 +157,7 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
     brief: opts.brief,
     createdAt: now(),
     ...(opts.target !== undefined ? { target: opts.target } : {}),
-    ...(config.sources.fetch.length > 0 ? { sources: config.sources.fetch } : {}),
+    ...(permittedSources.length > 0 ? { sources: permittedSources } : {}),
   };
 
   const harness = await detectHarness(opts.cwd, opts.harness);

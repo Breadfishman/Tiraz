@@ -16,6 +16,7 @@ import {
   upsertNode,
 } from './manifest';
 import { seedPrimaries } from './skills-registry';
+import { resolveSources } from './sources';
 import { assignPort } from './worktree';
 
 export class SearchError extends Error {
@@ -40,6 +41,7 @@ export interface SeedContext {
  */
 export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext): Genome[] {
   const primaries = seedPrimaries(config.mode);
+  const permittedSources = resolveSources(config.sources).permittedIds;
   return Array.from({ length: count }, (_unused, i) => {
     const primarySkill = primaries[i % primaries.length];
     const primary = primarySkill?.primaryKey ?? config.primary;
@@ -54,7 +56,7 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
       brief: ctx.brief,
       createdAt: ctx.createdAt,
       ...(ctx.target !== undefined ? { target: ctx.target } : {}),
-      ...(config.sources.fetch.length > 0 ? { sources: config.sources.fetch } : {}),
+      ...(permittedSources.length > 0 ? { sources: permittedSources } : {}),
     } satisfies Genome;
   });
 }

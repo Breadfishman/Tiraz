@@ -64,7 +64,9 @@ export async function runScore(
     lintResults.set(node.genome.id, await deps.lint(node));
     dsResults.set(
       node.genome.id,
-      scoreDsAdherence(deps.designSystem, await deps.collectUsedValues(node)),
+      scoreDsAdherence(deps.designSystem, await deps.collectUsedValues(node), {
+        ...(node.genome.sources !== undefined ? { whitelistedSources: node.genome.sources } : {}),
+      }),
     );
   }
 

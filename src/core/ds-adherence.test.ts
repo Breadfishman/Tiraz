@@ -53,4 +53,14 @@ describe('scoreDsAdherence', () => {
   it('scores 100 when nothing was used', () => {
     expect(scoreDsAdherence(system, { values: {}, components: [] }).score).toBe(100);
   });
+
+  it('whitelists Tier-2 components from permitted sources (SPEC §12)', () => {
+    const used = { values: {}, components: ['react-bits/SplitText', 'aceternity/Spotlight'] };
+    // Without whitelisting, both fetched components are off-system.
+    expect(scoreDsAdherence(system, used).score).toBe(0);
+    // With react-bits permitted, only the non-permitted aceternity component is flagged.
+    const result = scoreDsAdherence(system, used, { whitelistedSources: ['react-bits'] });
+    expect(result.score).toBe(50);
+    expect(result.offSystemValues).toEqual(['component:aceternity/Spotlight']);
+  });
 });
