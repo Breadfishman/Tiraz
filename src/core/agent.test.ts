@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Genome } from './genome';
 import type { CommandResult, CommandRunner } from './agent';
-import { ClaudeCodeAgent, composePrompt, spawnRunner } from './agent';
+import { ClaudeCodeAgent, MagicAgent, composePrompt, spawnRunner } from './agent';
 
 const base: Genome = {
   id: 'g0-n0',
@@ -87,6 +87,50 @@ describe('ClaudeCodeAgent', () => {
     });
     const result = await agent.run({ cwd: '/x', prompt: 'p', skills: [] });
     expect(result).toEqual({ ok: false, exitCode: 1, output: 'boom' });
+  });
+});
+
+describe('MagicAgent', () => {
+  const env = { TWENTY_FIRST_API_KEY: 'sk-test' };
+
+  it('builds the Magic CLI args', () => {
+    const agent = new MagicAgent({
+      runner: fakeRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      env,
+    });
+    expect(agent.buildArgs({ cwd: '/x', prompt: 'a card', skills: [] })).toEqual([
+      '-y',
+      '@21st-dev/magic@latest',
+      '--prompt',
+      'a card',
+    ]);
+  });
+
+  it('fails fast with guidance when the API key is absent (and never spawns)', async () => {
+    let called = false;
+    const runner: CommandRunner = () => {
+      called = true;
+      return Promise.resolve({ exitCode: 0, stdout: '', stderr: '' });
+    };
+    const agent = new MagicAgent({ runner, env: {} });
+    const result = await agent.run({ cwd: '/x', prompt: 'p', skills: [] });
+    expect(result.ok).toBe(false);
+    expect(result.output).toContain('TWENTY_FIRST_API_KEY');
+    expect(called).toBe(false);
+  });
+
+  it('runs and reports success when the key is present', async () => {
+    const agent = new MagicAgent({
+      runner: fakeRunner({ exitCode: 0, stdout: 'generated', stderr: '' }),
+      env,
+    });
+    const result = await agent.run({ cwd: '/x', prompt: 'p', skills: [] });
+    expect(result).toEqual({ ok: true, exitCode: 0, output: 'generated' });
+  });
+
+  it('treats a blank key as absent', () => {
+    expect(new MagicAgent({ env: { TWENTY_FIRST_API_KEY: '  ' } }).hasApiKey()).toBe(false);
+    expect(new MagicAgent({ env }).hasApiKey()).toBe(true);
   });
 });
 

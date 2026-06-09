@@ -7,6 +7,12 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Phase 6 — Greenfield mode + modules + interop (in progress)
 
+- **21st Magic agent backend** (`core/agent.ts`): `MagicAgent` implements the `Agent` interface as an
+  opt-in, API-keyed 21st.dev "Magic" backend (SPEC §8) — fails fast with guidance when
+  `TWENTY_FIRST_API_KEY` is absent (never spawns), otherwise shells out via the injected
+  `CommandRunner`. Tested for the key-present / key-absent / arg-shape paths; the exact live CLI
+  invocation is provisional (deferred to an environment with a key), but the backend is swappable in
+  behind the interface today.
 - **Integration attach** (`core/adopt.ts` + `tiraz adopt`): `adoptProject` detects the host framework
   (new `detectFramework` in `detect.ts` — Next / Astro / Remix / Nuxt / SvelteKit / Gatsby / Vue /
   Svelte / Vite / React, most-specific-first) and the render harness, then writes an integration

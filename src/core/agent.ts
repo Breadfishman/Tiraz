@@ -144,3 +144,61 @@ export class ClaudeCodeAgent implements Agent {
     };
   }
 }
+
+export interface MagicAgentOptions {
+  /** Injectable for testing; defaults to {@link spawnRunner}. */
+  runner?: CommandRunner;
+  /** The 21st.dev Magic CLI invoked via npx; defaults to `npx`. */
+  binary?: string;
+  /** Env var holding the opt-in 21st.dev API key; defaults to `TWENTY_FIRST_API_KEY`. */
+  apiKeyEnv?: string;
+  /** Process env (injectable for tests); defaults to `process.env`. The spawned CLI inherits it. */
+  env?: Record<string, string | undefined>;
+}
+
+/**
+ * {@link Agent} backed by 21st.dev "Magic" (SPEC §8 — an alternate, opt-in backend). Magic is a
+ * hosted, API-keyed service, so this requires `TWENTY_FIRST_API_KEY` in the environment (the spawned
+ * CLI inherits it). The exact Magic CLI invocation is provisional — the live wiring is deferred to an
+ * environment with a key; the backend is here so it can be swapped in behind the `Agent` interface.
+ */
+export class MagicAgent implements Agent {
+  private readonly runner: CommandRunner;
+  private readonly binary: string;
+  private readonly apiKeyEnv: string;
+  private readonly env: Record<string, string | undefined>;
+
+  constructor(opts: MagicAgentOptions = {}) {
+    this.runner = opts.runner ?? spawnRunner;
+    this.binary = opts.binary ?? 'npx';
+    this.apiKeyEnv = opts.apiKeyEnv ?? 'TWENTY_FIRST_API_KEY';
+    this.env = opts.env ?? process.env;
+  }
+
+  /** Whether the opt-in API key is present (Magic is a hosted service). */
+  hasApiKey(): boolean {
+    const key = this.env[this.apiKeyEnv];
+    return key !== undefined && key.trim() !== '';
+  }
+
+  /** Build the Magic CLI args. Kept separate so it can be asserted without spawning. */
+  buildArgs(opts: AgentRunOptions): string[] {
+    return ['-y', '@21st-dev/magic@latest', '--prompt', opts.prompt];
+  }
+
+  async run(opts: AgentRunOptions): Promise<AgentResult> {
+    if (!this.hasApiKey()) {
+      return {
+        ok: false,
+        exitCode: 1,
+        output: `21st.dev Magic requires an API key — set ${this.apiKeyEnv} (see 21st.dev).`,
+      };
+    }
+    const result = await this.runner(this.binary, this.buildArgs(opts), { cwd: opts.cwd });
+    return {
+      ok: result.exitCode === 0,
+      exitCode: result.exitCode,
+      output: result.stdout !== '' ? result.stdout : result.stderr,
+    };
+  }
+}

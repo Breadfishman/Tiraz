@@ -26,7 +26,7 @@ what is implemented and how the modules fit together.
 | `skills-install.ts`  | Write the resolved skill set into `<worktree>/.claude/skills/`                        |
 | `genome.ts`          | `Genome` / `GraftSpec`; `mutateGenome` + `recombineGenome` breeding operators         |
 | `manifest.ts`        | `VariantNode` / `Fitness` / `Manifest` — the DAG of variants, persisted to disk       |
-| `agent.ts`           | The swappable `Agent` interface, prompt composition, the Claude Code adapter          |
+| `agent.ts`           | Swappable `Agent` interface + prompt composition; Claude Code + 21st Magic adapters   |
 | `worktree.ts`        | `git worktree` orchestration + dev-server port assignment                             |
 | `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire) + host-framework detection    |
 | `adopt.ts`           | `adoptProject` — integration attach: detect stack + harness, write integration config |
@@ -55,8 +55,9 @@ built-bin smoke tests rather than unit-covered.
 Everything that touches an external process or device sits behind an interface so the logic around
 it is testable without the real thing:
 
-- **`Agent`** (`agent.ts`) — the coding-agent backend. `ClaudeCodeAgent` shells out to `claude -p`
-  via an injectable `CommandRunner`; tests inject a fake runner.
+- **`Agent`** (`agent.ts`) — the coding-agent backend. `ClaudeCodeAgent` shells out to `claude -p`;
+  `MagicAgent` is the opt-in, API-keyed 21st.dev Magic backend (§8). Both go through an injectable
+  `CommandRunner`; tests inject a fake runner.
 - **`Renderer`** (`render.ts`) — renders a variant's target and captures a screenshot. The live
   adapter (Playwright + a booted harness server) needs a browser; `runGen` is tested with a fake.
 - **`CommandRunner`** (`agent.ts`) — the one process-spawning primitive, reused by `worktree.ts`,
