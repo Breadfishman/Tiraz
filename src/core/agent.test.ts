@@ -50,6 +50,22 @@ describe('composePrompt', () => {
     expect(prompt).toContain('You may draw from: react-bits, 21st-registry');
   });
 
+  it('surfaces the repo design system so the agent builds within it (anti-slop)', () => {
+    const withDs = composePrompt(base, ['frontend-design'], [], {
+      tokens: { color: ['#18181b', '#f9fafb'], spacing: ['4px', '8px'] },
+      components: ['Button', 'Card'],
+    });
+    expect(withDs).toContain('## Design system');
+    expect(withDs).toContain('do not hardcode');
+    expect(withDs).toContain('color: #18181b, #f9fafb');
+    expect(withDs).toContain('components: Button, Card');
+    // omitted when there is no design system / it is empty
+    expect(composePrompt(base, ['frontend-design'])).not.toContain('## Design system');
+    expect(
+      composePrompt(base, ['frontend-design'], [], { tokens: {}, components: [] }),
+    ).not.toContain('## Design system');
+  });
+
   it('advertises capability libraries when provided, and omits the section when empty', () => {
     const withCaps = composePrompt(base, ['frontend-design'], ['GSAP', 'Motion', 'Three.js']);
     expect(withCaps).toContain('## Available capability libraries');

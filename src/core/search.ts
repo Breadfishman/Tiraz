@@ -16,6 +16,7 @@ import {
   upsertNode,
 } from './manifest';
 import { resolveCapabilities } from './capabilities';
+import { collectDesignSystem } from './ds-collect-io';
 import { seedPrimaries } from './skills-registry';
 import { resolveSources } from './sources';
 import { assignPort } from './worktree';
@@ -75,6 +76,7 @@ async function materialize(
   const harness = await detectHarness(cwd, harnessKind);
   const ports = new Set(usedPorts(manifest));
   const capabilities = resolveCapabilities(config.modules).libraries.map((c) => c.name);
+  const designSystem = await collectDesignSystem(cwd);
 
   const nodes: VariantNode[] = [];
   for (const genome of genomes) {
@@ -82,7 +84,7 @@ async function materialize(
     ports.add(port);
     nodes.push(
       await generateVariant(
-        { cwd, mode: config.mode, genome, generation, port, harness, capabilities },
+        { cwd, mode: config.mode, genome, generation, port, harness, capabilities, designSystem },
         deps,
       ),
     );

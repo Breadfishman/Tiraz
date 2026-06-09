@@ -19,7 +19,7 @@ import { parseTarget } from './render-harness';
 const SKIP_DIRS = new Set([
   'node_modules',
   '.git',
-  '.tiraz',
+  '.tiraz', // Tiraz's own state (variant worktrees) — never part of the repo's design system
   'dist',
   'build',
   'coverage',

@@ -7,6 +7,8 @@ import { loadConfig } from './config';
 import type { DetectedHarness, HarnessKind } from './detect';
 import { detectHarness } from './detect';
 import { resolveCapabilities } from './capabilities';
+import type { DesignSystem } from './ds-adherence';
+import { collectDesignSystem } from './ds-collect-io';
 import type { Genome } from './genome';
 import { genomeId } from './genome';
 import type { Manifest, VariantNode } from './manifest';
@@ -46,6 +48,8 @@ export interface GenerateVariantContext {
   harness: DetectedHarness;
   /** Capability-library names available this run (SPEC §10), advertised to the agent. */
   capabilities?: string[];
+  /** The repo's design system (SPEC §3/§9), so the agent builds within it instead of hardcoding. */
+  designSystem?: DesignSystem;
 }
 
 /**
@@ -82,7 +86,12 @@ export async function generateVariant(
   // A fresh worktree has no node_modules (gitignored); link the repo's so the harness can boot.
   await linkNodeModules(ctx.cwd, worktreePath);
 
-  const prompt = composePrompt(ctx.genome, activeSkillIds, ctx.capabilities ?? []);
+  const prompt = composePrompt(
+    ctx.genome,
+    activeSkillIds,
+    ctx.capabilities ?? [],
+    ctx.designSystem,
+  );
   const agentResult = await deps.agent.run({
     cwd: worktreePath,
     prompt,
@@ -169,9 +178,19 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
   const harness = await detectHarness(opts.cwd, opts.harness);
   const port = assignPort(usedPorts(manifest));
   const capabilities = resolveCapabilities(config.modules).libraries.map((c) => c.name);
+  const designSystem = await collectDesignSystem(opts.cwd);
 
   const node = await generateVariant(
-    { cwd: opts.cwd, mode: config.mode, genome, generation, port, harness, capabilities },
+    {
+      cwd: opts.cwd,
+      mode: config.mode,
+      genome,
+      generation,
+      port,
+      harness,
+      capabilities,
+      designSystem,
+    },
     deps,
   );
 

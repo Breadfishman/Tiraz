@@ -7,6 +7,14 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Anti-slop: feed the agent the repo's design system** (`core/agent.ts` + gen pipeline): the first
+  live run scored DS-adherence ≈1/100 because the prompt never told the agent the repo _has_ a design
+  system or what its tokens are — so it hardcoded colours/px. `composePrompt` now includes a **design
+  system section** (token categories + sample values + components) with a directive to build within it
+  and that off-system literals are penalized; `generateVariant`/`runGen`/`materialize` collect the
+  system via `collectDesignSystem` and pass it through. This is the integration-first core (SPEC §3/§9)
+  — the agent now sees the real tokens to use instead of inventing values.
+
 - **Scoring runs without an API key — claude-CLI judge + first live score** (`core/claude-judge-io.ts`,
   `cli/score.ts`): a second `PairwiseJudge` backend, `createClaudeCliJudge`, drives the
   already-authenticated `claude` binary (it reads the screenshots with its own tools) — reusing the

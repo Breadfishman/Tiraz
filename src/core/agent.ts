@@ -1,4 +1,5 @@
 import { spawn } from 'node:child_process';
+import type { DesignSystem } from './ds-adherence';
 import type { Genome } from './genome';
 
 export interface AgentRunOptions {
@@ -26,16 +27,39 @@ export interface Agent {
   run(opts: AgentRunOptions): Promise<AgentResult>;
 }
 
+/** Summarize a repo's design system into prompt lines (SPEC §3/§9) — empty if there's nothing. */
+function designSystemSection(system: DesignSystem | undefined): string[] {
+  if (system === undefined) return [];
+  const categories = Object.entries(system.tokens).filter(([, vals]) => vals.length > 0);
+  if (categories.length === 0 && system.components.length === 0) return [];
+
+  const lines = [
+    '## Design system — build WITHIN it (do not hardcode)',
+    'This repo has a real design system. Use its tokens / utility classes and existing components.',
+    'Raw off-system literals (hex/rgb/hsl colours, px/rem sizes, ad-hoc fonts) are SCORED AGAINST you',
+    'and are the #1 reason output reads as generic AI work. Prefer tokens over literal values.',
+  ];
+  for (const [category, vals] of categories) {
+    lines.push(`- ${category}: ${vals.slice(0, 8).join(', ')}`);
+  }
+  if (system.components.length > 0) {
+    lines.push(`- components: ${system.components.slice(0, 12).join(', ')}`);
+  }
+  lines.push('');
+  return lines;
+}
+
 /**
  * Compose the agent prompt from a genome + its resolved active skill ids (SPEC §8): brief,
- * target scope, active skills, dials, commands, recombination instructions, permitted Tier-2
- * sources, and the available capability libraries (§10). Pure and deterministic — absent genome
- * fields and an empty `capabilities` list produce no section.
+ * target scope, the repo's design system (§3/§9), active skills, dials, commands, recombination
+ * instructions, permitted Tier-2 sources, and the available capability libraries (§10). Pure and
+ * deterministic — absent inputs simply produce no section.
  */
 export function composePrompt(
   genome: Genome,
   activeSkillIds: string[],
   capabilities: string[] = [],
+  designSystem?: DesignSystem,
 ): string {
   const lines: string[] = [
     '# Tiraz variant brief',
@@ -50,6 +74,8 @@ export function composePrompt(
   if (genome.target !== undefined) {
     lines.push('## Target', `Scope your work to: ${genome.target}`, '');
   }
+
+  lines.push(...designSystemSection(designSystem));
 
   lines.push(
     '## Active design skills',
