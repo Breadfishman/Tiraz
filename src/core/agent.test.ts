@@ -50,6 +50,13 @@ describe('composePrompt', () => {
     expect(prompt).toContain('You may draw from: react-bits, 21st-registry');
   });
 
+  it('adds a refine-not-restart directive when the variant has parents (bred/recombined)', () => {
+    expect(composePrompt(base, ['frontend-design'])).not.toContain('## Refine');
+    const child = composePrompt({ ...base, parents: ['g0-n0'] }, ['frontend-design']);
+    expect(child).toContain('## Refine — do not restart');
+    expect(child).toContain('g0-n0');
+  });
+
   it('surfaces the repo design system so the agent builds within it (anti-slop)', () => {
     const withDs = composePrompt(base, ['frontend-design'], [], {
       tokens: { color: ['#18181b', '#f9fafb'], spacing: ['4px', '8px'] },

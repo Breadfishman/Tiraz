@@ -75,6 +75,16 @@ export function composePrompt(
     lines.push('## Target', `Scope your work to: ${genome.target}`, '');
   }
 
+  if (genome.parents.length > 0) {
+    lines.push(
+      '## Refine — do not restart',
+      `This worktree already contains a parent implementation (${genome.parents.join(', ')}). Improve`,
+      'it in the direction of the parameters/commands below; keep what already works rather than',
+      'rebuilding from scratch.',
+      '',
+    );
+  }
+
   lines.push(...designSystemSection(designSystem));
 
   lines.push(

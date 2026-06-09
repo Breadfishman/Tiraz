@@ -7,6 +7,15 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Breeding now refines the parent (commit variants + branch children off them)** (`gen.ts`,
+  `search.ts`, `agent.ts`). Two linked fixes: (1) `generateVariant` now **commits the agent's work**
+  onto the variant's branch — previously a variant's design was left uncommitted, so its branch was
+  empty (which also meant `promote` merged nothing). (2) `breed`/`recombine` base each child's
+  worktree on the **parent's branch** (not HEAD), and `composePrompt` adds a _"refine — do not
+  restart"_ directive when a genome has parents — so bred children start from the winner's actual
+  design and improve it, rather than regenerating from the baseline. This makes "breed the winner"
+  mean what it says, and lets the search converge.
+
 - **Fix: DS-adherence now credits design-system _usage_, not just literal matches** (`ds-adherence.ts`,
   `ds-collect.ts`). The first anti-slop re-run exposed a measurement bug: a properly token-driven
   variant still scored ≈1/100 because the scorer only credited a literal value that exactly equalled a

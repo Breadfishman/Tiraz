@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Agent, CommandRunner } from './agent';
-import { composePrompt } from './agent';
+import { composePrompt, spawnRunner } from './agent';
 import type { TirazConfig } from './config';
 import { loadConfig } from './config';
 import type { DetectedHarness, HarnessKind } from './detect';
@@ -50,6 +50,8 @@ export interface GenerateVariantContext {
   capabilities?: string[];
   /** The repo's design system (SPEC §3/§9), so the agent builds within it instead of hardcoding. */
   designSystem?: DesignSystem;
+  /** Branch to base the worktree on (defaults to HEAD). Bred/recombined children base on a parent. */
+  baseRef?: string;
 }
 
 /**
@@ -75,6 +77,7 @@ export async function generateVariant(
     repoRoot: ctx.cwd,
     branch,
     worktreePath,
+    ...(ctx.baseRef !== undefined ? { baseRef: ctx.baseRef } : {}),
     ...(deps.runner !== undefined ? { runner: deps.runner } : {}),
   });
 
@@ -103,6 +106,15 @@ export async function generateVariant(
       `Agent failed for ${ctx.genome.id} (exit ${String(agentResult.exitCode)}): ${agentResult.output}`,
     );
   }
+
+  // Commit the agent's work onto the variant's branch so its design is captured — this is what lets
+  // children branch off it (breed/recombine refine, not restart) and what `promote` actually merges.
+  // A no-op commit (agent made no changes) exits non-zero; that's fine, so failures are ignored.
+  const git = deps.runner ?? spawnRunner;
+  await git('git', ['add', '-A'], { cwd: worktreePath });
+  await git('git', ['commit', '-q', '-m', `tiraz: variant ${ctx.genome.id}`], {
+    cwd: worktreePath,
+  });
 
   const screenshotPath = path.join(ctx.cwd, '.tiraz', 'screenshots', `${ctx.genome.id}.png`);
   await mkdir(path.dirname(screenshotPath), { recursive: true });

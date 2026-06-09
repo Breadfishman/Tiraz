@@ -63,12 +63,18 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
   });
 }
 
+/** One genome to materialize, optionally based on a parent's branch (so children refine, not restart). */
+interface MaterializeItem {
+  genome: Genome;
+  baseRef?: string;
+}
+
 /** Materialize a list of genomes into a new generation and persist them. */
 async function materialize(
   cwd: string,
   config: TirazConfig,
   manifest: Manifest,
-  genomes: Genome[],
+  items: MaterializeItem[],
   generation: number,
   harnessKind: HarnessKind | undefined,
   deps: GenDeps,
@@ -79,12 +85,22 @@ async function materialize(
   const designSystem = await collectDesignSystem(cwd);
 
   const nodes: VariantNode[] = [];
-  for (const genome of genomes) {
+  for (const { genome, baseRef } of items) {
     const port = assignPort(ports);
     ports.add(port);
     nodes.push(
       await generateVariant(
-        { cwd, mode: config.mode, genome, generation, port, harness, capabilities, designSystem },
+        {
+          cwd,
+          mode: config.mode,
+          genome,
+          generation,
+          port,
+          harness,
+          capabilities,
+          designSystem,
+          ...(baseRef !== undefined ? { baseRef } : {}),
+        },
         deps,
       ),
     );
@@ -132,7 +148,15 @@ export async function generateGeneration(
     ...(opts.target !== undefined ? { target: opts.target } : {}),
   });
 
-  return materialize(opts.cwd, config, manifest, genomes, generation, opts.harness, deps);
+  return materialize(
+    opts.cwd,
+    config,
+    manifest,
+    genomes.map((genome) => ({ genome })),
+    generation,
+    opts.harness,
+    deps,
+  );
 }
 
 export interface BreedOptions {
@@ -158,7 +182,7 @@ export async function breedGeneration(opts: BreedOptions, deps: GenDeps): Promis
   const generation = manifest.generations.length;
   const now = deps.now ?? (() => new Date().toISOString());
 
-  const childGenomes: Genome[] = [];
+  const items: MaterializeItem[] = [];
   let nodeIndex = 0;
   for (const survivorId of opts.survivors) {
     const parent = manifest.nodes[survivorId];
@@ -166,18 +190,20 @@ export async function breedGeneration(opts: BreedOptions, deps: GenDeps): Promis
       throw new SearchError(`Survivor ${survivorId} not found`);
     }
     for (let k = 0; k < factor; k += 1) {
-      childGenomes.push(
-        mutateGenome(
+      items.push({
+        genome: mutateGenome(
           parent.genome,
           { id: genomeId(generation, nodeIndex), createdAt: now() },
           nodeIndex,
         ),
-      );
+        // Base the child's worktree on the parent's branch so it refines, not regenerates.
+        baseRef: parent.branch,
+      });
       nodeIndex += 1;
     }
   }
 
-  return materialize(opts.cwd, config, manifest, childGenomes, generation, opts.harness, deps);
+  return materialize(opts.cwd, config, manifest, items, generation, opts.harness, deps);
 }
 
 export interface RecombineOptions {
@@ -228,7 +254,7 @@ export async function recombineVariant(
     opts.cwd,
     config,
     manifest,
-    [child],
+    [{ genome: child, baseRef: parentA.branch }],
     generation,
     opts.harness,
     deps,
