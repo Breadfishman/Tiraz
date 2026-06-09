@@ -17,6 +17,7 @@ export default defineConfig({
         'src/cli/**',
         'src/core/playwright-io.ts',
         'src/core/anthropic-io.ts',
+        'src/core/claude-judge-io.ts',
         'src/core/ds-collect-io.ts',
       ],
       thresholds: {

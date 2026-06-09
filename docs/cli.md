@@ -154,9 +154,13 @@ Score a generation with the full three-term fitness (SPEC §9): the **lint floor
 detect`, a gate), **DS-adherence** (the variant's used colour/spacing literals + components vs the
 repo's CSS-variable tokens — Tier-2 sources whitelisted), and the **vision taste judge** (the
 mixed-model pairwise tournament). Writes each node's composite to the manifest. Wired and runnable;
-needs `ANTHROPIC_API_KEY` (judge) and `npx impeccable` (lint floor).
+needs a vision judge (see `--judge`) and, unless `--no-lint`, `npx impeccable` for the lint floor.
 
 - `-g, --generation <n>` — generation to score (default: the latest).
+- `-j, --judge <kind>` — taste-judge backend: `api` (Anthropic, needs `ANTHROPIC_API_KEY`) or
+  `claude-cli` (reuses the logged-in `claude` binary — no key). Default: auto (api if a key is set,
+  else claude-cli).
+- `--no-lint` — skip the lint floor and score DS-adherence + taste only.
 
 ### `tiraz breed <survivors...>` ✅ (live)
 

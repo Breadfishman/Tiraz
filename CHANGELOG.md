@@ -7,6 +7,15 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Scoring runs without an API key — claude-CLI judge + first live score** (`core/claude-judge-io.ts`,
+  `cli/score.ts`): a second `PairwiseJudge` backend, `createClaudeCliJudge`, drives the
+  already-authenticated `claude` binary (it reads the screenshots with its own tools) — reusing the
+  tested `buildJudgePrompt`/`parseVerdict`, so no `ANTHROPIC_API_KEY` is needed. `tiraz score` now
+  auto-picks the backend (`api` if a key is set, else `claude-cli`; `--judge` overrides) and gained
+  `--no-lint` to score DS-adherence + taste only. **First live score** (the demo greenfield run)
+  ranked the two variants with real per-lens rationales and surfaced the key signal: DS-adherence ≈
+  1–6/100 — the variants hardcode off-system values instead of using the design tokens (the
+  measurable "slop"). Score writes composites to the manifest, which the dashboard/compare views show.
 - **`tiraz dashboard` — centralized live UI** (`core/dashboard.ts` + `cli/dashboard.ts`): one page
   that embeds every variant **live and interactive**, not as screenshots. Tiraz boots a render server
   per variant (reusing the renderer's harness machinery — `harnessServeCommand` / `launchServerProcess`
