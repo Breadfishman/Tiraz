@@ -50,6 +50,7 @@
   },
   "dependencies": {
     "commander": "^15.0.0",
+    "storybook": "^10.4.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {

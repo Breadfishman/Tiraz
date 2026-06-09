@@ -7,6 +7,14 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **`tiraz compare` — variant comparison gallery** (`core/compare.ts` + `cli/compare.ts`): human
+  review is the real bottleneck, so this generates one self-contained HTML page of all variants —
+  every screenshot grouped by generation with its genome + fitness, the best-composite per generation
+  flagged, and a click-to-zoom lightbox you arrow through. No Storybook/server/hand-assembly. Pure
+  `renderCompareHtml(manifest)` (fully tested: cards, relative srcs, fitness, HTML-escaping, missing
+  screenshots); the CLI writes `.tiraz/compare.html` (`--open` to launch it). Prompted by the live
+  run: per-worktree Storybooks were a poor compare UX, and Storybook is a render harness, not a
+  cross-variant viewer.
 - **First real Tier-4 run — two product bugs fixed.** Ran the full greenfield flow live
   (`tiraz init --next` → add Storybook + a Hero story → `tiraz gen --count 2`) and it bred two
   genuinely distinct, designed hero variants, each rendered + screenshotted by the live Playwright

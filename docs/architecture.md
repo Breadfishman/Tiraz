@@ -52,6 +52,7 @@ what is implemented and how the modules fit together.
 | `tree.ts`                | `renderTree` / `renderStatus` — text rendering of the variant DAG                       |
 | `search.ts`              | `seedGenomes` / `generateGeneration` / `breedGeneration` / `recombineVariant` loop      |
 | `diff.ts`                | `diffGenomes` / `renderGenomeDiff` — compare the genomes behind two variants            |
+| `compare.ts`             | `renderCompareHtml` — one self-contained HTML gallery of all variants for human review  |
 | `promote.ts`             | `promoteVariant` — greenfield merge + worktree teardown, or integration PR via `gh`     |
 | `review.ts`              | `reviewVariant` — install Emil's skill on demand + run the agent's motion/polish review |
 

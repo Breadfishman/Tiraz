@@ -65,6 +65,18 @@ Manifest-only — runnable today.
 
 Mark the given nodes as survivors and prune the rest of their generation. Manifest-only.
 
+### `tiraz compare` ✅
+
+Build a **single self-contained HTML gallery** of every variant for human review — the comparison
+surface (review is the real bottleneck; the fitness function is the pre-filter). Each variant's
+screenshot is shown in one page, grouped by generation, with its genome (primary, overlay, dials,
+lineage), status, and fitness (composite / lint / DS / taste) when scored; the best-composite variant
+per generation is flagged. Click any screenshot for a full-screen lightbox and use ←/→ to flip
+between variants. No Storybook or dev server needed — just open the file. Manifest-only.
+
+- `-o, --out <file>` — output path (default `.tiraz/compare.html`).
+- `--open` — open it in your browser after writing (WSL / Linux / macOS).
+
 ### `tiraz diff <a> <b>` ✅
 
 Compare two variants by their **genomes** — the reproducible inputs (primary, overlay, dials,
