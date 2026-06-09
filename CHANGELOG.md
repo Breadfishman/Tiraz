@@ -16,10 +16,16 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 - **Diff** (`core/diff.ts`): `diffGenomes` returns one entry per differing genome field;
   `renderGenomeDiff` formats it as readable text. Compares the reproducible inputs that produced two
   variants (outputs are compared visually by the human).
-- **CLI**: `tiraz diff <a> <b>` is wired and runnable today (manifest-only — verified end-to-end).
+- **Promote** (`core/promote.ts`): `promoteVariant` ships the winning variant. Greenfield merges the
+  variant branch into the base (`--base`, default `main`) and tears down its worktree; integration
+  pushes the branch and opens a PR via `gh` for review (no merge). The node is marked `promoted` and
+  recorded as the manifest's `final`. All process work goes through the injected `CommandRunner` —
+  tested greenfield with real git + worktree teardown, integration with a recording fake runner.
+- **CLI**: `tiraz diff <a> <b>` and `tiraz promote <node> [--base]` are wired and runnable today
+  (verified end-to-end).
 
-  _Remaining:_ the `tiraz recombine` CLI depends on the live `Renderer` (deferred), and `tiraz
-promote` (slice B — greenfield merge / integration PR) is next.
+  _Remaining:_ the `tiraz recombine` CLI depends on the live `Renderer` (deferred); the
+  `recombineVariant` controller it calls is done + tested.
 
 ### Phase 3 — Beam search (in progress)
 

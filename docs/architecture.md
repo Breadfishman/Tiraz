@@ -19,27 +19,28 @@ what is implemented and how the modules fit together.
 
 ## Module map (`src/core/`)
 
-| Module               | Responsibility                                                                     |
-| -------------------- | ---------------------------------------------------------------------------------- |
-| `config.ts`          | `TirazConfig` zod schema (single source of truth); load + minimal-diff update      |
-| `skills-registry.ts` | The skill registry; resolve the active set; toggle + diversity helpers             |
-| `skills-install.ts`  | Write the resolved skill set into `<worktree>/.claude/skills/`                     |
-| `genome.ts`          | `Genome` / `GraftSpec`; `mutateGenome` + `recombineGenome` breeding operators      |
-| `manifest.ts`        | `VariantNode` / `Fitness` / `Manifest` — the DAG of variants, persisted to disk    |
-| `agent.ts`           | The swappable `Agent` interface, prompt composition, the Claude Code adapter       |
-| `worktree.ts`        | `git worktree` orchestration + dev-server port assignment                          |
-| `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire)                            |
-| `render.ts`          | The `Renderer` interface (render a target + screenshot it)                         |
-| `gen.ts`             | `runGen` — the single-variant generation pipeline                                  |
-| `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations        |
-| `ds-adherence.ts`    | Design-system adherence scorer (used values vs the repo's tokens/components)       |
-| `fitness.ts`         | Assembles the three-term `Fitness` composite (lint floor gates, then blend)        |
-| `taste-judge.ts`     | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)     |
-| `score.ts`           | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)     |
-| `beam.ts`            | `pruneGeneration` (3 modes) + `selectSurvivors` — the prune/select decision logic  |
-| `tree.ts`            | `renderTree` / `renderStatus` — text rendering of the variant DAG                  |
-| `search.ts`          | `seedGenomes` / `generateGeneration` / `breedGeneration` / `recombineVariant` loop |
-| `diff.ts`            | `diffGenomes` / `renderGenomeDiff` — compare the genomes behind two variants       |
+| Module               | Responsibility                                                                      |
+| -------------------- | ----------------------------------------------------------------------------------- |
+| `config.ts`          | `TirazConfig` zod schema (single source of truth); load + minimal-diff update       |
+| `skills-registry.ts` | The skill registry; resolve the active set; toggle + diversity helpers              |
+| `skills-install.ts`  | Write the resolved skill set into `<worktree>/.claude/skills/`                      |
+| `genome.ts`          | `Genome` / `GraftSpec`; `mutateGenome` + `recombineGenome` breeding operators       |
+| `manifest.ts`        | `VariantNode` / `Fitness` / `Manifest` — the DAG of variants, persisted to disk     |
+| `agent.ts`           | The swappable `Agent` interface, prompt composition, the Claude Code adapter        |
+| `worktree.ts`        | `git worktree` orchestration + dev-server port assignment                           |
+| `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire)                             |
+| `render.ts`          | The `Renderer` interface (render a target + screenshot it)                          |
+| `gen.ts`             | `runGen` — the single-variant generation pipeline                                   |
+| `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations         |
+| `ds-adherence.ts`    | Design-system adherence scorer (used values vs the repo's tokens/components)        |
+| `fitness.ts`         | Assembles the three-term `Fitness` composite (lint floor gates, then blend)         |
+| `taste-judge.ts`     | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)      |
+| `score.ts`           | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)      |
+| `beam.ts`            | `pruneGeneration` (3 modes) + `selectSurvivors` — the prune/select decision logic   |
+| `tree.ts`            | `renderTree` / `renderStatus` — text rendering of the variant DAG                   |
+| `search.ts`          | `seedGenomes` / `generateGeneration` / `breedGeneration` / `recombineVariant` loop  |
+| `diff.ts`            | `diffGenomes` / `renderGenomeDiff` — compare the genomes behind two variants        |
+| `promote.ts`         | `promoteVariant` — greenfield merge + worktree teardown, or integration PR via `gh` |
 
 The CLI layer (`src/cli/`) is thin commander wiring over this logic and is exercised by the
 built-bin smoke tests rather than unit-covered.
@@ -53,8 +54,8 @@ it is testable without the real thing:
   via an injectable `CommandRunner`; tests inject a fake runner.
 - **`Renderer`** (`render.ts`) — renders a variant's target and captures a screenshot. The live
   adapter (Playwright + a booted harness server) needs a browser; `runGen` is tested with a fake.
-- **`CommandRunner`** (`agent.ts`) — the one process-spawning primitive, reused by `worktree.ts`
-  and `lint.ts` (which shells out to `impeccable detect`).
+- **`CommandRunner`** (`agent.ts`) — the one process-spawning primitive, reused by `worktree.ts`,
+  `lint.ts` (which shells out to `impeccable detect`), and `promote.ts` (`git` merge / `gh pr`).
 - **`PairwiseJudge`** (`taste-judge.ts`) — compares two screenshots for a lens. The live adapter is
   an Anthropic vision model; the tournament + `runScore` are tested with a deterministic fake.
 

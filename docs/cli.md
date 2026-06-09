@@ -50,6 +50,16 @@ commands, sources, parents, graft instruction) that produced each. Prints one li
 field, or reports that the genomes are identical. Outputs (rendered screenshots) are compared
 visually by the human; this compares what generated them. Manifest-only — runnable today.
 
+### `tiraz promote <node>` ✅
+
+Ship the winning variant (SPEC §5). In **greenfield** mode it merges the variant's branch into the
+base (`--base`, default `main`) and tears down its worktree; in **integration** mode it pushes the
+branch and opens a pull request via `gh` for human review (no merge). The node is marked `promoted`
+and recorded as the run's `final`. Runs real `git` / `gh` — needs a repo (and, for integration, a
+remote + the `gh` CLI authenticated).
+
+- `--base <branch>` — branch to merge into / open the PR against (default `main`).
+
 ## Planned
 
 | Command                      | Status | Phase | Notes                                                                                |
@@ -58,7 +68,6 @@ visually by the human; this compares what generated them. Manifest-only — runn
 | `tiraz lint` / `tiraz score` | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending    |
 | `tiraz gen` / `tiraz breed`  | 🚧     | 1 / 3 | Controller done + tested in core (`gen.ts`/`search.ts`); CLI needs the live renderer |
 | `tiraz recombine`            | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI needs the live renderer  |
-| `tiraz promote`              | 📋     | 4     | Integration: open a PR. Greenfield: merge to main.                                   |
 | `tiraz review`               | 📋     | 7     | Invoke Emil's skill for motion/polish review                                         |
 | `tiraz export`               | 📋     | 6     | Emit handoff artifacts (Stitch / v0 / Claude Design)                                 |
 
