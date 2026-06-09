@@ -1,3 +1,5 @@
+import { access, symlink } from 'node:fs/promises';
+import path from 'node:path';
 import { spawnRunner } from './agent';
 import type { CommandRunner } from './agent';
 
@@ -92,6 +94,30 @@ export function parseWorktreeList(porcelain: string): WorktreeInfo[] {
       };
     })
     .filter((info) => info.path !== '');
+}
+
+/**
+ * Symlink the repo's `node_modules` into a fresh variant worktree so the harness dev server can boot
+ * there. A `git worktree` only checks out tracked files, and `node_modules` is gitignored, so a new
+ * worktree has no dependencies. Returns `true` if a link was created, `false` if the repo has no
+ * `node_modules` or the worktree already has one (both safe no-ops).
+ */
+export async function linkNodeModules(repoRoot: string, worktreeDir: string): Promise<boolean> {
+  const src = path.join(repoRoot, 'node_modules');
+  const dest = path.join(worktreeDir, 'node_modules');
+  try {
+    await access(src);
+  } catch {
+    return false; // nothing to link (e.g. greenfield before install)
+  }
+  try {
+    await access(dest);
+    return false; // already present — leave it untouched
+  } catch {
+    // not present — create the link below
+  }
+  await symlink(src, dest, 'dir');
+  return true;
 }
 
 export interface PortRange {

@@ -19,35 +19,37 @@ what is implemented and how the modules fit together.
 
 ## Module map (`src/core/`)
 
-| Module               | Responsibility                                                                          |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| `config.ts`          | `TirazConfig` zod schema (single source of truth); load + minimal-diff update           |
-| `skills-registry.ts` | The skill registry; resolve the active set; toggle + diversity helpers                  |
-| `skills-install.ts`  | Write the resolved skill set into `<worktree>/.claude/skills/`                          |
-| `genome.ts`          | `Genome` / `GraftSpec`; `mutateGenome` + `recombineGenome` breeding operators           |
-| `manifest.ts`        | `VariantNode` / `Fitness` / `Manifest` — the DAG of variants, persisted to disk         |
-| `agent.ts`           | Swappable `Agent` interface + prompt composition; Claude Code + 21st Magic adapters     |
-| `worktree.ts`        | `git worktree` orchestration + dev-server port assignment                               |
-| `detect.ts`          | Render-harness detection (Storybook / Ladle / Histoire) + host-framework detection      |
-| `adopt.ts`           | `adoptProject` — integration attach: detect stack + harness, write integration config   |
-| `render.ts`          | The `Renderer` interface (render a target + screenshot it)                              |
-| `render-harness.ts`  | Live-renderer brain: serve command, target→URL resolution, server-readiness poll        |
-| `gen.ts`             | `runGen` — the single-variant generation pipeline                                       |
-| `lint.ts`            | Lint floor — wraps `impeccable detect`, maps findings → weighted violations             |
-| `ds-adherence.ts`    | DS-adherence scorer (used values vs tokens/components; whitelists Tier-2 sources)       |
-| `sources.ts`         | Two-tier component-source registry (Tier-1 bundled / Tier-2 fetch) + ToS gating         |
-| `capabilities.ts`    | Capability-library registry (animation / scroll / 3D / video, §10) gated by modules     |
-| `scaffold.ts`        | Greenfield `init` scaffolder — drives Astro/Next + Tailwind + shadcn + module deps      |
-| `export.ts`          | Interop export adapters (§12bis) — Stitch DESIGN.md / v0 prompt / Claude Design brief   |
-| `fitness.ts`         | Assembles the three-term `Fitness` composite (lint floor gates, then blend)             |
-| `taste-judge.ts`     | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)          |
-| `score.ts`           | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)          |
-| `beam.ts`            | `pruneGeneration` (3 modes) + `selectSurvivors` — the prune/select decision logic       |
-| `tree.ts`            | `renderTree` / `renderStatus` — text rendering of the variant DAG                       |
-| `search.ts`          | `seedGenomes` / `generateGeneration` / `breedGeneration` / `recombineVariant` loop      |
-| `diff.ts`            | `diffGenomes` / `renderGenomeDiff` — compare the genomes behind two variants            |
-| `promote.ts`         | `promoteVariant` — greenfield merge + worktree teardown, or integration PR via `gh`     |
-| `review.ts`          | `reviewVariant` — install Emil's skill on demand + run the agent's motion/polish review |
+| Module                   | Responsibility                                                                          |
+| ------------------------ | --------------------------------------------------------------------------------------- |
+| `config.ts`              | `TirazConfig` zod schema (single source of truth); load + minimal-diff update           |
+| `skills-registry.ts`     | The skill registry; resolve the active set; toggle + diversity helpers                  |
+| `skills-install.ts`      | Write the resolved skill set into `<worktree>/.claude/skills/`                          |
+| `genome.ts`              | `Genome` / `GraftSpec`; `mutateGenome` + `recombineGenome` breeding operators           |
+| `manifest.ts`            | `VariantNode` / `Fitness` / `Manifest` — the DAG of variants, persisted to disk         |
+| `agent.ts`               | Swappable `Agent` interface + prompt composition; Claude Code + 21st Magic adapters     |
+| `worktree.ts`            | `git worktree` orchestration + dev-server port assignment                               |
+| `detect.ts`              | Render-harness detection (Storybook / Ladle / Histoire) + host-framework detection      |
+| `adopt.ts`               | `adoptProject` — integration attach: detect stack + harness, write integration config   |
+| `render.ts`              | The `Renderer` interface (render a target + screenshot it)                              |
+| `render-harness.ts`      | Live-renderer brain: serve command, target→URL resolution, server-readiness poll        |
+| `playwright-renderer.ts` | `PlaywrightRenderer` — boot harness → wait → screenshot → teardown (I/O injected)       |
+| `playwright-io.ts`       | Real `spawn` + Playwright I/O for the renderer (coverage-excluded glue)                 |
+| `gen.ts`                 | `runGen` — the single-variant generation pipeline                                       |
+| `lint.ts`                | Lint floor — wraps `impeccable detect`, maps findings → weighted violations             |
+| `ds-adherence.ts`        | DS-adherence scorer (used values vs tokens/components; whitelists Tier-2 sources)       |
+| `sources.ts`             | Two-tier component-source registry (Tier-1 bundled / Tier-2 fetch) + ToS gating         |
+| `capabilities.ts`        | Capability-library registry (animation / scroll / 3D / video, §10) gated by modules     |
+| `scaffold.ts`            | Greenfield `init` scaffolder — drives Astro/Next + Tailwind + shadcn + module deps      |
+| `export.ts`              | Interop export adapters (§12bis) — Stitch DESIGN.md / v0 prompt / Claude Design brief   |
+| `fitness.ts`             | Assembles the three-term `Fitness` composite (lint floor gates, then blend)             |
+| `taste-judge.ts`         | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)          |
+| `score.ts`               | `runScore` — scores a whole generation (lint + DS-adherence + taste → Fitness)          |
+| `beam.ts`                | `pruneGeneration` (3 modes) + `selectSurvivors` — the prune/select decision logic       |
+| `tree.ts`                | `renderTree` / `renderStatus` — text rendering of the variant DAG                       |
+| `search.ts`              | `seedGenomes` / `generateGeneration` / `breedGeneration` / `recombineVariant` loop      |
+| `diff.ts`                | `diffGenomes` / `renderGenomeDiff` — compare the genomes behind two variants            |
+| `promote.ts`             | `promoteVariant` — greenfield merge + worktree teardown, or integration PR via `gh`     |
+| `review.ts`              | `reviewVariant` — install Emil's skill on demand + run the agent's motion/polish review |
 
 The CLI layer (`src/cli/`) is thin commander wiring over this logic and is exercised by the
 built-bin smoke tests rather than unit-covered.
@@ -60,8 +62,10 @@ it is testable without the real thing:
 - **`Agent`** (`agent.ts`) — the coding-agent backend. `ClaudeCodeAgent` shells out to `claude -p`;
   `MagicAgent` is the opt-in, API-keyed 21st.dev Magic backend (§8). Both go through an injectable
   `CommandRunner`; tests inject a fake runner.
-- **`Renderer`** (`render.ts`) — renders a variant's target and captures a screenshot. The live
-  adapter (Playwright + a booted harness server) needs a browser; `runGen` is tested with a fake.
+- **`Renderer`** (`render.ts`) — `PlaywrightRenderer` (live) boots the harness dev server + drives
+  headless Chromium via injected `launchServer`/`screenshot` boundaries (real impls in
+  `playwright-io.ts`); the orchestration is unit-tested with fakes, and running it for real needs a
+  browser (`npx playwright install chromium`) + a playground in the target repo.
 - **`CommandRunner`** (`agent.ts`) — the one process-spawning primitive, reused by `worktree.ts`,
   `lint.ts` (which shells out to `impeccable detect`), and `promote.ts` (`git` merge / `gh pr`).
 - **`PairwiseJudge`** (`taste-judge.ts`) — compares two screenshots for a lens. The live adapter is

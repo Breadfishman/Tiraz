@@ -12,6 +12,17 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
   port), `parseTarget` + `resolveRenderUrl` (a scoped `--target` → the URL it renders at; Storybook
   story → isolated iframe, routes → origin), and `waitForServer` (readiness poll, injectable fetch).
   Unsupported combinations throw `RenderHarnessError`. The process/browser I/O lands next on top.
+- **Live renderer — Playwright adapter** (`core/playwright-renderer.ts` + `core/playwright-io.ts`):
+  `PlaywrightRenderer` orchestrates boot → wait → screenshot → teardown, with the `launchServer` /
+  `screenshot` boundaries injected so the orchestration (incl. teardown-on-failure) is unit-tested
+  with fakes. The real `spawn` (detached process group) + headless-Chromium I/O lives in
+  `playwright-io.ts` (lazy-imports the optional `playwright` dep; coverage-excluded glue, external in
+  the bundle).
+- **`tiraz gen` wired live** (`cli/gen.ts`): seeds a generation and drives the real `ClaudeCodeAgent`
+  together with `PlaywrightRenderer`. To make a fresh variant worktree runnable, `generateVariant`
+  now symlinks the repo's `node_modules` into it (`worktree.linkNodeModules`) so the harness server
+  can boot. Needs a live env (the `claude` binary, a target-repo playground, and
+  `npx playwright install chromium`); the orchestration is fully tested.
 
 ### Phase 7 — Polish (in progress)
 

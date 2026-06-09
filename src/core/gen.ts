@@ -21,7 +21,7 @@ import type { Renderer } from './render';
 import { installResolvedSkills } from './skills-install';
 import { resolveActiveSkills } from './skills-registry';
 import { resolveSources } from './sources';
-import { addWorktree, assignPort } from './worktree';
+import { addWorktree, assignPort, linkNodeModules } from './worktree';
 
 export class GenError extends Error {
   override readonly name = 'GenError';
@@ -78,6 +78,9 @@ export async function generateVariant(
     sourceDir: deps.skillsSourceDir,
     worktreeDir: worktreePath,
   });
+
+  // A fresh worktree has no node_modules (gitignored); link the repo's so the harness can boot.
+  await linkNodeModules(ctx.cwd, worktreePath);
 
   const prompt = composePrompt(ctx.genome, activeSkillIds, ctx.capabilities ?? []);
   const agentResult = await deps.agent.run({

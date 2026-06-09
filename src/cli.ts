@@ -3,6 +3,7 @@ import { describeError } from './core/config';
 import { registerAdoptCommand } from './cli/adopt';
 import { registerDiffCommand } from './cli/diff';
 import { registerExportCommand } from './cli/export';
+import { registerGenCommand } from './cli/gen';
 import { registerInitCommand } from './cli/init';
 import { registerPromoteCommand } from './cli/promote';
 import { registerReviewCommand } from './cli/review';
@@ -34,6 +35,7 @@ export function buildProgram(): Command {
   registerExportCommand(program);
   registerAdoptCommand(program);
   registerReviewCommand(program);
+  registerGenCommand(program);
   return program;
 }
 

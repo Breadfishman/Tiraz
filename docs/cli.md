@@ -113,12 +113,23 @@ CLI) into the variant's worktree, then runs the agent there with it active and p
 Defaults to the run's `final` variant (else the most recent). Runs the real agent — deferred to an
 environment with `claude` + network.
 
+### `tiraz gen` ✅ (live)
+
+Generate a round of variants (SPEC §7): seeds diverse genomes, then for each one creates a git
+worktree, links the repo's `node_modules`, runs the coding agent (`claude`), and renders + screenshots
+the target with the live Playwright renderer (boots the detected Storybook/Ladle/Histoire server,
+captures, tears it down). Wired and runnable; needs a live environment — the `claude` binary, a
+component playground in the target repo, and Playwright browsers (`npx playwright install chromium`).
+
+- `-b, --brief <text>` (required) · `-c, --count <n>` (default 3) · `-t, --target <scope>` ·
+  `--harness <kind>`.
+
 ## Planned
 
-| Command                      | Status | Phase | Notes                                                                                |
-| ---------------------------- | ------ | ----- | ------------------------------------------------------------------------------------ |
-| `tiraz lint` / `tiraz score` | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending    |
-| `tiraz gen` / `tiraz breed`  | 🚧     | 1 / 3 | Controller done + tested in core (`gen.ts`/`search.ts`); CLI needs the live renderer |
-| `tiraz recombine`            | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI needs the live renderer  |
+| Command                      | Status | Phase | Notes                                                                             |
+| ---------------------------- | ------ | ----- | --------------------------------------------------------------------------------- |
+| `tiraz lint` / `tiraz score` | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending |
+| `tiraz breed`                | 🚧     | 3     | `breedGeneration` done + tested in core (`search.ts`); CLI wiring pending         |
+| `tiraz recombine`            | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI wiring pending        |
 
 See [SPEC.md §5](../SPEC.md) for the full intended command surface and options.

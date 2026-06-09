@@ -1,4 +1,4 @@
-import { mkdtemp, rm, writeFile } from 'node:fs/promises';
+import { lstat, mkdir, mkdtemp, readlink, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -8,6 +8,7 @@ import {
   WorktreeError,
   addWorktree,
   assignPort,
+  linkNodeModules,
   listWorktrees,
   parseWorktreeList,
   removeWorktree,
@@ -97,5 +98,39 @@ describe('git worktree operations', () => {
         runner: failingRunner({ exitCode: 128, stdout: '', stderr: 'fatal: not a git repository' }),
       }),
     ).rejects.toBeInstanceOf(WorktreeError);
+  });
+});
+
+describe('linkNodeModules', () => {
+  it('symlinks the repo node_modules into a worktree that lacks one', async () => {
+    const repo = await mkdtemp(path.join(tmpdir(), 'tiraz-nm-'));
+    tmpDirs.push(repo);
+    await mkdir(path.join(repo, 'node_modules', 'left-pad'), { recursive: true });
+    const wt = path.join(repo, '.tiraz', 'worktrees', 'g0-n0');
+    await mkdir(wt, { recursive: true });
+
+    expect(await linkNodeModules(repo, wt)).toBe(true);
+    const link = path.join(wt, 'node_modules');
+    expect((await lstat(link)).isSymbolicLink()).toBe(true);
+    expect(await readlink(link)).toBe(path.join(repo, 'node_modules'));
+  });
+
+  it('is a no-op when the repo has no node_modules', async () => {
+    const repo = await mkdtemp(path.join(tmpdir(), 'tiraz-nm-'));
+    tmpDirs.push(repo);
+    const wt = path.join(repo, 'wt');
+    await mkdir(wt, { recursive: true });
+    expect(await linkNodeModules(repo, wt)).toBe(false);
+  });
+
+  it('leaves an existing worktree node_modules untouched', async () => {
+    const repo = await mkdtemp(path.join(tmpdir(), 'tiraz-nm-'));
+    tmpDirs.push(repo);
+    await mkdir(path.join(repo, 'node_modules'), { recursive: true });
+    const wt = path.join(repo, 'wt');
+    await mkdir(path.join(wt, 'node_modules'), { recursive: true });
+    expect(await linkNodeModules(repo, wt)).toBe(false);
+    // still a real directory, not replaced by a symlink
+    expect((await lstat(path.join(wt, 'node_modules'))).isSymbolicLink()).toBe(false);
   });
 });

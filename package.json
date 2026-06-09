@@ -62,5 +62,8 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.60.1",
     "vitest": "^4.1.8"
+  },
+  "optionalDependencies": {
+    "playwright": "^1.60.0"
   }
 }
