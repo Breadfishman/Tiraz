@@ -7,6 +7,22 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Phase 5 — Component sourcing (in progress)
 
+- **Expanded source menu + capability stack** (`core/sources.ts`, `core/capabilities.ts`): rounded
+  out the sourcing layer against verified-2026 licenses so no impressive features are left out.
+  - Component sources grew from 4 to the full vetted ecosystem — added Cult UI, Motion Primitives,
+    Kokonut UI, SmoothUI, Eldora UI, Indie UI (clean MIT), Animate UI (MIT + Commons Clause), and
+    Origin UI (MIT components / AGPL repo). The default permitted `fetch` set now spans a diverse
+    clean-MIT selection (anti-monoculture, §12). `EXCLUDED_SOURCES` records why Hover.dev and Skiper
+    UI are deliberately not auto-fetched. Per-source `warning` replaces the single hardcoded ToS
+    string.
+  - New `core/capabilities.ts` is the §10 capability stack as a typed, license-verified registry —
+    GSAP, Motion, Anime.js, AutoAnimate, Theatre.js, Lenis (core); Three.js, R3F, drei,
+    postprocessing, pmndrs uikit, Spline (`--3d`); Remotion (`--remotion`). `resolveCapabilities`
+    returns the libraries available for the enabled modules and surfaces Remotion's non-OSI
+    commercial-license warning. License caveats (GSAP's Webflow clause, Theatre's AGPL studio,
+    Spline's undeclared runtime) are recorded per entry.
+  - `tiraz sources list` now shows both menus resolved against the current config.
+
 - **Source registry** (`core/sources.ts`): the two-tier menu (SPEC §12) as typed data — Tier-1
   bundled (Magic UI, MIT) and Tier-2 fetch-only (React Bits, 21st registry, Aceternity), each with
   its verified license. `resolveSources` splits bundled vs permitted fetch and gates the restricted

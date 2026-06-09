@@ -124,7 +124,15 @@ describe('runGen', () => {
         now: () => '2026-06-08T00:00:00.000Z',
       },
     );
-    expect(node.genome.sources).toEqual(['react-bits', '21st-registry']);
+    expect(node.genome.sources).toEqual([
+      'react-bits',
+      '21st-registry',
+      'cult-ui',
+      'motion-primitives',
+      'kokonut-ui',
+      'smoothui',
+      'eldora-ui',
+    ]);
   });
 
   it('increments the generation and assigns a fresh port on a second run', async () => {

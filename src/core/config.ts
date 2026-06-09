@@ -63,7 +63,21 @@ export const TirazConfigSchema = z.strictObject({
       // CLI layer (SPEC §12) — the schema only records the toggle.
       aceternity: z.boolean(),
     })
-    .default({ bundled: ['magic-ui'], fetch: ['react-bits', '21st-registry'], aceternity: false }),
+    .default({
+      bundled: ['magic-ui'],
+      // A diverse default fetch set (all clean-MIT, registry-installable) — diversity across
+      // sources is itself an anti-slop mechanism (SPEC §12). Aceternity stays off (restricted).
+      fetch: [
+        'react-bits',
+        '21st-registry',
+        'cult-ui',
+        'motion-primitives',
+        'kokonut-ui',
+        'smoothui',
+        'eldora-ui',
+      ],
+      aceternity: false,
+    }),
 
   harness: z.enum(['auto', 'storybook', 'ladle', 'histoire', 'scratch', 'app']).default('auto'),
 

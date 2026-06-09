@@ -41,7 +41,15 @@ describe('TirazConfigSchema', () => {
     expect(config.fitness.weights).toEqual({ dsAdherence: 0.5, taste: 0.5 });
     expect(config.sources).toEqual({
       bundled: ['magic-ui'],
-      fetch: ['react-bits', '21st-registry'],
+      fetch: [
+        'react-bits',
+        '21st-registry',
+        'cult-ui',
+        'motion-primitives',
+        'kokonut-ui',
+        'smoothui',
+        'eldora-ui',
+      ],
       aceternity: false,
     });
     expect(config.framework).toBe('astro');

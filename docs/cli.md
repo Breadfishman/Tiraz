@@ -36,11 +36,12 @@ skills untouched.
 
 ### `tiraz sources list|enable|disable` ✅
 
-Inspect and toggle the two-tier component-source menu (SPEC §12).
+Inspect and toggle the component-source menu (SPEC §12) and view the capability stack (SPEC §10).
 
-- `tiraz sources list` — print the registry, marking which sources are available to variants for the
-  current config (Tier-1 bundled are always available; Tier-2 fetch as configured) and flagging
-  restricted sources.
+- `tiraz sources list` — print **both** menus resolved against the current config: the component
+  sources (Tier-1 bundled always available; Tier-2 fetch as configured; restricted sources flagged)
+  and the capability libraries (animation/scroll always available; 3D / video gated behind their
+  `--3d` / `--remotion` modules; the Remotion commercial license flagged).
 - `tiraz sources enable <id>` / `disable <id>` — toggle a **restricted** Tier-2 source (currently
   `aceternity`) and persist it to `tiraz.config.json`. Enabling prints the source's ToS warning.
   Non-restricted sources are configured via the `sources.fetch` list, not this toggle.

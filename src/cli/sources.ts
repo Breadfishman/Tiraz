@@ -1,29 +1,46 @@
 import type { Command } from 'commander';
+import { resolveCapabilities } from '../core/capabilities';
+import { CAPABILITIES } from '../core/capabilities';
 import { loadConfig, updateConfig } from '../core/config';
 import { ACETERNITY_TOS_WARNING, SOURCES, getSource, resolveSources } from '../core/sources';
 
-/** Register the `tiraz sources` command group (SPEC §12). */
+/** Register the `tiraz sources` command group (SPEC §12 component menu + §10 capability stack). */
 export function registerSourcesCommand(program: Command): void {
   const sources = program
     .command('sources')
-    .description('Inspect and toggle the component-source menu (Tier-1 bundled / Tier-2 fetch).');
+    .description('Inspect and toggle component sources (§12) and the capability stack (§10).');
 
   sources
     .command('list')
-    .description('Show the source registry and which are permitted for the current config.')
+    .description('Show the component-source registry + capability stack for the current config.')
     .action(async () => {
       const { config } = await loadConfig();
       const permitted = new Set(resolveSources(config.sources).permittedIds);
 
+      console.log('Component sources (SPEC §12) — registries the agent fetches components from:');
       for (const source of SOURCES) {
         const bundled = source.tier === 'bundled';
         const active = bundled || permitted.has(source.id);
         const marker = active ? '●' : ' ';
         const tier = bundled ? 'tier-1 bundled' : 'tier-2 fetch  ';
         const flag = source.restricted ? ' ⚠ restricted ToS' : '';
-        console.log(`${marker} ${source.id.padEnd(14)} ${tier}  ${source.license}${flag}`);
+        console.log(`  ${marker} ${source.id.padEnd(18)} ${tier}  ${source.license}${flag}`);
       }
-      console.log('\n● = available to variants. Tier-2 usage is sparing by design (SPEC §12).');
+
+      const available = new Set(resolveCapabilities(config.modules).libraries.map((c) => c.id));
+      console.log('\nCapability libraries (SPEC §10) — the animation / 3D / video stack:');
+      for (const cap of CAPABILITIES) {
+        const marker = available.has(cap.id) ? '●' : ' ';
+        const gate = cap.module === 'core' ? 'core      ' : `--${cap.module.padEnd(8)}`;
+        const flag = cap.restricted ? ' ⚠ commercial license' : '';
+        console.log(
+          `  ${marker} ${cap.id.padEnd(18)} ${cap.category.padEnd(9)} ${gate} ${cap.license}${flag}`,
+        );
+      }
+      console.log(
+        '\n● = available to variants. Sources are fetched sparingly (anti-monoculture, §12); ' +
+          'capability modules are toggled via `tiraz init --3d/--remotion` (greenfield).',
+      );
     });
 
   sources

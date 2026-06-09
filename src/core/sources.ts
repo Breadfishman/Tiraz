@@ -15,12 +15,26 @@ export interface ComponentSource {
   name: string;
   tier: SourceTier;
   license: string;
-  /** Enabling this source requires surfacing a ToS warning (SPEC §12 — Aceternity). */
+  /** Enabling this source requires its own toggle + surfaces {@link ComponentSource.warning}. */
   restricted: boolean;
+  /** Warning surfaced when a restricted source is enabled (SPEC §12, §17). */
+  warning?: string;
   notes: string;
 }
 
-/** The known component sources (SPEC §12 / §13 — licenses verified against live sources). */
+/** The ToS warning surfaced when a user enables a restricted source (SPEC §12, §17). */
+export const ACETERNITY_TOS_WARNING =
+  'Aceternity UI carries a restrictive ToS (no republishing, selling, sub-licensing, or ' +
+  'redistribution). This is generally fine for personal / non-distributed projects (e.g. a ' +
+  'personal site) but risky for enterprise or commercial work. Tiraz never bundles it — it is ' +
+  'only fetched into your repo on demand. Enable it only if your use case fits those terms.';
+
+/**
+ * The known component sources (SPEC §12 / §13 — licenses verified against live sources, 2026).
+ * Diversity across sources is itself an anti-slop mechanism: drawing from one well industrializes a
+ * new monoculture. Tier-1 is bundle-able (MIT, redistributable); Tier-2 is fetch-only (copied into
+ * the user's repo). Sources whose terms forbid redistribution are `restricted` (toggle + warning).
+ */
 export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'magic-ui',
@@ -37,15 +51,90 @@ export const SOURCES: readonly ComponentSource[] = [
     license: 'MIT + Commons Clause',
     restricted: false,
     notes:
-      'Fetch-only: the agent copies components into your repo. Never bundled (Commons Clause).',
+      'Animated text/background effects. Fetch-only: copied into your repo (= permitted "use"); ' +
+      'Commons Clause forbids reselling it as a product, so never bundled.',
   },
   {
     id: '21st-registry',
     name: '21st.dev registry',
     tier: 'fetch',
-    license: 'Community',
+    license: 'Community (MIT-class)',
     restricted: false,
-    notes: 'Fetch-only registry. The "Magic" generator is a separate Agent backend, not a source.',
+    notes:
+      'Large community registry. The "Magic" generator is a separate Agent backend, not a source.',
+  },
+  {
+    id: 'cult-ui',
+    name: 'Cult UI',
+    tier: 'fetch',
+    license: 'MIT',
+    restricted: false,
+    notes: 'Tasteful Motion components: shift/texture cards, dynamic islands, neumorphic effects.',
+  },
+  {
+    id: 'motion-primitives',
+    name: 'Motion Primitives',
+    tier: 'fetch',
+    license: 'MIT',
+    restricted: false,
+    notes:
+      'Motion-first primitives: animated/shimmer text, morphing dialogs, number tickers, in-view reveals.',
+  },
+  {
+    id: 'kokonut-ui',
+    name: 'Kokonut UI',
+    tier: 'fetch',
+    license: 'MIT',
+    restricted: false,
+    notes:
+      '100+ Tailwind + shadcn + Motion components: AI-chat inputs, gradient buttons, card stacks.',
+  },
+  {
+    id: 'smoothui',
+    name: 'SmoothUI',
+    tier: 'fetch',
+    license: 'MIT',
+    restricted: false,
+    notes:
+      '50+ Motion micro-interactions: Siri orb, number flow, dynamic-island and app-store-style cards.',
+  },
+  {
+    id: 'eldora-ui',
+    name: 'Eldora UI',
+    tier: 'fetch',
+    license: 'MIT',
+    restricted: false,
+    notes:
+      '150+ animated effects (React + Motion): marquees, globes, animated beams, text reveals.',
+  },
+  {
+    id: 'indie-ui',
+    name: 'Indie UI',
+    tier: 'fetch',
+    license: 'MIT',
+    restricted: false,
+    notes:
+      'shadcn + Motion animated components (cards, modals, tooltips). Smaller, younger collection.',
+  },
+  {
+    id: 'animate-ui',
+    name: 'Animate UI',
+    tier: 'fetch',
+    license: 'MIT + Commons Clause',
+    restricted: false,
+    notes:
+      'Fully-animated shadcn/Magic-UI-style set (animated icons, motion tabs/accordions). Commons ' +
+      'Clause: copy into your repo freely, never resell as a product (same posture as React Bits).',
+  },
+  {
+    id: 'origin-ui',
+    name: 'Origin UI',
+    tier: 'fetch',
+    license: 'MIT (components) / AGPL-3.0 (repo)',
+    restricted: false,
+    notes:
+      '400+ copy-paste components — the broadest form/control coverage. Only the MIT component ' +
+      'directories are safe to copy; the surrounding repo tooling is AGPL-3.0 — do not vendor it.',
   },
   {
     id: 'aceternity',
@@ -53,16 +142,28 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'Restrictive ToS (no redistribution)',
     restricted: true,
-    notes: 'Toggleable, OFF by default. Fetch-only; never bundled.',
+    warning: ACETERNITY_TOS_WARNING,
+    notes:
+      'High-impact hero effects (3D cards, aurora/spotlight/meteors). Toggleable, OFF by default. ' +
+      'Its ToS forbids reproducing material — many effects are reimplemented MIT in Magic UI / Eldora.',
   },
 ] as const;
 
-/** The ToS warning surfaced when a user enables a restricted source (SPEC §12, §17). */
-export const ACETERNITY_TOS_WARNING =
-  'Aceternity UI carries a restrictive ToS (no republishing, selling, sub-licensing, or ' +
-  'redistribution). This is generally fine for personal / non-distributed projects (e.g. a ' +
-  'personal site) but risky for enterprise or commercial work. Tiraz never bundles it — it is ' +
-  'only fetched into your repo on demand. Enable it only if your use case fits those terms.';
+/**
+ * Sources deliberately excluded from the fetch menu for license reasons (SPEC §12), surfaced so the
+ * exclusion is explicit rather than silent:
+ * - **Hover.dev** — proprietary/paid; its license forbids redistributing its components.
+ * - **Skiper UI** — free tier requires attribution and mixes in paid premium components; opt in
+ *   manually rather than auto-fetching.
+ */
+export const EXCLUDED_SOURCES: readonly { id: string; name: string; reason: string }[] = [
+  { id: 'hover-dev', name: 'Hover.dev', reason: 'Proprietary/paid; forbids redistribution.' },
+  {
+    id: 'skiper-ui',
+    name: 'Skiper UI',
+    reason: 'Free tier requires attribution and mixes in paid components; opt in manually.',
+  },
+] as const;
 
 export class SourceError extends Error {
   override readonly name = 'SourceError';
@@ -110,7 +211,9 @@ export function resolveSources(cfg: TirazConfig['sources']): ResolvedSources {
     const aceternity = getSource('aceternity');
     if (aceternity !== undefined) {
       fetch.push(aceternity);
-      warnings.push(ACETERNITY_TOS_WARNING);
+      if (aceternity.warning !== undefined) {
+        warnings.push(aceternity.warning);
+      }
     }
   }
 

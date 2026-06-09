@@ -3,6 +3,8 @@ import type { TirazConfig } from './config';
 import { TirazConfigSchema } from './config';
 import {
   ACETERNITY_TOS_WARNING,
+  EXCLUDED_SOURCES,
+  SOURCES,
   SourceError,
   getSource,
   isFromPermittedSource,
@@ -21,6 +23,41 @@ describe('getSource', () => {
     expect(getSource('magic-ui')?.tier).toBe('bundled');
     expect(getSource('react-bits')?.tier).toBe('fetch');
     expect(getSource('nope')).toBeUndefined();
+  });
+});
+
+describe('SOURCES registry', () => {
+  it('covers the verified ecosystem with exactly one restricted source carrying a warning', () => {
+    const restricted = SOURCES.filter((s) => s.restricted);
+    expect(restricted.map((s) => s.id)).toEqual(['aceternity']);
+    expect(restricted.every((s) => s.warning !== undefined && s.warning.length > 0)).toBe(true);
+    // The expanded menu includes the clean-MIT additions.
+    const ids = SOURCES.map((s) => s.id);
+    for (const id of ['cult-ui', 'motion-primitives', 'kokonut-ui', 'smoothui', 'eldora-ui']) {
+      expect(ids).toContain(id);
+    }
+  });
+
+  it('records why license-incompatible sources are excluded rather than dropping them silently', () => {
+    expect(EXCLUDED_SOURCES.map((s) => s.id)).toEqual(['hover-dev', 'skiper-ui']);
+    expect(EXCLUDED_SOURCES.every((s) => s.reason.length > 0)).toBe(true);
+  });
+});
+
+describe('default config sources', () => {
+  it('permits a diverse clean-MIT fetch set by default, with Aceternity off', () => {
+    const resolved = resolveSources(TirazConfigSchema.parse({}).sources);
+    expect(resolved.permittedIds).toEqual([
+      'react-bits',
+      '21st-registry',
+      'cult-ui',
+      'motion-primitives',
+      'kokonut-ui',
+      'smoothui',
+      'eldora-ui',
+    ]);
+    expect(resolved.permittedIds).not.toContain('aceternity');
+    expect(resolved.warnings).toEqual([]);
   });
 });
 
