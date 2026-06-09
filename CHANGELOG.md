@@ -5,6 +5,14 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ## [Unreleased]
 
+### Live adapters (in progress)
+
+- **Live renderer — harness brain** (`core/render-harness.ts`): the pure, fully-tested foundation the
+  Playwright renderer builds on — `harnessServeCommand` (boot Storybook / Ladle / Histoire on a
+  port), `parseTarget` + `resolveRenderUrl` (a scoped `--target` → the URL it renders at; Storybook
+  story → isolated iframe, routes → origin), and `waitForServer` (readiness poll, injectable fetch).
+  Unsupported combinations throw `RenderHarnessError`. The process/browser I/O lands next on top.
+
 ### Phase 7 — Polish (in progress)
 
 - **Motion/polish review** (`core/review.ts` + `tiraz review [node]`): `reviewVariant` installs Emil
