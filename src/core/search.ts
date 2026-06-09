@@ -8,13 +8,7 @@ import { genomeId, mutateGenome, recombineGenome } from './genome';
 import type { GenDeps } from './gen';
 import { generateVariant, usedPorts } from './gen';
 import type { Manifest, VariantNode } from './manifest';
-import {
-  createManifest,
-  loadManifest,
-  recordGeneration,
-  saveManifest,
-  upsertNode,
-} from './manifest';
+import { createManifest, loadManifest, saveManifest, upsertNode } from './manifest';
 import { resolveCapabilities } from './capabilities';
 import { collectDesignSystem } from './ds-collect-io';
 import { seedPrimaries } from './skills-registry';
@@ -80,6 +74,13 @@ interface MaterializeItem {
   baseRef?: string;
 }
 
+/** Set generation `index`'s id list (creating the slot), so it can be written incrementally. */
+function withGeneration(manifest: Manifest, index: number, ids: string[]): Manifest {
+  const generations = [...manifest.generations];
+  generations[index] = [...ids];
+  return { ...manifest, generations };
+}
+
 /** Materialize a list of genomes into a new generation and persist them. */
 async function materialize(
   cwd: string,
@@ -95,37 +96,33 @@ async function materialize(
   const capabilities = resolveCapabilities(config.modules).libraries.map((c) => c.name);
   const designSystem = await collectDesignSystem(cwd);
 
+  // Persist after EACH variant (not all-at-once): a long, agent-driven run that's interrupted then
+  // keeps every completed variant instead of losing the whole generation.
   const nodes: VariantNode[] = [];
+  const ids: string[] = [];
+  let updated = manifest;
   for (const { genome, baseRef } of items) {
     const port = assignPort(ports);
     ports.add(port);
-    nodes.push(
-      await generateVariant(
-        {
-          cwd,
-          mode: config.mode,
-          genome,
-          generation,
-          port,
-          harness,
-          capabilities,
-          designSystem,
-          ...(baseRef !== undefined ? { baseRef } : {}),
-        },
-        deps,
-      ),
+    const node = await generateVariant(
+      {
+        cwd,
+        mode: config.mode,
+        genome,
+        generation,
+        port,
+        harness,
+        capabilities,
+        designSystem,
+        ...(baseRef !== undefined ? { baseRef } : {}),
+      },
+      deps,
     );
+    nodes.push(node);
+    ids.push(node.genome.id);
+    updated = withGeneration(upsertNode(updated, node), generation, ids);
+    await saveManifest(cwd, updated);
   }
-
-  let updated = manifest;
-  for (const node of nodes) {
-    updated = upsertNode(updated, node);
-  }
-  updated = recordGeneration(
-    updated,
-    nodes.map((node) => node.genome.id),
-  );
-  await saveManifest(cwd, updated);
   return nodes;
 }
 
