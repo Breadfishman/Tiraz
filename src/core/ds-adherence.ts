@@ -17,8 +17,16 @@ export interface DesignSystem {
 
 /** The values a variant actually used, by the same categories, plus components it imported. */
 export interface UsedValues {
+  /** Raw literal values the variant used (hardcoded hex/rgb/length) — off-system unless they match a token. */
   values: Record<string, string[]>;
   components: string[];
+  /**
+   * Design-system *references* the variant used — `var(--token)` and token utility classes
+   * (e.g. `bg-primary`). These are the right way to consume a design system, so each counts
+   * on-system. Without this, a properly token-driven component scores ~0 because it uses classes,
+   * not literal token values.
+   */
+  systemRefs?: string[];
 }
 
 export interface OffSystemValue {
@@ -82,6 +90,12 @@ export function scoreDsAdherence(
       off.push({ category: 'component', value: component });
     }
   }
+
+  // Every design-system reference (var(--token) / token utility class) counts on-system: using the
+  // system the intended way is exactly the adherence we want to reward.
+  const refCount = (used.systemRefs ?? []).length;
+  total += refCount;
+  onSystem += refCount;
 
   const score = total === 0 ? 100 : Math.round((onSystem / total) * 100);
   return { score, offSystemValues: off.map((o) => `${o.category}:${o.value}`), details: off };

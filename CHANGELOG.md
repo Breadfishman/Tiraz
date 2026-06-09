@@ -7,6 +7,16 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Fix: DS-adherence now credits design-system _usage_, not just literal matches** (`ds-adherence.ts`,
+  `ds-collect.ts`). The first anti-slop re-run exposed a measurement bug: a properly token-driven
+  variant still scored ≈1/100 because the scorer only credited a literal value that exactly equalled a
+  token, giving **zero credit for `var(--token)` or token utility classes** (how you actually consume a
+  design system) while still counting every literal as off-system. `extractUsedValues` now also
+  captures `systemRefs` (var() + shadcn/Tailwind token classes like `bg-primary`), and
+  `scoreDsAdherence` counts each as on-system: score = on-system (refs + matched) / (on-system +
+  hardcoded literals + off-system components). Now token-heavy variants score high and hardcoded ones
+  score low — the metric finally reflects "builds within the design system".
+
 - **Anti-slop: feed the agent the repo's design system** (`core/agent.ts` + gen pipeline): the first
   live run scored DS-adherence ≈1/100 because the prompt never told the agent the repo _has_ a design
   system or what its tokens are — so it hardcoded colours/px. `composePrompt` now includes a **design

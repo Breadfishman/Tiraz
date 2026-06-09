@@ -63,20 +63,29 @@ const COLOR_LITERAL = /#[0-9a-fA-F]{3,8}\b|(?:rgba?|hsla?)\([^)]*\)/g;
 const LENGTH_LITERAL = /\b\d*\.?\d+(?:px|rem|em)\b/g;
 const IMPORT_STMT = /import\s+([^;]+?)\s+from\s+['"][^'"]+['"]/g;
 const IDENTIFIER = /[A-Za-z_$][\w$]*/g;
+/** Design-system references: `var(--token)` and shadcn/Tailwind token utility classes. */
+const CSS_VAR_REF = /var\(\s*--[\w-]+\s*\)/g;
+const TOKEN_CLASS =
+  /\b(?:bg|text|border|ring|fill|stroke|from|to|via|outline|divide|accent|caret|decoration|shadow|ring-offset)-(?:primary|secondary|accent|muted|destructive|foreground|background|card|popover|border|input|ring|chart-[1-5])\b/g;
 
 function dedupe(values: string[]): string[] {
   return [...new Set(values.map((v) => v.trim()).filter((v) => v !== ''))];
 }
 
 /**
- * Extract the literal values + imported components a variant's code used (SPEC §9). Colour and
- * length literals are the off-system signal — in a token-driven repo, on-system values come through
- * utility classes / `var(--token)` (not literals), so a raw `#ff00ff` or `13px` is what gets flagged.
- * Imported PascalCase identifiers are treated as used components.
+ * Extract what a variant's code used (SPEC §9), split into the two adherence signals:
+ * - **off-system literals** — raw `#ff00ff` colours and `13px` lengths that bypass the system;
+ * - **system references** — `var(--token)` and token utility classes (`bg-primary`), i.e. using the
+ *   design system the intended way (each scored on-system).
+ * Plus imported PascalCase components.
  */
 export function extractUsedValues(code: string): UsedValues {
   const colors = dedupe(code.match(COLOR_LITERAL) ?? []);
   const spacing = dedupe(code.match(LENGTH_LITERAL) ?? []);
+  const systemRefs = dedupe([
+    ...(code.match(CSS_VAR_REF) ?? []),
+    ...(code.match(TOKEN_CLASS) ?? []),
+  ]);
 
   const components: string[] = [];
   for (const stmt of code.matchAll(IMPORT_STMT)) {
@@ -91,18 +100,20 @@ export function extractUsedValues(code: string): UsedValues {
   const values: Record<string, string[]> = {};
   if (colors.length > 0) values.color = colors;
   if (spacing.length > 0) values.spacing = spacing;
-  return { values, components: dedupe(components) };
+  return { values, components: dedupe(components), systemRefs };
 }
 
 /** Merge several {@link UsedValues} (e.g. from multiple files) into one, de-duplicated by category. */
 export function mergeUsedValues(parts: UsedValues[]): UsedValues {
   const values: Record<string, string[]> = {};
   const components: string[] = [];
+  const systemRefs: string[] = [];
   for (const part of parts) {
     for (const [category, vals] of Object.entries(part.values)) {
       values[category] = dedupe([...(values[category] ?? []), ...vals]);
     }
     components.push(...part.components);
+    systemRefs.push(...(part.systemRefs ?? []));
   }
-  return { values, components: dedupe(components) };
+  return { values, components: dedupe(components), systemRefs: dedupe(systemRefs) };
 }

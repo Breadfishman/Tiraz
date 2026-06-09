@@ -72,16 +72,34 @@ describe('extractUsedValues', () => {
     expect(used.values).toEqual({});
     expect(used.components).toEqual([]);
   });
+
+  it('captures design-system references (var() + token utility classes) as systemRefs', () => {
+    const code = `
+      <div className="bg-primary text-foreground border-border" style={{ color: 'var(--accent)' }}>
+        <span className="bg-[#ff00ff]" style={{ background: 'var(--primary)' }} />
+      </div>`;
+    const used = extractUsedValues(code);
+    expect(used.systemRefs).toEqual(
+      expect.arrayContaining(['var(--accent)', 'var(--primary)', 'bg-primary', 'text-foreground']),
+    );
+    // the raw bracket hex is still flagged off-system
+    expect(used.values.color).toContain('#ff00ff');
+  });
 });
 
 describe('mergeUsedValues', () => {
-  it('combines and dedupes across files', () => {
+  it('combines and dedupes across files (incl. systemRefs)', () => {
     const merged = mergeUsedValues([
-      { values: { color: ['#fff'] }, components: ['Button'] },
-      { values: { color: ['#fff', '#000'], spacing: ['8px'] }, components: ['Button', 'Card'] },
+      { values: { color: ['#fff'] }, components: ['Button'], systemRefs: ['var(--primary)'] },
+      {
+        values: { color: ['#fff', '#000'], spacing: ['8px'] },
+        components: ['Button', 'Card'],
+        systemRefs: ['var(--primary)', 'bg-accent'],
+      },
     ]);
     expect(merged.values.color).toEqual(['#fff', '#000']);
     expect(merged.values.spacing).toEqual(['8px']);
     expect(merged.components).toEqual(['Button', 'Card']);
+    expect(merged.systemRefs).toEqual(['var(--primary)', 'bg-accent']);
   });
 });

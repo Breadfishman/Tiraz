@@ -54,6 +54,17 @@ describe('scoreDsAdherence', () => {
     expect(scoreDsAdherence(system, { values: {}, components: [] }).score).toBe(100);
   });
 
+  it('credits design-system references (var()/token classes) as on-system', () => {
+    // 2 var() refs on-system + 1 off-system hex literal → 2/3 = 67.
+    const result = scoreDsAdherence(system, {
+      values: { color: ['#ff00ff'] },
+      components: [],
+      systemRefs: ['var(--primary)', 'bg-accent'],
+    });
+    expect(result.score).toBe(67);
+    expect(result.offSystemValues).toEqual(['color:#ff00ff']);
+  });
+
   it('whitelists Tier-2 components from permitted sources (SPEC §12)', () => {
     const used = { values: {}, components: ['react-bits/SplitText', 'aceternity/Spotlight'] };
     // Without whitelisting, both fetched components are off-system.
