@@ -6,6 +6,7 @@ import {
   REMOTION_LICENSE_WARNING,
   getCapability,
   resolveCapabilities,
+  scaffoldPackages,
 } from './capabilities';
 
 function modules(patch: Record<string, unknown> = {}): TirazConfig['modules'] {
@@ -63,5 +64,25 @@ describe('resolveCapabilities', () => {
     const resolved = resolveCapabilities(modules({ remotion: true }));
     expect(resolved.libraries.map((c) => c.id)).toContain('remotion');
     expect(resolved.warnings).toEqual([REMOTION_LICENSE_WARNING]);
+  });
+});
+
+describe('scaffoldPackages', () => {
+  it('installs only the pinned core stack with no modules (GSAP + Motion + Lenis)', () => {
+    expect(scaffoldPackages(modules())).toEqual(['gsap', 'motion', 'lenis']);
+  });
+
+  it('adds the pinned 3D packages but not the advanced escape hatches', () => {
+    const pkgs = scaffoldPackages(modules({ threeD: true }));
+    expect(pkgs).toEqual(
+      expect.arrayContaining(['three', '@react-three/fiber', '@react-three/drei']),
+    );
+    // uikit / postprocessing / Spline are available but not auto-installed.
+    expect(pkgs).not.toContain('@react-three/uikit');
+    expect(pkgs).not.toContain('@splinetool/react-spline');
+  });
+
+  it('adds the Remotion packages when the video module is on', () => {
+    expect(scaffoldPackages(modules({ remotion: true }))).toContain('remotion');
   });
 });

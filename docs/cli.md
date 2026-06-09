@@ -72,11 +72,22 @@ remote + the `gh` CLI authenticated).
 
 - `--base <branch>` — branch to merge into / open the PR against (default `main`).
 
+### `tiraz init [name]` ✅
+
+Scaffold a greenfield project (SPEC §10). Drives the official CLIs — Astro + Tailwind (or Next.js
+with Tailwind built in via `--next`), then shadcn/ui — installs the pinned capability stack for the
+chosen modules, and writes a `tiraz.config.json` (`mode: greenfield`). With no `name`, scaffolds into
+the current directory; otherwise into `<name>/`. Runs real `npm` / `npx` — needs network.
+
+- `--next` — use Next.js instead of Astro (also makes v0 output paste-compatible).
+- `--3d` — add the 3D module (Three.js + React Three Fiber + drei).
+- `--remotion` — add the Remotion video module (prints its non-OSI license warning).
+
 ## Planned
 
 | Command                      | Status | Phase | Notes                                                                                |
 | ---------------------------- | ------ | ----- | ------------------------------------------------------------------------------------ |
-| `tiraz adopt` / `tiraz init` | 📋     | 1 / 6 | Attach to an existing repo (core) / scaffold a greenfield project                    |
+| `tiraz adopt`                | 📋     | 6     | Attach to an existing repo: detect stack + write integration config                  |
 | `tiraz lint` / `tiraz score` | 🚧     | 2     | Lint floor + DS-adherence + composite done in core; VLM taste judge + CLI pending    |
 | `tiraz gen` / `tiraz breed`  | 🚧     | 1 / 3 | Controller done + tested in core (`gen.ts`/`search.ts`); CLI needs the live renderer |
 | `tiraz recombine`            | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI needs the live renderer  |

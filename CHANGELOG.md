@@ -5,6 +5,20 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ## [Unreleased]
 
+### Phase 6 — Greenfield mode + modules + interop (in progress)
+
+- **Greenfield scaffolder** (`core/scaffold.ts` + `tiraz init`): `scaffoldProject` drives the
+  official CLIs through the injected `CommandRunner` — Astro + Tailwind (or Next.js via `--next`,
+  Tailwind built in), then shadcn/ui — installs the pinned capability stack for the enabled modules,
+  and writes a `tiraz.config.json` (`mode: greenfield`, framework, modules). `--3d` adds the Three.js
+  / R3F / drei stack; `--remotion` adds Remotion and prints its non-OSI license warning. Tested with
+  a recording fake runner (Astro / Next / named-subdir / failure paths) writing real config.
+- **Capability scaffolding** (`core/capabilities.ts`): each library gained a `scaffold` flag marking
+  SPEC §10's _pinned_ stack (GSAP + Motion + Lenis core; Three.js + R3F + drei for `--3d`; Remotion
+  for `--remotion`) vs. merely-available escape hatches (uikit, postprocessing, Spline, Theatre.js).
+  `scaffoldPackages(modules)` returns the npm packages `init` installs.
+- **CLI**: `tiraz init [name] [--next] [--3d] [--remotion]` is wired and runnable today.
+
 ### Phase 5 — Component sourcing (in progress)
 
 - **Expanded source menu + capability stack** (`core/sources.ts`, `core/capabilities.ts`): rounded

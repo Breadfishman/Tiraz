@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { describeError } from './core/config';
 import { registerDiffCommand } from './cli/diff';
+import { registerInitCommand } from './cli/init';
 import { registerPromoteCommand } from './cli/promote';
 import { registerSelectCommand } from './cli/select';
 import { registerSkillsCommand } from './cli/skills';
@@ -26,6 +27,7 @@ export function buildProgram(): Command {
   registerSelectCommand(program);
   registerDiffCommand(program);
   registerPromoteCommand(program);
+  registerInitCommand(program);
   return program;
 }
 
