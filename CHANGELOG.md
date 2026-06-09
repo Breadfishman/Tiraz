@@ -5,6 +5,22 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ## [Unreleased]
 
+### Phase 4 — Recombination, diff & promote (in progress)
+
+- **Recombination** (`core/genome.ts` + `core/search.ts`): `recombineGenome` grafts two parents
+  into one child — human-directed (SPEC §7), where the natural-language `instructions` are the
+  source of truth and `extracted` is assist-only. The child inherits parentA's base, records both
+  parents + the `GraftSpec`, and combines parent seeds. `recombineVariant` loads the manifest,
+  validates the parents + a non-empty graft instruction, then materializes + persists the child as
+  a new generation over the injected agent/renderer. Tested with real git + manifest and fakes.
+- **Diff** (`core/diff.ts`): `diffGenomes` returns one entry per differing genome field;
+  `renderGenomeDiff` formats it as readable text. Compares the reproducible inputs that produced two
+  variants (outputs are compared visually by the human).
+- **CLI**: `tiraz diff <a> <b>` is wired and runnable today (manifest-only — verified end-to-end).
+
+  _Remaining:_ the `tiraz recombine` CLI depends on the live `Renderer` (deferred), and `tiraz
+promote` (slice B — greenfield merge / integration PR) is next.
+
 ### Phase 3 — Beam search (in progress)
 
 - **Mutation** (`core/genome.ts`): `mutateGenome` applies one small deterministic perturbation

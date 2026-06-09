@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Genome } from './genome';
-import { GenomeSchema, GraftSpecSchema, genomeId, mutateGenome, parseGenomeId } from './genome';
+import {
+  GenomeSchema,
+  GraftSpecSchema,
+  genomeId,
+  mutateGenome,
+  parseGenomeId,
+  recombineGenome,
+} from './genome';
 
 const base: Genome = {
   id: 'g0-n0',
@@ -110,5 +117,53 @@ describe('mutateGenome', () => {
   it('wraps negative indices into range', () => {
     expect(() => mutateGenome(base, ctx, -1)).not.toThrow();
     expect(mutateGenome(base, ctx, -1).parents).toEqual(['g0-n0']);
+  });
+});
+
+describe('recombineGenome', () => {
+  const parentA: Genome = { ...base, id: 'g1-n0', seed: 3, dials: { ...base.dials, motion: 8 } };
+  const parentB: Genome = {
+    ...base,
+    id: 'g1-n1',
+    seed: 4,
+    overlay: 'brutalist',
+    dials: { variance: 2, motion: 2, density: 9 },
+  };
+  const ctx = {
+    id: 'g2-n0',
+    createdAt: '2026-06-08T02:00:00.000Z',
+    instructions: "A's layout with B's density",
+  };
+
+  it("inherits parentA's base and records both parents", () => {
+    const child = recombineGenome(parentA, parentB, ctx);
+    expect(child.id).toBe('g2-n0');
+    expect(child.parents).toEqual(['g1-n0', 'g1-n1']);
+    expect(child.dials).toEqual(parentA.dials);
+    expect(child.overlay).toBe(parentA.overlay);
+    expect(child.createdAt).toBe('2026-06-08T02:00:00.000Z');
+  });
+
+  it('builds a graft spec from the human instructions', () => {
+    const child = recombineGenome(parentA, parentB, ctx);
+    expect(child.graft).toEqual({
+      parents: ['g1-n0', 'g1-n1'],
+      instructions: "A's layout with B's density",
+    });
+    expect(GenomeSchema.safeParse(child).success).toBe(true);
+  });
+
+  it('carries optional axes and extracted context when supplied', () => {
+    const child = recombineGenome(parentA, parentB, {
+      ...ctx,
+      axes: ['layout', 'spacing'],
+      extracted: { tokens: ['--space-4'] },
+    });
+    expect(child.graft?.axes).toEqual(['layout', 'spacing']);
+    expect(child.graft?.extracted).toEqual({ tokens: ['--space-4'] });
+  });
+
+  it('combines parent seeds for a fresh deterministic seed', () => {
+    expect(recombineGenome(parentA, parentB, ctx).seed).toBe(parentA.seed + parentB.seed + 1);
   });
 });

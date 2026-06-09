@@ -110,3 +110,37 @@ export function mutateGenome(parent: Genome, ctx: MutationContext, index: number
     createdAt: ctx.createdAt,
   };
 }
+
+export interface RecombineContext {
+  /** The child's genome id. */
+  id: string;
+  createdAt: string;
+  /** The human's natural-language graft instruction — the source of truth (SPEC §7). */
+  instructions: string;
+  /** Optional structured hint of which axes to graft. */
+  axes?: GraftSpec['axes'];
+  /** Optional assist context surfaced by impeccable `/extract` + `/document`. */
+  extracted?: GraftSpec['extracted'];
+}
+
+/**
+ * Produce a recombination child from two parents (SPEC §7). Human-directed: `ctx.instructions`
+ * drive the graft; `extracted` is assist-only. The child inherits `parentA`'s base design as a
+ * starting point and records both parents plus the {@link GraftSpec}.
+ */
+export function recombineGenome(parentA: Genome, parentB: Genome, ctx: RecombineContext): Genome {
+  const graft: GraftSpec = {
+    parents: [parentA.id, parentB.id],
+    instructions: ctx.instructions,
+    ...(ctx.axes !== undefined ? { axes: ctx.axes } : {}),
+    ...(ctx.extracted !== undefined ? { extracted: ctx.extracted } : {}),
+  };
+  return {
+    ...parentA,
+    id: ctx.id,
+    parents: [parentA.id, parentB.id],
+    graft,
+    seed: parentA.seed + parentB.seed + 1,
+    createdAt: ctx.createdAt,
+  };
+}

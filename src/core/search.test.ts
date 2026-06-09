@@ -6,7 +6,13 @@ import type { Agent } from './agent';
 import { spawnRunner } from './agent';
 import type { GenDeps } from './gen';
 import type { Renderer } from './render';
-import { SearchError, breedGeneration, generateGeneration, seedGenomes } from './search';
+import {
+  SearchError,
+  breedGeneration,
+  generateGeneration,
+  recombineVariant,
+  seedGenomes,
+} from './search';
 import { TirazConfigSchema } from './config';
 import { loadManifest } from './manifest';
 
@@ -156,6 +162,52 @@ describe('breedGeneration', () => {
     await generateGeneration({ cwd: repo, brief: 'b', count: 1, harness: 'storybook' }, d);
     await expect(
       breedGeneration({ cwd: repo, survivors: ['nope'], harness: 'storybook' }, d),
+    ).rejects.toBeInstanceOf(SearchError);
+  });
+});
+
+describe('recombineVariant', () => {
+  it('grafts two parents into a single child of a new generation', async () => {
+    const repo = await initRepo();
+    const d = await deps();
+    await generateGeneration({ cwd: repo, brief: 'b', count: 2, harness: 'storybook' }, d);
+
+    const child = await recombineVariant(
+      {
+        cwd: repo,
+        parentA: 'g0-n0',
+        parentB: 'g0-n1',
+        instructions: "A's structure with B's typography",
+        axes: ['typography'],
+        harness: 'storybook',
+      },
+      d,
+    );
+
+    expect(child.genome.id).toBe('g1-n0');
+    expect(child.genome.parents).toEqual(['g0-n0', 'g0-n1']);
+    expect(child.genome.graft?.instructions).toBe("A's structure with B's typography");
+    expect(child.genome.graft?.axes).toEqual(['typography']);
+
+    const manifest = await loadManifest(repo);
+    expect(manifest?.generations).toEqual([['g0-n0', 'g0-n1'], ['g1-n0']]);
+  });
+
+  it('rejects an empty graft instruction', async () => {
+    const repo = await initRepo();
+    const d = await deps();
+    await generateGeneration({ cwd: repo, brief: 'b', count: 2, harness: 'storybook' }, d);
+    await expect(
+      recombineVariant({ cwd: repo, parentA: 'g0-n0', parentB: 'g0-n1', instructions: '   ' }, d),
+    ).rejects.toBeInstanceOf(SearchError);
+  });
+
+  it('throws when a parent is unknown', async () => {
+    const repo = await initRepo();
+    const d = await deps();
+    await generateGeneration({ cwd: repo, brief: 'b', count: 1, harness: 'storybook' }, d);
+    await expect(
+      recombineVariant({ cwd: repo, parentA: 'g0-n0', parentB: 'nope', instructions: 'graft' }, d),
     ).rejects.toBeInstanceOf(SearchError);
   });
 });

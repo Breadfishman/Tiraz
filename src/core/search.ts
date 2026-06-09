@@ -3,8 +3,8 @@ import type { TirazConfig } from './config';
 import { loadConfig } from './config';
 import type { HarnessKind } from './detect';
 import { detectHarness } from './detect';
-import type { Genome } from './genome';
-import { genomeId, mutateGenome } from './genome';
+import type { Genome, GraftSpec } from './genome';
+import { genomeId, mutateGenome, recombineGenome } from './genome';
 import type { GenDeps } from './gen';
 import { generateVariant, usedPorts } from './gen';
 import type { Manifest, VariantNode } from './manifest';
@@ -167,4 +167,64 @@ export async function breedGeneration(opts: BreedOptions, deps: GenDeps): Promis
   }
 
   return materialize(opts.cwd, config.mode, manifest, childGenomes, generation, opts.harness, deps);
+}
+
+export interface RecombineOptions {
+  cwd: string;
+  /** Node id of the first parent (its base design is the starting point). */
+  parentA: string;
+  /** Node id of the second parent. */
+  parentB: string;
+  /** The human's natural-language graft instruction (required, SPEC §7). */
+  instructions: string;
+  axes?: GraftSpec['axes'];
+  harness?: HarnessKind;
+}
+
+/**
+ * Recombine two survivors into a single grafted child (SPEC §7, Phase 4). Human-directed: the
+ * caller supplies the natural-language graft instruction. Materializes + persists the child as a
+ * new generation and returns it.
+ */
+export async function recombineVariant(
+  opts: RecombineOptions,
+  deps: GenDeps,
+): Promise<VariantNode> {
+  if (opts.instructions.trim() === '') {
+    throw new SearchError('Recombination requires a non-empty --graft instruction');
+  }
+  const { config } = await loadConfig(opts.cwd);
+  const manifest = await loadManifest(opts.cwd);
+  if (manifest === null) {
+    throw new SearchError(`No Tiraz manifest found in ${opts.cwd}`);
+  }
+  const parentA = manifest.nodes[opts.parentA];
+  const parentB = manifest.nodes[opts.parentB];
+  if (parentA === undefined || parentB === undefined) {
+    throw new SearchError(`Both parents must exist (${opts.parentA}, ${opts.parentB})`);
+  }
+
+  const generation = manifest.generations.length;
+  const now = deps.now ?? (() => new Date().toISOString());
+  const child = recombineGenome(parentA.genome, parentB.genome, {
+    id: genomeId(generation, 0),
+    createdAt: now(),
+    instructions: opts.instructions,
+    ...(opts.axes !== undefined ? { axes: opts.axes } : {}),
+  });
+
+  const nodes = await materialize(
+    opts.cwd,
+    config.mode,
+    manifest,
+    [child],
+    generation,
+    opts.harness,
+    deps,
+  );
+  const node = nodes[0];
+  if (node === undefined) {
+    throw new SearchError('Recombination produced no node');
+  }
+  return node;
 }
