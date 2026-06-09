@@ -7,6 +7,14 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **`tiraz dashboard` — centralized live UI** (`core/dashboard.ts` + `cli/dashboard.ts`): one page
+  that embeds every variant **live and interactive**, not as screenshots. Tiraz boots a render server
+  per variant (reusing the renderer's harness machinery — `harnessServeCommand` / `launchServerProcess`
+  / `waitForServer`) and serves a single dashboard: a sidebar of all variants (genome + fitness, best
+  flagged) + an iframe stage that loads the selected variant; click or ↑/↓ to switch. Pure
+  `renderDashboardHtml(manifest, endpoints)` (tested: sidebar, embedded endpoints, not-running state,
+  best-flag, escaping); the CLI orchestrates the servers + an HTTP server with graceful Ctrl-C
+  teardown. `openInBrowser` shared via `cli/open.ts`.
 - **`tiraz compare` — variant comparison gallery** (`core/compare.ts` + `cli/compare.ts`): human
   review is the real bottleneck, so this generates one self-contained HTML page of all variants —
   every screenshot grouped by generation with its genome + fitness, the best-composite per generation

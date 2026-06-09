@@ -77,6 +77,18 @@ between variants. No Storybook or dev server needed — just open the file. Mani
 - `-o, --out <file>` — output path (default `.tiraz/compare.html`).
 - `--open` — open it in your browser after writing (WSL / Linux / macOS).
 
+### `tiraz dashboard` ✅ (live)
+
+The centralized Tiraz UI: serves **one page** that embeds every variant **live and interactive** —
+Tiraz boots a render server (Storybook/Ladle/Histoire) per variant behind the scenes, and the page
+is a sidebar of all variants (genome + fitness, best flagged) with a stage that loads the selected
+variant in an iframe. Click or use ↑/↓ to switch; you interact with the real running component (not a
+screenshot). Long-running — Ctrl-C stops the dashboard and all variant servers. Needs the variants'
+worktrees + a playground harness.
+
+- `-p, --port <n>` — dashboard port (default `4317`).
+- `--open` — open it in your browser once it's up.
+
 ### `tiraz diff <a> <b>` ✅
 
 Compare two variants by their **genomes** — the reproducible inputs (primary, overlay, dials,
