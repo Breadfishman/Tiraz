@@ -16,6 +16,10 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
   capability libraries (resolved from `config.modules`, SPEC §10) so a variant knows what animation /
   3D / video tools it may use. Threaded through `generateVariant` / `runGen` / the search
   `materialize` step (which now takes the full config to resolve them).
+- **Packaging** (`package.json`): publish metadata (keywords, repository, homepage, bugs), a
+  `prepublishOnly` gate that runs `npm run check`, and version `0.1.0` (CLI `--version` kept in sync).
+  `npm pack` ships `dist/`, the vendored `skills/`, `LICENSE`, `NOTICE`, and `README`; Tier-2 sources
+  and Emil's skill are never bundled. README quickstart updated to the runnable surface.
 
 ### Phase 6 — Greenfield mode + modules + interop (in progress)
 

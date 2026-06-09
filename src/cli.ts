@@ -12,7 +12,7 @@ import { registerSourcesCommand } from './cli/sources';
 import { registerTreeCommands } from './cli/tree';
 
 /** Kept in sync with package.json's `version` field. */
-const VERSION = '0.0.0';
+const VERSION = '0.1.0';
 
 /**
  * Build the root `tiraz` command. Subcommands are registered here as each phase

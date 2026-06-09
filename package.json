@@ -1,10 +1,30 @@
 {
   "name": "tiraz",
-  "version": "0.0.0",
+  "version": "0.1.0",
   "description": "A design-taste engine for AI coding agents — breeds frontend variants and converges on the best via a fitness-gated beam search.",
   "type": "module",
   "bin": {
     "tiraz": "./dist/cli.js"
+  },
+  "keywords": [
+    "design",
+    "frontend",
+    "ui",
+    "ai",
+    "claude",
+    "claude-code",
+    "design-system",
+    "anti-slop",
+    "beam-search",
+    "cli"
+  ],
+  "homepage": "https://github.com/Breadfishman/Tiraz#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Breadfishman/Tiraz.git"
+  },
+  "bugs": {
+    "url": "https://github.com/Breadfishman/Tiraz/issues"
   },
   "files": [
     "dist",
@@ -25,7 +45,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
-    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:cov && npm run build && node dist/cli.js --version"
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test:cov && npm run build && node dist/cli.js --version",
+    "prepublishOnly": "npm run check"
   },
   "dependencies": {
     "commander": "^15.0.0",
