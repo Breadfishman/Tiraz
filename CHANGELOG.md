@@ -7,6 +7,15 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Anti-slop blend palette — understand components across sources** (`sources.ts`, `agent.ts`). Each
+  source now catalogs its **signature effects** (e.g. Aceternity: aurora/spotlight/3D cards/meteors;
+  Magic UI: marquee/bento/animated beam; Cult UI: dynamic island/texture cards; Motion Primitives:
+  morphing dialog/shimmer text). `signaturesFor(sources)` gathers the palette for a variant's
+  permitted sources, and `composePrompt` now feeds it as a **"blend distinctively — do not copy one
+  library"** directive: combine elements from several sources into one cohesive, original composition
+  that couldn't be mistaken for any single library's demo. Uniqueness via cross-pollination, not
+  monoculture (SPEC §12 — the "slop treadmill").
+
 - **More options at the start + reliable rendering** (feedback-driven). (1) `seedGenomes` now gives
   each round-0 variant a distinct **overlay + dial profile** (balanced / calm-minimalist /
   bold-brutalist / kinetic-soft / high-variance editorial) on top of the primary span — so a round

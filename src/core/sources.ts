@@ -17,6 +17,12 @@ export interface ComponentSource {
   license: string;
   /** Enabling this source requires its own toggle + surfaces {@link ComponentSource.warning}. */
   restricted: boolean;
+  /**
+   * Signature components / effects this source is known for. Tiraz feeds these to the agent as a
+   * palette to **blend** across sources into something unique (anti-slop, §12) — not to copy one
+   * library wholesale.
+   */
+  signatures: string[];
   /** Warning surfaced when a restricted source is enabled (SPEC §12, §17). */
   warning?: string;
   notes: string;
@@ -42,6 +48,14 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'bundled',
     license: 'MIT',
     restricted: false,
+    signatures: [
+      'marquee',
+      'animated beam',
+      'bento grid',
+      'shimmer button',
+      'border beam',
+      'particles',
+    ],
     notes: '150+ Motion-based animated components; bundled and always available.',
   },
   {
@@ -50,6 +64,13 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT + Commons Clause',
     restricted: false,
+    signatures: [
+      'split text',
+      'aurora background',
+      'blob cursor',
+      'animated waves',
+      'gradient text',
+    ],
     notes:
       'Animated text/background effects. Fetch-only: copied into your repo (= permitted "use"); ' +
       'Commons Clause forbids reselling it as a product, so never bundled.',
@@ -60,6 +81,7 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'Community (MIT-class)',
     restricted: false,
+    signatures: ['hero sections', 'pricing tables', 'animated tabs', 'testimonial marquees'],
     notes:
       'Large community registry. The "Magic" generator is a separate Agent backend, not a source.',
   },
@@ -69,6 +91,7 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
+    signatures: ['shift cards', 'dynamic island', 'texture cards', 'neumorphic controls'],
     notes: 'Tasteful Motion components: shift/texture cards, dynamic islands, neumorphic effects.',
   },
   {
@@ -77,6 +100,13 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
+    signatures: [
+      'shimmer text',
+      'morphing dialog',
+      'number ticker',
+      'in-view reveal',
+      'cursor effects',
+    ],
     notes:
       'Motion-first primitives: animated/shimmer text, morphing dialogs, number tickers, in-view reveals.',
   },
@@ -86,6 +116,7 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
+    signatures: ['AI-chat input', 'gradient buttons', 'card stacks', 'file-upload UI'],
     notes:
       '100+ Tailwind + shadcn + Motion components: AI-chat inputs, gradient buttons, card stacks.',
   },
@@ -95,6 +126,7 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
+    signatures: ['Siri orb', 'number flow', 'dynamic island', 'app-store cards'],
     notes:
       '50+ Motion micro-interactions: Siri orb, number flow, dynamic-island and app-store-style cards.',
   },
@@ -104,6 +136,7 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
+    signatures: ['marquee', 'globe', 'animated beams', 'text reveal'],
     notes:
       '150+ animated effects (React + Motion): marquees, globes, animated beams, text reveals.',
   },
@@ -113,6 +146,7 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
+    signatures: ['animated cards', 'modals', 'tooltips', 'grids'],
     notes:
       'shadcn + Motion animated components (cards, modals, tooltips). Smaller, younger collection.',
   },
@@ -122,6 +156,7 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT + Commons Clause',
     restricted: false,
+    signatures: ['animated icons', 'motion tabs', 'springy accordions'],
     notes:
       'Fully-animated shadcn/Magic-UI-style set (animated icons, motion tabs/accordions). Commons ' +
       'Clause: copy into your repo freely, never resell as a product (same posture as React Bits).',
@@ -132,6 +167,7 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'MIT (components) / AGPL-3.0 (repo)',
     restricted: false,
+    signatures: ['inputs', 'selects', 'date pickers', 'form controls'],
     notes:
       '400+ copy-paste components — the broadest form/control coverage. Only the MIT component ' +
       'directories are safe to copy; the surrounding repo tooling is AGPL-3.0 — do not vendor it.',
@@ -142,6 +178,14 @@ export const SOURCES: readonly ComponentSource[] = [
     tier: 'fetch',
     license: 'Restrictive ToS (no redistribution)',
     restricted: true,
+    signatures: [
+      '3D cards',
+      'aurora background',
+      'spotlight',
+      'meteors',
+      'sparkles',
+      'animated beams',
+    ],
     warning: ACETERNITY_TOS_WARNING,
     notes:
       'High-impact hero effects (3D cards, aurora/spotlight/meteors). Toggleable, OFF by default. ' +
@@ -172,6 +216,14 @@ export class SourceError extends Error {
 /** Look up a source by id, or `undefined` if unknown. */
 export function getSource(id: string): ComponentSource | undefined {
   return SOURCES.find((source) => source.id === id);
+}
+
+/** The signature-effect palette for the given source ids — what the agent blends from (anti-slop). */
+export function signaturesFor(ids: readonly string[]): { id: string; signatures: string[] }[] {
+  return ids
+    .map((id) => getSource(id))
+    .filter((source): source is ComponentSource => source !== undefined)
+    .map((source) => ({ id: source.id, signatures: source.signatures }));
 }
 
 export interface ResolvedSources {

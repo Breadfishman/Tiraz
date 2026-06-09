@@ -47,7 +47,10 @@ describe('composePrompt', () => {
     expect(prompt).toContain('- /bolder');
     expect(prompt).toContain("Take A's typography and B's motion.");
     expect(prompt).toContain('Axes to graft: typography, motion');
-    expect(prompt).toContain('You may draw from: react-bits, 21st-registry');
+    // The blend directive lists each permitted source's signature effects (anti-slop).
+    expect(prompt).toContain('Blend distinctively');
+    expect(prompt).toContain('- react-bits: ');
+    expect(prompt).toContain('aurora background');
   });
 
   it('adds a refine-not-restart directive when the variant has parents (bred/recombined)', () => {

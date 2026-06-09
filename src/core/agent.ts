@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import type { DesignSystem } from './ds-adherence';
 import type { Genome } from './genome';
+import { signaturesFor } from './sources';
 
 export interface AgentRunOptions {
   /** Working directory (the variant's worktree). */
@@ -115,10 +116,16 @@ export function composePrompt(
 
   if (genome.sources && genome.sources.length > 0) {
     lines.push(
-      '## Permitted component sources (use sparingly)',
-      `You may draw from: ${genome.sources.join(', ')}. Prefer the design system first.`,
-      '',
+      '## Blend distinctively — do not copy one library (anti-slop)',
+      'Draw inspiration from these sources, each known for signature effects. BLEND elements from',
+      "several into one cohesive, original composition — never replicate a single library's look",
+      'wholesale (that only swaps one generic style for another). The result must not be mistakable',
+      "for any one library's demo. Style everything through the design system's tokens.",
     );
+    for (const { id, signatures } of signaturesFor(genome.sources)) {
+      lines.push(`- ${id}: ${signatures.join(', ')}`);
+    }
+    lines.push('');
   }
 
   if (capabilities.length > 0) {

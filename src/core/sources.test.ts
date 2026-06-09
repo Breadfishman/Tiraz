@@ -9,6 +9,7 @@ import {
   getSource,
   isFromPermittedSource,
   resolveSources,
+  signaturesFor,
   sourcePrefix,
 } from './sources';
 
@@ -41,6 +42,20 @@ describe('SOURCES registry', () => {
   it('records why license-incompatible sources are excluded rather than dropping them silently', () => {
     expect(EXCLUDED_SOURCES.map((s) => s.id)).toEqual(['hover-dev', 'skiper-ui']);
     expect(EXCLUDED_SOURCES.every((s) => s.reason.length > 0)).toBe(true);
+  });
+
+  it('catalogs signature effects per source (the blend palette)', () => {
+    expect(SOURCES.every((s) => s.signatures.length > 0)).toBe(true);
+    expect(getSource('aceternity')?.signatures).toEqual(
+      expect.arrayContaining(['aurora background']),
+    );
+    expect(getSource('magic-ui')?.signatures).toEqual(expect.arrayContaining(['bento grid']));
+  });
+
+  it('signaturesFor gathers the palette across permitted sources', () => {
+    const palette = signaturesFor(['react-bits', 'cult-ui', 'nope']);
+    expect(palette.map((p) => p.id)).toEqual(['react-bits', 'cult-ui']); // unknown id dropped
+    expect(palette[0]?.signatures.length).toBeGreaterThan(0);
   });
 });
 
