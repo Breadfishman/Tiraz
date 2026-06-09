@@ -18,6 +18,13 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
   for `--remotion`) vs. merely-available escape hatches (uikit, postprocessing, Spline, Theatre.js).
   `scaffoldPackages(modules)` returns the npm packages `init` installs.
 - **CLI**: `tiraz init [name] [--next] [--3d] [--remotion]` is wired and runnable today.
+- **Interop export adapters** (`core/export.ts` + `tiraz export`): `exportArtifact(target, ctx)` emits
+  a handoff artifact (SPEC §12bis). `stitch` patches the vendored `stitch-design-taste` DESIGN.md
+  dials from the variant and prepends the brief; `v0` emits a Next/Tailwind/shadcn prompt;
+  `claude-design` emits a codebase-aware, integration-first handoff brief. `tiraz export --target
+<tool> [--node <id>] [--brief <text>] [--out <file>]` is wired and runnable today (sources the
+  design intent from a manifest node or config defaults). The bundled-skills locator moved to
+  `cli/bundled.ts`, shared by `skills` and `export`.
 
 ### Phase 5 — Component sourcing (in progress)
 

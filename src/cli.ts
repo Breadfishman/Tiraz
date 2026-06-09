@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { describeError } from './core/config';
 import { registerDiffCommand } from './cli/diff';
+import { registerExportCommand } from './cli/export';
 import { registerInitCommand } from './cli/init';
 import { registerPromoteCommand } from './cli/promote';
 import { registerSelectCommand } from './cli/select';
@@ -28,6 +29,7 @@ export function buildProgram(): Command {
   registerDiffCommand(program);
   registerPromoteCommand(program);
   registerInitCommand(program);
+  registerExportCommand(program);
   return program;
 }
 

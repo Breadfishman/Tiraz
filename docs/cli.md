@@ -83,6 +83,18 @@ the current directory; otherwise into `<name>/`. Runs real `npm` / `npx` — nee
 - `--3d` — add the 3D module (Three.js + React Three Fiber + drei).
 - `--remotion` — add the Remotion video module (prints its non-OSI license warning).
 
+### `tiraz export --target stitch|v0|claude-design` ✅
+
+Emit a handoff artifact for an external tool (SPEC §12bis):
+
+- **`stitch`** → `DESIGN.md` — patches the vendored `stitch-design-taste` design system with the
+  variant's dials and prepends the brief / design direction.
+- **`v0`** → `v0-prompt.md` — a Next.js + Tailwind + shadcn prompt (pair with `init --next`).
+- **`claude-design`** → `claude-design-brief.md` — a codebase-aware, integration-first handoff brief.
+
+Options: `--node <id>` sources the design intent from a manifest variant (else config defaults);
+`--brief <text>` overrides the embedded brief; `--out <file>` overrides the output path.
+
 ## Planned
 
 | Command                      | Status | Phase | Notes                                                                                |
@@ -92,6 +104,5 @@ the current directory; otherwise into `<name>/`. Runs real `npm` / `npx` — nee
 | `tiraz gen` / `tiraz breed`  | 🚧     | 1 / 3 | Controller done + tested in core (`gen.ts`/`search.ts`); CLI needs the live renderer |
 | `tiraz recombine`            | 🚧     | 4     | `recombineVariant` done + tested in core (`search.ts`); CLI needs the live renderer  |
 | `tiraz review`               | 📋     | 7     | Invoke Emil's skill for motion/polish review                                         |
-| `tiraz export`               | 📋     | 6     | Emit handoff artifacts (Stitch / v0 / Claude Design)                                 |
 
 See [SPEC.md §5](../SPEC.md) for the full intended command surface and options.
