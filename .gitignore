@@ -1,6 +1,35 @@
-/misc/
-/.env
+# Dependencies
 node_modules/
+
+# Build output
 dist/
+*.tsbuildinfo
+
+# Test / coverage
 coverage/
+
+# Secrets & environment
+.env
+.env.*
+
+# Logs & OS cruft
 *.log
+.DS_Store
+Thumbs.db
+
+# npm pack tarballs
+*.tgz
+
+# Tiraz runtime state — created when running the product (manifest, per-variant
+# worktrees, screenshots), the per-project config, and resolved skills.
+.tiraz/
+tiraz.config.json
+.claude/skills/
+
+# Interop export artifacts (`tiraz export`, written to the working directory)
+/DESIGN.md
+/v0-prompt.md
+/claude-design-brief.md
+
+# Local scratch (e.g. the original input spec)
+/misc/
