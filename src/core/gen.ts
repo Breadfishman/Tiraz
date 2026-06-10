@@ -52,6 +52,8 @@ export interface GenerateVariantContext {
   designSystem?: DesignSystem;
   /** Branch to base the worktree on (defaults to HEAD). Bred/recombined children base on a parent. */
   baseRef?: string;
+  /** One-shot human directive for directed breeding ("what to improve") — passed to the agent. */
+  directive?: string;
 }
 
 /**
@@ -94,6 +96,7 @@ export async function generateVariant(
     activeSkillIds,
     ctx.capabilities ?? [],
     ctx.designSystem,
+    ctx.directive,
   );
   const agentResult = await deps.agent.run({
     cwd: worktreePath,

@@ -7,6 +7,25 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Human-steered evolution — cull lineages + the dashboard cockpit** (`core/beam.ts`, `genome`/
+  `agent`/`gen`/`search`, `core/dashboard.ts`, `cli/{cull,breed,dashboard}.ts`). The dashboard is now
+  the cockpit for steering the population, not just viewing it:
+  - **Cull (negative selection)** — `cull(manifest, ids, {cascade})` marks variants `pruned`; with
+    cascade it kills the whole **lineage** (`lineageClosure`) — DAG-aware, so a grafted child with a
+    still-living parent survives. New `tiraz cull <nodes…> [--lineage]`. Culled variants stay in the
+    manifest (greyed) but are **skipped when building/serving** — pruning a doomed chain saves the
+    agent time it would spend breeding it.
+  - **Heart (favorite)** — `favorite(manifest, ids)` marks survivors **without** pruning siblings
+    (unlike the exclusive `selectSurvivors`), so you can like several styles and cull the rest.
+  - **Directed breeding** — `breed`/the dashboard take a free-text directive ("what to improve"),
+    threaded through `composePrompt` as a high-priority "Requested changes" section (one-shot: shapes
+    the child, not its descendants). New `tiraz breed -m/--note <text>`.
+  - **Dashboard cockpit** — action bar gains ♥ Heart, ✕ Cull, ⊘ Cull lineage, ◎ Focus (keep one,
+    prune the rest), a Breed box with the directive, and **Combine** (pick two + "what to take/discard"
+    → the existing human-directed `recombine`, run as a polled background job). Sidebar is grouped by
+    generation with parent annotations (a lineage view). New action API: `/api/{favorite,cull,
+recombine}` + directive on `/api/breed`.
+
 - **Taste quality — one shared rubric for generator and judge** (`core/taste-rubric.ts`, `agent.ts`,
   `vision-judge.ts`). The biggest lever on "still looks like AI-slop" was that the two sides of the
   loop spoke in generalities: the agent was told to have "non-generic taste" but never what slop _is_,

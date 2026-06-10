@@ -65,6 +65,14 @@ Manifest-only — runnable today.
 
 Mark the given nodes as survivors and prune the rest of their generation. Manifest-only.
 
+### `tiraz cull <nodes...>` ✅
+
+Negative selection — the human's "nip it in the bud". Marks the given nodes `pruned`. With
+`--lineage`, also culls every descendant whose **whole** ancestry runs through the culled set (kills
+a doomed chain in one move); it is DAG-aware, so a grafted child with another living parent survives.
+Culled variants stay in the manifest (greyed in the dashboard) but are skipped when building/serving
+and never bred — that is the resource save. Manifest-only.
+
 ### `tiraz compare` ✅
 
 Build a **single self-contained HTML gallery** of every variant for human review — the comparison
@@ -84,15 +92,22 @@ lets you **drive the search from the UI**. By default Tiraz compiles each varian
 **static site once** and serves them all from the single dashboard server (mounted at `/v/<id>/`) —
 this scales past the old "N concurrent dev servers" approach, which was resource-heavy and the source
 of transient render flakiness. The page is a sidebar of all variants (genome + fitness, best flagged,
-survivor ✓ / promoted ⬆ marked) with a stage that loads the selected variant in an iframe. Click or
-use ↑/↓ to switch; you interact with the real running component (not a screenshot).
+survivor ♥ / promoted ⬆ marked, culled greyed) with a stage that loads the selected variant in an
+iframe. Click or use ↑/↓ to switch; you interact with the real running component (not a screenshot).
+The sidebar is **grouped by generation with parent annotations** — a lineage view.
 
-Action controls (top bar) call back into the engine:
+It's the cockpit for human-steered evolution; the top action bar calls back into the engine:
 
-- **Select survivor** — marks the variant a survivor and prunes its siblings (`tiraz select`).
-- **Breed ×N** — mutates the variant into a new generation (runs the agent — minutes); progress is
-  polled and the page reloads with the new variants when done (`tiraz breed`).
-- **Promote** — greenfield merges to base; integration opens a PR (`tiraz promote`). Confirmed first.
+- **♥ Heart** — favorite a variant (keep it; no siblings pruned) — `tiraz select`'s gentler sibling.
+- **✕ Cull** / **⊘ Cull lineage** — kill a variant, or it plus its whole descendant chain (DAG-aware;
+  a grafted child with a surviving parent lives). Culled variants are skipped when building/serving —
+  the resource save (`tiraz cull [--lineage]`).
+- **◎ Focus** — keep only this variant and prune the rest of its generation (`tiraz select`).
+- **Breed** — refine into a new generation, with a **"what to improve" box** for directed breeding
+  (runs the agent — minutes; polled, page reloads when done) (`tiraz breed [-m <note>]`).
+- **⧉ Combine** — pick a second variant + describe **what to take from each / what to discard** →
+  human-directed graft (`tiraz recombine`), run as a polled background job.
+- **⬆ Promote** — greenfield merges to base; integration opens a PR (`tiraz promote`). Confirmed first.
 
 Long-running — Ctrl-C stops the dashboard (and any dev servers). Needs a playground harness; the
 variants' worktrees (or cached static builds) to serve.

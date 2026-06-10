@@ -6,7 +6,7 @@ import path from 'node:path';
 import type { Command } from 'commander';
 import { z } from 'zod';
 import { ClaudeCodeAgent, spawnRunner } from '../core/agent';
-import { selectSurvivors } from '../core/beam';
+import { cull, favorite, selectSurvivors } from '../core/beam';
 import { describeError, loadConfig } from '../core/config';
 import { renderDashboardHtml } from '../core/dashboard';
 import { detectHarness } from '../core/detect';
@@ -22,7 +22,7 @@ import {
   resolveRenderUrlAt,
   waitForServer,
 } from '../core/render-harness';
-import { breedGeneration } from '../core/search';
+import { breedGeneration, recombineVariant } from '../core/search';
 import { contentTypeFor, safeAssetPath, safeJoin } from '../core/static-serve';
 import { assignPort } from '../core/worktree';
 import { bundledSkillsDir } from './bundled';
@@ -38,11 +38,18 @@ type JobState =
   | { status: 'done'; message: string }
   | { status: 'error'; error: string };
 
-const SelectBody = z.object({ ids: z.array(z.string()).min(1) });
+const IdsBody = z.object({ ids: z.array(z.string()).min(1) });
+const CullBody = z.object({ ids: z.array(z.string()).min(1), cascade: z.boolean().optional() });
 const PromoteBody = z.object({ id: z.string() });
 const BreedBody = z.object({
   ids: z.array(z.string()).min(1),
   factor: z.number().int().min(1).optional(),
+  directive: z.string().optional(),
+});
+const RecombineBody = z.object({
+  parentA: z.string(),
+  parentB: z.string(),
+  instructions: z.string().min(1),
 });
 
 /** Live render URL for a dev-server variant on a fresh port (reuse its recorded renderUrl). */
@@ -95,7 +102,7 @@ export function registerDashboardCommand(program: Command): void {
   program
     .command('dashboard')
     .description(
-      'Serve a centralized UI of every variant; select / breed / promote from it (Ctrl-C to stop).',
+      'Serve a cockpit UI of every variant; heart / cull / breed / combine / promote from it (Ctrl-C to stop).',
     )
     .option('-p, --port <n>', 'Dashboard port', '4317')
     .option('--open', 'Open the dashboard in your browser')
@@ -208,8 +215,11 @@ async function runDashboard(
   }
 
   const servable = (node: VariantNode): boolean =>
-    existsSync(node.worktree) ||
-    (staticMode && existsSync(path.join(staticRoot, node.genome.id, 'index.html')));
+    // Culled variants are kept in the manifest (greyed in the sidebar) but not built/served — that
+    // is the resource save from pruning a doomed lineage.
+    node.status !== 'pruned' &&
+    (existsSync(node.worktree) ||
+      (staticMode && existsSync(path.join(staticRoot, node.genome.id, 'index.html'))));
   const toServe = Object.values(manifest.nodes).filter(servable);
 
   if (staticMode) {
@@ -227,46 +237,38 @@ async function runDashboard(
     await Promise.all(toServe.map(mountOne));
   }
 
-  // --- breed jobs (long, agent-driven) tracked for the UI to poll ---
+  // --- long agent-driven jobs (breed / combine) tracked for the UI to poll ---
   const jobs = new Map<string, JobState>();
   let jobSeq = 0;
-  let breedInFlight = false;
+  let jobInFlight = false;
+  const agentDeps = (): Parameters<typeof breedGeneration>[1] => ({
+    agent: new ClaudeCodeAgent(),
+    renderer: createPlaywrightRenderer(),
+    skillsSourceDir: bundledSkillsDir(),
+  });
 
-  function startBreedJob(ids: string[], factor: number | undefined): string {
+  /** Run a long agent job: produce new variant nodes, mount each, report completion. */
+  function startJob(initialMessage: string, run: () => Promise<VariantNode[]>): string {
     jobSeq += 1;
     const jobId = `job-${String(jobSeq)}`;
-    jobs.set(jobId, { status: 'running', message: 'Breeding (running the agent)…' });
-    breedInFlight = true;
+    jobs.set(jobId, { status: 'running', message: initialMessage });
+    jobInFlight = true;
     void (async () => {
       try {
-        const children = await breedGeneration(
-          {
-            cwd,
-            survivors: ids,
-            harness: harness.kind,
-            ...(factor !== undefined ? { factor } : {}),
-          },
-          {
-            agent: new ClaudeCodeAgent(),
-            renderer: createPlaywrightRenderer(),
-            skillsSourceDir: bundledSkillsDir(),
-          },
-        );
+        const produced = await run();
         jobs.set(jobId, {
           status: 'running',
-          message: `Building ${String(children.length)} new variant(s)…`,
+          message: `Building ${String(produced.length)} new variant(s)…`,
         });
-        for (const child of children) await mountOne(child);
+        for (const node of produced) await mountOne(node);
         jobs.set(jobId, {
           status: 'done',
-          message: `Bred ${String(children.length)} variant(s): ${children
-            .map((c) => c.genome.id)
-            .join(', ')}`,
+          message: `Done — ${produced.map((n) => n.genome.id).join(', ')}. Reloading…`,
         });
       } catch (err) {
         jobs.set(jobId, { status: 'error', error: describeError(err) });
       } finally {
-        breedInFlight = false;
+        jobInFlight = false;
       }
     })();
     return jobId;
@@ -291,8 +293,10 @@ async function runDashboard(
     }
 
     try {
-      if (url === '/api/select') {
-        const parsed = SelectBody.safeParse(body);
+      // Quick manifest-only mutations: select (focus), favorite (heart), cull (kill / lineage).
+      if (url === '/api/select' || url === '/api/favorite' || url === '/api/cull') {
+        const schema = url === '/api/cull' ? CullBody : IdsBody;
+        const parsed = schema.safeParse(body);
         if (!parsed.success) {
           sendJson(res, 400, { error: 'Expected { ids: string[] }' });
           return;
@@ -302,7 +306,16 @@ async function runDashboard(
           sendJson(res, 409, { error: 'Manifest disappeared' });
           return;
         }
-        await saveManifest(cwd, selectSurvivors(current, parsed.data.ids));
+        const { ids } = parsed.data;
+        if (url === '/api/select') {
+          await saveManifest(cwd, selectSurvivors(current, ids));
+        } else if (url === '/api/favorite') {
+          await saveManifest(cwd, favorite(current, ids));
+        } else {
+          const cascade = 'cascade' in parsed.data ? parsed.data.cascade === true : false;
+          const { manifest: updated } = cull(current, ids, { cascade });
+          await saveManifest(cwd, updated);
+        }
         sendJson(res, 200, { ok: true });
         return;
       }
@@ -320,17 +333,45 @@ async function runDashboard(
         sendJson(res, 200, { ok: true, message });
         return;
       }
-      if (url === '/api/breed') {
-        const parsed = BreedBody.safeParse(body);
+      if (url === '/api/breed' || url === '/api/recombine') {
+        if (jobInFlight) {
+          sendJson(res, 409, { error: 'An agent job is already running' });
+          return;
+        }
+        if (url === '/api/breed') {
+          const parsed = BreedBody.safeParse(body);
+          if (!parsed.success) {
+            sendJson(res, 400, {
+              error: 'Expected { ids: string[], factor?: number, directive? }',
+            });
+            return;
+          }
+          const { ids, factor, directive } = parsed.data;
+          const hasDirective = directive !== undefined && directive.trim() !== '';
+          const jobId = startJob('Breeding (running the agent)…', () =>
+            breedGeneration(
+              {
+                cwd,
+                survivors: ids,
+                harness: harness.kind,
+                ...(factor !== undefined ? { factor } : {}),
+                ...(hasDirective ? { directive: directive.trim() } : {}),
+              },
+              agentDeps(),
+            ),
+          );
+          sendJson(res, 202, { jobId });
+          return;
+        }
+        const parsed = RecombineBody.safeParse(body);
         if (!parsed.success) {
-          sendJson(res, 400, { error: 'Expected { ids: string[], factor?: number }' });
+          sendJson(res, 400, { error: 'Expected { parentA, parentB, instructions }' });
           return;
         }
-        if (breedInFlight) {
-          sendJson(res, 409, { error: 'A breed job is already running' });
-          return;
-        }
-        const jobId = startBreedJob(parsed.data.ids, parsed.data.factor);
+        const { parentA, parentB, instructions } = parsed.data;
+        const jobId = startJob('Combining (running the agent)…', async () => [
+          await recombineVariant({ cwd, parentA, parentB, instructions }, agentDeps()),
+        ]);
         sendJson(res, 202, { jobId });
         return;
       }

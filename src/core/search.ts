@@ -74,6 +74,8 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
 interface MaterializeItem {
   genome: Genome;
   baseRef?: string;
+  /** One-shot human directive (directed breeding) passed through to the agent prompt. */
+  directive?: string;
 }
 
 /** Set generation `index`'s id list (creating the slot), so it can be written incrementally. */
@@ -103,7 +105,7 @@ async function materialize(
   const nodes: VariantNode[] = [];
   const ids: string[] = [];
   let updated = manifest;
-  for (const { genome, baseRef } of items) {
+  for (const { genome, baseRef, directive } of items) {
     const port = assignPort(ports);
     ports.add(port);
     const node = await generateVariant(
@@ -117,6 +119,7 @@ async function materialize(
         capabilities,
         designSystem,
         ...(baseRef !== undefined ? { baseRef } : {}),
+        ...(directive !== undefined ? { directive } : {}),
       },
       deps,
     );
@@ -176,6 +179,8 @@ export interface BreedOptions {
   /** Children per survivor; defaults to `config.beam.factor`. */
   factor?: number;
   harness?: HarnessKind;
+  /** One-shot human directive ("what to improve") applied to every child this round. */
+  directive?: string;
 }
 
 /** Breed the next generation by mutating each survivor `factor` times (SPEC §7 step 5, mutation). */
@@ -208,6 +213,7 @@ export async function breedGeneration(opts: BreedOptions, deps: GenDeps): Promis
         ),
         // Base the child's worktree on the parent's branch so it refines, not regenerates.
         baseRef: parent.branch,
+        ...(opts.directive !== undefined ? { directive: opts.directive } : {}),
       });
       nodeIndex += 1;
     }

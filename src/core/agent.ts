@@ -64,6 +64,7 @@ export function composePrompt(
   activeSkillIds: string[],
   capabilities: string[] = [],
   designSystem?: DesignSystem,
+  directive?: string,
 ): string {
   const lines: string[] = [
     '# Tiraz variant brief',
@@ -89,6 +90,17 @@ export function composePrompt(
       `This worktree already contains a parent implementation (${genome.parents.join(', ')}). Improve`,
       'it in the direction of the parameters/commands below; keep what already works rather than',
       'rebuilding from scratch.',
+      '',
+    );
+  }
+
+  // A human's directed-breed instruction (the dashboard "what to improve" box) — the most specific,
+  // highest-priority signal for this child. One-shot: it shapes this variant, not its descendants.
+  if (directive !== undefined && directive.trim() !== '') {
+    lines.push(
+      '## Requested changes — do these specifically',
+      directive.trim(),
+      'Make these the focus of your edits; preserve everything else that already works.',
       '',
     );
   }

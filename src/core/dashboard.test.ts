@@ -90,19 +90,26 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('const actionsEnabled = false;');
   });
 
-  it('renders select/breed/promote controls when actions are enabled', () => {
+  it('renders the full cockpit (heart/cull/focus/breed/combine/promote) when actions are enabled', () => {
     const m = manifestWith([node('g0-n0')], [['g0-n0']]);
     const html = renderDashboardHtml(m, { 'g0-n0': 'http://x/1' }, { actionsEnabled: true });
-    expect(html).toContain('id="act-select"');
+    expect(html).toContain('id="act-heart"');
+    expect(html).toContain('id="act-cull"');
+    expect(html).toContain('id="act-cull-lineage"');
+    expect(html).toContain('id="act-focus"');
     expect(html).toContain('id="act-breed"');
+    expect(html).toContain('id="act-combine-start"');
     expect(html).toContain('id="act-promote"');
     expect(html).toContain('const actionsEnabled = true;');
-    expect(html).toContain("post('/api/select'");
+    expect(html).toContain("'/api/favorite'");
+    expect(html).toContain("'/api/cull'");
+    expect(html).toContain("'/api/select'"); // focus
     expect(html).toContain("post('/api/breed'");
+    expect(html).toContain("post('/api/recombine'");
     expect(html).toContain("post('/api/promote'");
   });
 
-  it('marks survivor / promoted status on sidebar items', () => {
+  it('marks survivor / promoted status on sidebar items and groups by generation', () => {
     const m = manifestWith(
       [
         node('g0-n0', { status: 'survivor' }),
@@ -115,7 +122,19 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('item s-survivor');
     expect(html).toContain('item s-promoted');
     expect(html).toContain('item s-pruned');
-    expect(html).toContain('✓');
-    expect(html).toContain('⬆');
+    expect(html).toContain('♥'); // survivor mark
+    expect(html).toContain('⬆'); // promoted mark
+    expect(html).toContain('generation 0'); // lineage grouping header
+  });
+
+  it('annotates a child variant with its parents in the sidebar', () => {
+    const child = node('g1-n0', {
+      generation: 1,
+      genome: { ...node('g1-n0').genome, parents: ['g0-n0'] },
+    });
+    const m = manifestWith([node('g0-n0'), child], [['g0-n0'], ['g1-n0']]);
+    const html = renderDashboardHtml(m, {});
+    expect(html).toContain('← g0-n0');
+    expect(html).toContain('generation 1');
   });
 });

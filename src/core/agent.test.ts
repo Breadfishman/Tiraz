@@ -86,6 +86,23 @@ describe('composePrompt', () => {
     expect(composePrompt(base, ['frontend-design'])).not.toContain('## Available capability');
   });
 
+  it('injects a directed-breed directive as high-priority requested changes', () => {
+    const withDirective = composePrompt(
+      base,
+      ['frontend-design'],
+      [],
+      undefined,
+      'bigger headline',
+    );
+    expect(withDirective).toContain('## Requested changes — do these specifically');
+    expect(withDirective).toContain('bigger headline');
+    // omitted when absent or blank
+    expect(composePrompt(base, ['frontend-design'])).not.toContain('## Requested changes');
+    expect(composePrompt(base, ['frontend-design'], [], undefined, '   ')).not.toContain(
+      '## Requested changes',
+    );
+  });
+
   it('omits the axes line when a graft has no axes', () => {
     const prompt = composePrompt(
       { ...base, graft: { parents: ['a', 'b'], instructions: 'graft' } },

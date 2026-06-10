@@ -117,6 +117,81 @@ export function pruneGeneration(
 }
 
 /**
+ * The full set of ids that die when `seeds` are culled: a seed dies, and any descendant dies too —
+ * but only when its *entire* ancestry runs through the culled set. A graft child with a surviving
+ * parent lives (the manifest is a DAG, not a tree). Seeds with no parents are never swept in by
+ * cascade; they die only by being named directly.
+ */
+export function lineageClosure(manifest: Manifest, seeds: string[]): Set<string> {
+  const dead = new Set(seeds);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const [id, node] of Object.entries(manifest.nodes)) {
+      if (dead.has(id)) continue;
+      const { parents } = node.genome;
+      if (parents.length > 0 && parents.every((parent) => dead.has(parent))) {
+        dead.add(id);
+        changed = true;
+      }
+    }
+  }
+  return dead;
+}
+
+export interface CullOptions {
+  /** Also cull descendants whose whole ancestry runs through the culled set (kill the lineage). */
+  cascade?: boolean;
+}
+
+export interface CullResult {
+  manifest: Manifest;
+  /** Ids actually transitioned to `pruned` this call (excludes already-pruned nodes). */
+  culled: string[];
+}
+
+/**
+ * Cull (negative selection — the human's "nip it in the bud", SPEC §7): mark `ids` `pruned`. With
+ * `cascade`, also prune every descendant whose entire ancestry runs through the culled set (see
+ * {@link lineageClosure}) — killing a doomed chain in one move so it is never bred or built again.
+ */
+export function cull(manifest: Manifest, ids: string[], opts: CullOptions = {}): CullResult {
+  for (const id of ids) {
+    if (manifest.nodes[id] === undefined) {
+      throw new BeamError(`Cannot cull unknown node ${id}`);
+    }
+  }
+  const dead = opts.cascade === true ? lineageClosure(manifest, ids) : new Set(ids);
+  let updated = manifest;
+  const culled: string[] = [];
+  for (const id of dead) {
+    const node = updated.nodes[id];
+    if (node !== undefined && node.status !== 'pruned') {
+      updated = upsertNode(updated, { ...node, status: 'pruned' });
+      culled.push(id);
+    }
+  }
+  return { manifest: updated, culled };
+}
+
+/**
+ * Heart / favorite (positive selection, SPEC §7): mark `ids` `survivor` *without* pruning their
+ * siblings — unlike {@link selectSurvivors}, which is the exclusive "keep only these". Lets the human
+ * like several variants across the population and cull the rest explicitly.
+ */
+export function favorite(manifest: Manifest, ids: string[]): Manifest {
+  let updated = manifest;
+  for (const id of ids) {
+    const node = updated.nodes[id];
+    if (node === undefined) {
+      throw new BeamError(`Cannot favorite unknown node ${id}`);
+    }
+    updated = upsertNode(updated, { ...node, status: 'survivor' });
+  }
+  return updated;
+}
+
+/**
  * Mark `ids` as survivors and prune the other still-`scored` nodes in the same generation(s)
  * (SPEC §7). Available in every pruning mode — the human override.
  */
