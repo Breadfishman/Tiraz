@@ -7,6 +7,23 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Dashboard now drives the search + serves static builds at scale** (`cli/dashboard.ts`,
+  `core/dashboard.ts`, `core/static-serve.ts`, `core/render-harness.ts`). Two backlog items landed:
+  - **Static builds (scale).** Instead of booting one dev server per variant (resource-heavy, the
+    source of transient render flakiness), `tiraz dashboard` now compiles each variant's playground to
+    a **static site once** (`harnessBuildCommand` → `storybook build` / `ladle build`) and serves them
+    all from the **single** dashboard server, each mounted at `/v/<id>/` (new `static-serve.ts`:
+    content-type + traversal-safe path resolution; `resolveRenderUrlAt` renders a story under a
+    mount-prefixed base). Builds are cached under `.tiraz/static/<id>` (reused unless `--rebuild`), so
+    relaunches are fast; `--dev` keeps the per-variant dev-server path for harnesses with no targetable
+    static build (e.g. Histoire). Serving is now decoupled from worktree lifecycle — a promoted
+    greenfield variant (worktree torn down) still serves from its cached build.
+  - **Dashboard actions.** The UI is no longer view-only: a top action bar **selects** a survivor,
+    **breeds** the variant into a new generation (long, agent-driven — kicked off as a background job
+    the page polls, then reloads with the new variants), and **promotes** it (merge / PR), all via a
+    small JSON action API on the dashboard server (`/api/select|breed|promote`, `/api/job/<id>`;
+    request bodies validated with zod). Sidebar items now mark survivor ✓ / promoted ⬆ / pruned.
+
 - **Anti-slop blend palette — understand components across sources** (`sources.ts`, `agent.ts`). Each
   source now catalogs its **signature effects** (e.g. Aceternity: aurora/spotlight/3D cards/meteors;
   Magic UI: marquee/bento/animated beam; Cult UI: dynamic island/texture cards; Motion Primitives:

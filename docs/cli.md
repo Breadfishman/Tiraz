@@ -79,15 +79,30 @@ between variants. No Storybook or dev server needed — just open the file. Mani
 
 ### `tiraz dashboard` ✅ (live)
 
-The centralized Tiraz UI: serves **one page** that embeds every variant **live and interactive** —
-Tiraz boots a render server (Storybook/Ladle/Histoire) per variant behind the scenes, and the page
-is a sidebar of all variants (genome + fitness, best flagged) with a stage that loads the selected
-variant in an iframe. Click or use ↑/↓ to switch; you interact with the real running component (not a
-screenshot). Long-running — Ctrl-C stops the dashboard and all variant servers. Needs the variants'
-worktrees + a playground harness.
+The centralized Tiraz UI: serves **one page** that embeds every variant **live and interactive** and
+lets you **drive the search from the UI**. By default Tiraz compiles each variant's playground to a
+**static site once** and serves them all from the single dashboard server (mounted at `/v/<id>/`) —
+this scales past the old "N concurrent dev servers" approach, which was resource-heavy and the source
+of transient render flakiness. The page is a sidebar of all variants (genome + fitness, best flagged,
+survivor ✓ / promoted ⬆ marked) with a stage that loads the selected variant in an iframe. Click or
+use ↑/↓ to switch; you interact with the real running component (not a screenshot).
+
+Action controls (top bar) call back into the engine:
+
+- **Select survivor** — marks the variant a survivor and prunes its siblings (`tiraz select`).
+- **Breed ×N** — mutates the variant into a new generation (runs the agent — minutes); progress is
+  polled and the page reloads with the new variants when done (`tiraz breed`).
+- **Promote** — greenfield merges to base; integration opens a PR (`tiraz promote`). Confirmed first.
+
+Long-running — Ctrl-C stops the dashboard (and any dev servers). Needs a playground harness; the
+variants' worktrees (or cached static builds) to serve.
 
 - `-p, --port <n>` — dashboard port (default `4317`).
 - `--open` — open it in your browser once it's up.
+- `--dev` — use a live dev server per variant instead of static builds (fallback for harnesses with
+  no targetable static build, e.g. Histoire).
+- `--rebuild` — force-rebuild cached static sites (otherwise an existing `.tiraz/static/<id>` is
+  reused, so re-launching the dashboard is fast).
 
 ### `tiraz diff <a> <b>` ✅
 

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   RenderHarnessError,
+  harnessBuildCommand,
   harnessServeCommand,
   parseTarget,
   resolveRenderUrl,
+  resolveRenderUrlAt,
   waitForServer,
 } from './render-harness';
 
@@ -53,6 +55,27 @@ describe('harnessServeCommand', () => {
   });
 });
 
+describe('harnessBuildCommand', () => {
+  it('compiles Storybook and Ladle to an output directory', () => {
+    expect(harnessBuildCommand('storybook', '/out/g0-n0')).toEqual({
+      command: 'npx',
+      args: ['storybook', 'build', '-o', '/out/g0-n0', '--quiet'],
+    });
+    expect(harnessBuildCommand('ladle', '/out/g0-n0')?.args).toEqual([
+      'ladle',
+      'build',
+      '--outDir',
+      '/out/g0-n0',
+    ]);
+  });
+
+  it('returns null for harnesses with no targetable static build', () => {
+    expect(harnessBuildCommand('histoire', '/out')).toBeNull();
+    expect(harnessBuildCommand('scratch', '/out')).toBeNull();
+    expect(harnessBuildCommand('app', '/out')).toBeNull();
+  });
+});
+
 describe('resolveRenderUrl', () => {
   it('renders a Storybook story in its isolated iframe', () => {
     expect(resolveRenderUrl('storybook', 'story:button--primary', 41000)).toBe(
@@ -83,6 +106,20 @@ describe('resolveRenderUrl', () => {
     );
     expect(() => resolveRenderUrl('ladle', 'route:/x', 41000)).toThrow(RenderHarnessError);
     expect(() => resolveRenderUrl('scratch', 'story:x', 41000)).toThrow(RenderHarnessError);
+  });
+});
+
+describe('resolveRenderUrlAt', () => {
+  it('renders a story under a mount-prefixed base on one server', () => {
+    expect(
+      resolveRenderUrlAt('storybook', 'story:hero--default', 'http://localhost:4317/v/g0-n0'),
+    ).toBe('http://localhost:4317/v/g0-n0/iframe.html?id=hero--default&viewMode=story');
+  });
+
+  it('tolerates a trailing slash on the base', () => {
+    expect(
+      resolveRenderUrlAt('storybook', 'story:hero--default', 'http://localhost:4317/v/g0-n0/'),
+    ).toBe('http://localhost:4317/v/g0-n0/iframe.html?id=hero--default&viewMode=story');
   });
 });
 

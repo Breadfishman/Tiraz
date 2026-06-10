@@ -82,4 +82,40 @@ describe('renderDashboardHtml', () => {
     const html = renderDashboardHtml(m, {});
     expect(html).toContain('&lt;b&gt;x&lt;/b&gt;');
   });
+
+  it('omits the action controls by default', () => {
+    const m = manifestWith([node('g0-n0')], [['g0-n0']]);
+    const html = renderDashboardHtml(m, { 'g0-n0': 'http://x/1' });
+    expect(html).not.toContain('id="act-breed"');
+    expect(html).toContain('const actionsEnabled = false;');
+  });
+
+  it('renders select/breed/promote controls when actions are enabled', () => {
+    const m = manifestWith([node('g0-n0')], [['g0-n0']]);
+    const html = renderDashboardHtml(m, { 'g0-n0': 'http://x/1' }, { actionsEnabled: true });
+    expect(html).toContain('id="act-select"');
+    expect(html).toContain('id="act-breed"');
+    expect(html).toContain('id="act-promote"');
+    expect(html).toContain('const actionsEnabled = true;');
+    expect(html).toContain("post('/api/select'");
+    expect(html).toContain("post('/api/breed'");
+    expect(html).toContain("post('/api/promote'");
+  });
+
+  it('marks survivor / promoted status on sidebar items', () => {
+    const m = manifestWith(
+      [
+        node('g0-n0', { status: 'survivor' }),
+        node('g0-n1', { status: 'promoted' }),
+        node('g0-n2', { status: 'pruned' }),
+      ],
+      [['g0-n0', 'g0-n1', 'g0-n2']],
+    );
+    const html = renderDashboardHtml(m, {});
+    expect(html).toContain('item s-survivor');
+    expect(html).toContain('item s-promoted');
+    expect(html).toContain('item s-pruned');
+    expect(html).toContain('✓');
+    expect(html).toContain('⬆');
+  });
 });

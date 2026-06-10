@@ -58,6 +58,26 @@ export function harnessServeCommand(harness: HarnessKind, port: number): ServeCo
   }
 }
 
+/**
+ * The command that compiles a harness to a self-contained static site under `outDir` (run in the
+ * variant's worktree). Building once and serving the output from a single static server is how the
+ * dashboard scales past N concurrent dev servers (the resource hog / flakiness source). Returns
+ * `null` for harnesses with no static build we can target an output directory for — the caller falls
+ * back to a per-variant dev server for those.
+ */
+export function harnessBuildCommand(harness: HarnessKind, outDir: string): ServeCommand | null {
+  switch (harness) {
+    case 'storybook':
+      return { command: 'npx', args: ['storybook', 'build', '-o', outDir, '--quiet'] };
+    case 'ladle':
+      return { command: 'npx', args: ['ladle', 'build', '--outDir', outDir] };
+    case 'histoire':
+    case 'scratch':
+    case 'app':
+      return null;
+  }
+}
+
 function ensureLeadingSlash(p: string): string {
   return p.startsWith('/') ? p : `/${p}`;
 }
@@ -69,7 +89,17 @@ function ensureLeadingSlash(p: string): string {
  * playground, which would need story-id introspection).
  */
 export function resolveRenderUrl(harness: HarnessKind, target: string, port: number): string {
-  const origin = `http://localhost:${String(port)}`;
+  return resolveRenderUrlAt(harness, target, `http://localhost:${String(port)}`);
+}
+
+/**
+ * Like {@link resolveRenderUrl}, but renders against an arbitrary base URL (origin + optional path
+ * prefix, no trailing slash) instead of a bare port. The dashboard mounts every variant's static
+ * build under `/v/<id>` on one server, so a story renders at `<base>/iframe.html?...` — this is what
+ * makes single-server serving possible.
+ */
+export function resolveRenderUrlAt(harness: HarnessKind, target: string, base: string): string {
+  const origin = base.replace(/\/$/, '');
   const { kind, value } = parseTarget(target);
 
   switch (harness) {
