@@ -98,17 +98,18 @@ afterEach(async () => {
 describe('seedGenomes', () => {
   it('spans both primaries and gives each variant a distinct overlay+dial profile', () => {
     const config = TirazConfigSchema.parse({ mode: 'greenfield' });
-    const genomes = seedGenomes(config, 4, {
+    const genomes = seedGenomes(config, 5, {
       brief: 'b',
       createdAt: '2026-06-08T00:00:00.000Z',
       generation: 0,
     });
-    expect(genomes.map((g) => g.id)).toEqual(['g0-n0', 'g0-n1', 'g0-n2', 'g0-n3']);
+    expect(genomes.map((g) => g.id)).toEqual(['g0-n0', 'g0-n1', 'g0-n2', 'g0-n3', 'g0-n4']);
     expect(genomes[0]?.primary).toBe('impeccable');
     expect(genomes[1]?.primary).toBe('design-taste-frontend');
-    // Genuinely diverse starting points: not all the same overlay or dial profile.
-    expect(new Set(genomes.map((g) => g.overlay)).size).toBeGreaterThan(1);
-    expect(new Set(genomes.map((g) => JSON.stringify(g.dials))).size).toBeGreaterThan(1);
+    // A round of 5 must use all 5 distinct profiles — every overlay+dial profile is unique (a
+    // regression guard: the old offset collapsed this to 3 profiles, skipping minimalist + soft).
+    const profiles = genomes.map((g) => `${g.overlay}|${JSON.stringify(g.dials)}`);
+    expect(new Set(profiles).size).toBe(5);
   });
 });
 

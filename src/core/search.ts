@@ -50,8 +50,10 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
   return Array.from({ length: count }, (_unused, i) => {
     const primarySkill = primaries[i % primaries.length];
     const primary = primarySkill?.primaryKey ?? config.primary;
-    // Profiles offset by the primary index so the two primaries don't get identical profiles.
-    const profile = SEED_PROFILES[(i + (i % primaries.length)) % SEED_PROFILES.length];
+    // Cycle profiles straight so a round of up to SEED_PROFILES.length variants gets every distinct
+    // profile (max gen-0 diversity). The earlier index-offset collapsed the sequence (e.g. with 2
+    // primaries it produced 0,2,2,4,4 — duplicating profiles and never using minimalist/soft).
+    const profile = SEED_PROFILES[i % SEED_PROFILES.length];
     return {
       id: genomeId(ctx.generation, i),
       parents: [],
