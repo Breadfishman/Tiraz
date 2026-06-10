@@ -10,11 +10,14 @@
  */
 
 import type { Manifest, VariantNode } from './manifest';
+import type { SnapshotMeta } from './snapshot';
 
 export interface DashboardOptions {
   title?: string;
   /** Render the heart / cull / breed / combine / promote controls + wire them to the action API. */
   actionsEnabled?: boolean;
+  /** Saved checkpoints, surfaced in a restore dropdown (only with `actionsEnabled`). */
+  snapshots?: SnapshotMeta[];
 }
 
 function escapeHtml(value: string): string {
@@ -146,6 +149,19 @@ export function renderDashboardHtml(
           <button class="abtn" id="act-combine-cancel">Cancel</button>
         </span>
       </div>
+      <div class="arow">
+        <button class="abtn" id="act-snapshot" title="Save a checkpoint of the whole population you can revert to">📸 Snapshot</button>
+        <select id="act-snap-select" class="snapsel">
+          <option value="">— restore a snapshot —</option>
+          ${(opts.snapshots ?? [])
+            .map(
+              (s) =>
+                `<option value="${escapeHtml(s.id)}">${escapeHtml(s.label)} · ${String(s.nodes)}v</option>`,
+            )
+            .join('')}
+        </select>
+        <button class="abtn" id="act-restore">Restore</button>
+      </div>
       <span class="toast" id="toast"></span>
     </div>`
     : '';
@@ -193,6 +209,7 @@ export function renderDashboardHtml(
   .factor { color: #8a8a93; font-size: 12px; } .factor input { width: 38px; background: #16161c; color: #e7e7ea;
             border: 1px solid #2a2a36; border-radius: 5px; padding: 3px 5px; }
   .combine { display: flex; gap: 10px; align-items: center; flex: 1; } .combine.hidden { display: none; }
+  .snapsel { background: #16161c; color: #e7e7ea; border: 1px solid #2a2a36; border-radius: 6px; padding: 5px 8px; font: inherit; min-width: 180px; }
   .toast { font-size: 12px; min-height: 1em; } .toast.ok { color: #5bd6a0; } .toast.bad { color: #e06b6b; } .toast.work { color: #d9a441; }
   .stage { flex: 1; min-height: 0; background: #fff; position: relative; }
   iframe { width: 100%; height: 100%; border: 0; display: block; }
@@ -325,11 +342,33 @@ export function renderDashboardHtml(
         try { const { jobId } = await post('/api/recombine', { parentA: window.__combineA, parentB: window.__combineB, instructions }); pollJob(jobId); }
         catch (e) { setToast('Combine failed: ' + e.message, 'bad'); setBusy(false); }
       });
+      // --- snapshots (population-wide; independent of the selected variant) ---
+      const snapBtn = document.getElementById('act-snapshot');
+      const snapSel = document.getElementById('act-snap-select');
+      const restoreBtn = document.getElementById('act-restore');
+      snapBtn.addEventListener('click', async () => {
+        if (window.__busy) return;
+        const label = prompt('Snapshot label (e.g. "liked g0-n2 + g0-n3"):');
+        if (label === null) return;
+        setBusy(true); setToast('Saving snapshot…', 'work');
+        try { await post('/api/snapshot', { label }); location.reload(); }
+        catch (e) { setToast('Snapshot failed: ' + e.message, 'bad'); setBusy(false); }
+      });
+      restoreBtn.addEventListener('click', async () => {
+        if (window.__busy) return;
+        const id = snapSel.value;
+        if (!id) { setToast('Pick a snapshot to restore.', 'bad'); return; }
+        if (!confirm('Revert the whole run to "' + id + '"? (Current state is auto-saved first.)')) return;
+        setBusy(true); setToast('Restoring ' + id + '…', 'work');
+        try { await post('/api/snapshot-restore', { id }); location.reload(); }
+        catch (e) { setToast('Restore failed: ' + e.message, 'bad'); setBusy(false); }
+      });
       function sync() {
         const v = cur ? data[cur] : null;
         const disabled = window.__busy || !v;
         ['act-heart','act-cull','act-cull-lineage','act-focus','act-promote','act-breed','act-combine-start'].forEach((id) => { btns[id].disabled = disabled; });
         btns['act-combine-go'].disabled = window.__busy;
+        snapBtn.disabled = window.__busy; restoreBtn.disabled = window.__busy;
       }
       window.__syncActions = sync;
     }

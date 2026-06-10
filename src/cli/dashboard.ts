@@ -23,6 +23,7 @@ import {
   waitForServer,
 } from '../core/render-harness';
 import { breedGeneration, recombineVariant } from '../core/search';
+import { listSnapshots, restoreSnapshot, saveSnapshot } from '../core/snapshot';
 import { contentTypeFor, safeAssetPath, safeJoin } from '../core/static-serve';
 import { assignPort } from '../core/worktree';
 import { bundledSkillsDir } from './bundled';
@@ -51,6 +52,8 @@ const RecombineBody = z.object({
   parentB: z.string(),
   instructions: z.string().min(1),
 });
+const SnapshotBody = z.object({ label: z.string() });
+const RestoreBody = z.object({ id: z.string() });
 
 /** Live render URL for a dev-server variant on a fresh port (reuse its recorded renderUrl). */
 function devUrl(node: VariantNode, port: number, harnessKind: string): string | null {
@@ -375,6 +378,26 @@ async function runDashboard(
         sendJson(res, 202, { jobId });
         return;
       }
+      if (url === '/api/snapshot') {
+        const parsed = SnapshotBody.safeParse(body);
+        if (!parsed.success) {
+          sendJson(res, 400, { error: 'Expected { label: string }' });
+          return;
+        }
+        const meta = await saveSnapshot(cwd, parsed.data.label);
+        sendJson(res, 200, { ok: true, id: meta.id });
+        return;
+      }
+      if (url === '/api/snapshot-restore') {
+        const parsed = RestoreBody.safeParse(body);
+        if (!parsed.success) {
+          sendJson(res, 400, { error: 'Expected { id: string }' });
+          return;
+        }
+        await restoreSnapshot(cwd, parsed.data.id);
+        sendJson(res, 200, { ok: true });
+        return;
+      }
       sendJson(res, 404, { error: 'Unknown action' });
     } catch (err) {
       sendJson(res, 500, { error: describeError(err) });
@@ -404,9 +427,10 @@ async function runDashboard(
   }
 
   async function serveIndex(res: ServerResponse): Promise<void> {
-    // Re-read the manifest each load so select/breed/promote changes show on refresh.
+    // Re-read the manifest + snapshots each load so actions (cull / heart / restore) show on refresh.
     const current = (await loadManifest(cwd)) ?? baseManifest;
-    const html = renderDashboardHtml(current, endpoints, { actionsEnabled: true });
+    const snapshots = await listSnapshots(cwd);
+    const html = renderDashboardHtml(current, endpoints, { actionsEnabled: true, snapshots });
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(html);
   }

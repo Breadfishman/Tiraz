@@ -73,6 +73,15 @@ a doomed chain in one move); it is DAG-aware, so a grafted child with another li
 Culled variants stay in the manifest (greyed in the dashboard) but are skipped when building/serving
 and never bred — that is the resource save. Manifest-only.
 
+### `tiraz snapshot save|list|restore` ✅
+
+Named, revertible checkpoints of a session. `save <label>` captures the current state; `list` shows
+them; `restore <id>` reverts to one (auto-saving the current state first as `auto-before-restore`, so
+a revert is undoable). A snapshot is just a saved copy of the **manifest** — cheap, because each
+variant's code is already immutable on its committed branch, so reverting the decision state never
+touches code. Stored in `.tiraz/snapshots/`. Also exposed as 📸 Snapshot + a restore dropdown in the
+dashboard cockpit. Manifest-only.
+
 ### `tiraz compare` ✅
 
 Build a **single self-contained HTML gallery** of every variant for human review — the comparison

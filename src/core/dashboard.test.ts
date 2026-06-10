@@ -109,6 +109,26 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain("post('/api/promote'");
   });
 
+  it('renders the snapshot controls and lists provided snapshots', () => {
+    const m = manifestWith([node('g0-n0')], [['g0-n0']]);
+    const html = renderDashboardHtml(
+      m,
+      { 'g0-n0': 'http://x/1' },
+      {
+        actionsEnabled: true,
+        snapshots: [
+          { id: 'liked-these', label: 'liked these', createdAt: 'x', nodes: 5, generations: 1 },
+        ],
+      },
+    );
+    expect(html).toContain('id="act-snapshot"');
+    expect(html).toContain('id="act-restore"');
+    expect(html).toContain("post('/api/snapshot'");
+    expect(html).toContain("post('/api/snapshot-restore'");
+    expect(html).toContain('value="liked-these"');
+    expect(html).toContain('liked these · 5v');
+  });
+
   it('marks survivor / promoted status on sidebar items and groups by generation', () => {
     const m = manifestWith(
       [

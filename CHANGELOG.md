@@ -7,6 +7,16 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Snapshots — revertible checkpoints of a session** (`core/snapshot.ts`, `cli/snapshot.ts`,
+  `dashboard`). Save a named checkpoint you can revert to. The insight that makes it cheap: every
+  variant's _code_ is already immutable on its own committed `tiraz/<id>` branch (heart/cull change
+  status, never code; cull never deletes a branch), so a snapshot is just a saved copy of the
+  **manifest** (the decision state) and reverting restores it — the branches it points at are all
+  still on disk. Stored under `.tiraz/snapshots/`. `restoreSnapshot` auto-checkpoints the current
+  state first, so a revert is itself reversible. New `tiraz snapshot save <label> | list | restore
+<id>`, and a 📸 Snapshot button + restore dropdown in the dashboard cockpit (`/api/snapshot`,
+  `/api/snapshot-restore`).
+
 - **Human-steered evolution — cull lineages + the dashboard cockpit** (`core/beam.ts`, `genome`/
   `agent`/`gen`/`search`, `core/dashboard.ts`, `cli/{cull,breed,dashboard}.ts`). The dashboard is now
   the cockpit for steering the population, not just viewing it:
