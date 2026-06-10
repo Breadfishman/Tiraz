@@ -7,7 +7,7 @@ import type { Command } from 'commander';
 import { z } from 'zod';
 import { ClaudeCodeAgent, spawnRunner } from '../core/agent';
 import { cull, favorite, selectSurvivors } from '../core/beam';
-import { describeError, loadConfig } from '../core/config';
+import { describeError, loadConfig, updateConfig } from '../core/config';
 import { renderDashboardHtml } from '../core/dashboard';
 import { detectHarness } from '../core/detect';
 import { loadManifest, saveManifest } from '../core/manifest';
@@ -15,6 +15,7 @@ import type { VariantNode } from '../core/manifest';
 import { createPlaywrightRenderer, launchServerProcess } from '../core/playwright-io';
 import { promoteVariant } from '../core/promote';
 import type { ServerProcess } from '../core/playwright-renderer';
+import { buildResourceView, toggleModule, toggleSource } from '../core/resources';
 import {
   harnessBuildCommand,
   harnessServeCommand,
@@ -54,6 +55,11 @@ const RecombineBody = z.object({
 });
 const SnapshotBody = z.object({ label: z.string() });
 const RestoreBody = z.object({ id: z.string() });
+const ConfigBody = z.object({
+  kind: z.enum(['source', 'module']),
+  id: z.string(),
+  enabled: z.boolean(),
+});
 
 /** Live render URL for a dev-server variant on a fresh port (reuse its recorded renderUrl). */
 function devUrl(node: VariantNode, port: number, harnessKind: string): string | null {
@@ -398,6 +404,32 @@ async function runDashboard(
         sendJson(res, 200, { ok: true });
         return;
       }
+      if (url === '/api/config') {
+        const parsed = ConfigBody.safeParse(body);
+        if (!parsed.success) {
+          sendJson(res, 400, { error: 'Expected { kind: "source"|"module", id, enabled }' });
+          return;
+        }
+        const { kind, id, enabled } = parsed.data;
+        const { config: cfg } = await loadConfig(cwd);
+        if (kind === 'source') {
+          const next = toggleSource(cfg, id, enabled);
+          await updateConfig(cwd, (raw) => {
+            raw.sources = next.sources;
+          });
+        } else {
+          if (id !== 'threeD' && id !== 'remotion') {
+            sendJson(res, 400, { error: 'Unknown module' });
+            return;
+          }
+          const next = toggleModule(cfg, id, enabled);
+          await updateConfig(cwd, (raw) => {
+            raw.modules = next.modules;
+          });
+        }
+        sendJson(res, 200, { ok: true });
+        return;
+      }
       sendJson(res, 404, { error: 'Unknown action' });
     } catch (err) {
       sendJson(res, 500, { error: describeError(err) });
@@ -427,10 +459,15 @@ async function runDashboard(
   }
 
   async function serveIndex(res: ServerResponse): Promise<void> {
-    // Re-read the manifest + snapshots each load so actions (cull / heart / restore) show on refresh.
+    // Re-read manifest + snapshots + config each load so actions and config toggles show on refresh.
     const current = (await loadManifest(cwd)) ?? baseManifest;
     const snapshots = await listSnapshots(cwd);
-    const html = renderDashboardHtml(current, endpoints, { actionsEnabled: true, snapshots });
+    const { config: liveConfig } = await loadConfig(cwd);
+    const html = renderDashboardHtml(current, endpoints, {
+      actionsEnabled: true,
+      snapshots,
+      resources: buildResourceView(liveConfig),
+    });
     res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
     res.end(html);
   }

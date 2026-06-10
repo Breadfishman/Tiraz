@@ -7,6 +7,20 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Cockpit: Config & Resources panel + judge rationale** (`core/resources.ts`, `core/dashboard.ts`,
+  `core/sources.ts`, `cli/dashboard.ts`). Two dashboard additions:
+  - **Config & Resources panel** — a collapsible "⚙ Config & resources" panel surfaces the run's
+    config and doubles as a reference shelf: component sources and capability libraries, each a
+    **hyperlink** to its site/docs (sources gained a `url` field; capability links derive from their
+    npm package), with **live toggles** that write `tiraz.config.json` (sources move in/out of
+    `bundled`/`fetch` by tier, the restricted Aceternity flips its boolean with its ToS warning shown,
+    and the 3D / Remotion **modules** toggle) — answering "where are all the toggles?" (they were
+    CLI-only). Pure `buildResourceView` / `toggleSource` / `toggleModule` in `resources.ts`; new
+    `/api/config` endpoint. Changes apply to the next gen/breed.
+  - **Judge rationale per variant** — selecting a variant now shows the taste judge's **per-lens
+    rationale** (the "why this ranked where it did", e.g. "asymmetric grid with tension") in a detail
+    strip, surfacing reasoning that was already in the manifest but hidden behind the composite score.
+
 - **Snapshots — revertible checkpoints of a session** (`core/snapshot.ts`, `cli/snapshot.ts`,
   `dashboard`). Save a named checkpoint you can revert to. The insight that makes it cheap: every
   variant's _code_ is already immutable on its own committed `tiraz/<id>` branch (heart/cull change

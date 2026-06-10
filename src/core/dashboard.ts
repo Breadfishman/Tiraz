@@ -10,6 +10,7 @@
  */
 
 import type { Manifest, VariantNode } from './manifest';
+import type { ResourceView } from './resources';
 import type { SnapshotMeta } from './snapshot';
 
 export interface DashboardOptions {
@@ -18,6 +19,8 @@ export interface DashboardOptions {
   actionsEnabled?: boolean;
   /** Saved checkpoints, surfaced in a restore dropdown (only with `actionsEnabled`). */
   snapshots?: SnapshotMeta[];
+  /** Config + resource links (sources / capability libraries), surfaced in a collapsible panel. */
+  resources?: ResourceView;
 }
 
 function escapeHtml(value: string): string {
@@ -40,6 +43,8 @@ interface VariantView {
   composite: number | null;
   lintPassed: boolean | null;
   tasteRank: number | null;
+  /** Per-lens taste-judge rationale (why the judge ranked it where it did). */
+  panel: { lens: string; rationale: string }[];
   best: boolean;
 }
 
@@ -58,6 +63,7 @@ function toView(node: VariantNode, url: string | null, best: boolean): VariantVi
     composite: f?.composite ?? null,
     lintPassed: f?.lintFloor.passed ?? null,
     tasteRank: f?.taste.rank ?? null,
+    panel: (f?.taste.panel ?? []).map((p) => ({ lens: p.lens, rationale: p.rationale })),
     best,
   };
 }
@@ -66,6 +72,45 @@ const STATUS_MARK: Record<string, string> = {
   survivor: ' ♥',
   promoted: ' ⬆',
 };
+
+/** The collapsible "Config & resources" panel: source/module toggles + hyperlinked libraries. */
+function buildResourcePanel(resources: ResourceView | undefined): string {
+  if (resources === undefined) return '';
+  const link = (url: string, text: string): string =>
+    `<a href="${escapeHtml(url)}" target="_blank" rel="noreferrer noopener">${escapeHtml(text)}</a>`;
+
+  const sourceRow = (s: ResourceView['sources'][number]): string =>
+    `<label class="rrow${s.enabled ? '' : ' rdim'}">
+      <input type="checkbox" class="cfg-toggle" data-kind="source" data-id="${escapeHtml(s.id)}"${s.enabled ? ' checked' : ''} />
+      ${link(s.url, s.name)} <span class="rbadge">${escapeHtml(s.tier)}</span>
+      <span class="rlic">${escapeHtml(s.license)}</span>
+      ${s.restricted ? `<span class="rwarn" title="${escapeHtml(s.warning ?? '')}">⚠ restricted</span>` : ''}
+    </label>`;
+
+  const capRow = (c: ResourceView['capabilities'][number]): string =>
+    `<div class="rrow${c.enabled ? '' : ' rdim'}">${link(c.url, c.name)}
+      <span class="rbadge">${escapeHtml(c.category)}</span><span class="rlic">${escapeHtml(c.license)}</span>
+      ${c.restricted ? '<span class="rwarn">⚠</span>' : ''}</div>`;
+
+  const moduleToggle = (id: 'threeD' | 'remotion', label: string, on: boolean): string =>
+    `<label class="rrow"><input type="checkbox" class="cfg-toggle" data-kind="module" data-id="${id}"${on ? ' checked' : ''} /> ${label}</label>`;
+
+  return `<details class="respanel">
+    <summary>⚙ Config &amp; resources</summary>
+    <div class="respanel-body">
+      <p class="rnote">Toggles write <code>tiraz.config.json</code> and apply to the next gen / breed.</p>
+      <div class="rsec"><h4>Design skills</h4>
+        <div class="rrow rdim">primary: ${escapeHtml(resources.skills.primary)} · overlay: ${escapeHtml(resources.skills.overlay)} <span class="rlic">switch via <code>tiraz skills</code></span></div>
+      </div>
+      <div class="rsec"><h4>Component sources</h4>${resources.sources.map(sourceRow).join('')}</div>
+      <div class="rsec"><h4>Capability libraries</h4>
+        ${moduleToggle('threeD', '3D module (Three.js / R3F)', resources.modules.threeD)}
+        ${moduleToggle('remotion', 'Video module (Remotion)', resources.modules.remotion)}
+        ${resources.capabilities.map(capRow).join('')}
+      </div>
+    </div>
+  </details>`;
+}
 
 /**
  * Render the dashboard shell. `endpoints` maps a variant id to its live render URL (e.g. a booted
@@ -166,6 +211,8 @@ export function renderDashboardHtml(
     </div>`
     : '';
 
+  const resourcePanel = buildResourcePanel(actions ? opts.resources : undefined);
+
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8" /><meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>${escapeHtml(title)}</title>
@@ -211,6 +258,21 @@ export function renderDashboardHtml(
   .combine { display: flex; gap: 10px; align-items: center; flex: 1; } .combine.hidden { display: none; }
   .snapsel { background: #16161c; color: #e7e7ea; border: 1px solid #2a2a36; border-radius: 6px; padding: 5px 8px; font: inherit; min-width: 180px; }
   .toast { font-size: 12px; min-height: 1em; } .toast.ok { color: #5bd6a0; } .toast.bad { color: #e06b6b; } .toast.work { color: #d9a441; }
+  .respanel { border-bottom: 1px solid #1e1e24; background: #0c0c10; font-size: 12px; }
+  .respanel > summary { cursor: pointer; padding: 8px 18px; color: #c7c7cf; font-weight: 600; user-select: none; }
+  .respanel-body { padding: 4px 18px 14px; max-height: 320px; overflow-y: auto; display: grid; gap: 14px; grid-template-columns: 1fr 1fr; }
+  .rnote { grid-column: 1 / -1; margin: 0; color: #6f6f78; }
+  .rsec h4 { margin: 0 0 6px; color: #8a8a93; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+  .rsec:nth-of-type(3) { grid-column: 1 / -1; }
+  .rrow { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; color: #c7c7cf; }
+  .rrow.rdim { opacity: 0.55; } .rrow a { color: #8ab4ff; text-decoration: none; } .rrow a:hover { text-decoration: underline; }
+  .rbadge { background: #20202a; border-radius: 5px; padding: 0 6px; font-size: 10px; color: #9a9aa3; }
+  .rlic { color: #6f6f78; font-size: 11px; } .rwarn { color: #e0a96b; font-size: 11px; }
+  .detail { padding: 8px 18px; border-bottom: 1px solid #1e1e24; background: #0c0c10; color: #9a9aa3;
+            font-size: 12px; max-height: 132px; overflow-y: auto; }
+  .detail:empty { display: none; }
+  .detail b { color: #c7c7cf; text-transform: uppercase; font-size: 10px; letter-spacing: 0.06em; margin-right: 6px; }
+  .detail .lens { margin-bottom: 4px; }
   .stage { flex: 1; min-height: 0; background: #fff; position: relative; }
   iframe { width: 100%; height: 100%; border: 0; display: block; }
   .empty { color: #6f6f78; padding: 40px; }
@@ -224,6 +286,8 @@ export function renderDashboardHtml(
   <main>
     <div class="bar" id="bar"><span class="muted">Select a variant to view it live →</span></div>
     ${actionBar}
+    ${resourcePanel}
+    <div class="detail" id="detail"></div>
     <div class="stage"><iframe id="stage" title="variant" src=""></iframe>
       <div class="empty" id="empty" style="display:none">This variant has no live render.</div></div>
   </main>
@@ -232,8 +296,9 @@ export function renderDashboardHtml(
     const actionsEnabled = ${String(actions)};
     const order = Object.keys(data);
     const frame = document.getElementById('stage'), bar = document.getElementById('bar'),
-          empty = document.getElementById('empty');
+          empty = document.getElementById('empty'), detail = document.getElementById('detail');
     let cur = null;
+    function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
     function select(id) {
       const v = data[id]; if (!v) return;
       document.querySelectorAll('.item').forEach((b) => b.classList.toggle('active', b.dataset.id === id));
@@ -248,6 +313,10 @@ export function renderDashboardHtml(
         + ' · ' + (v.parents.length ? '← ' + v.parents.join(', ') : 'seed') + '</span>'
         + '<span class="muted">variance ' + v.dials.variance + ' · motion ' + v.dials.motion + ' · density ' + v.dials.density + '</span>'
         + fit + '<span class="muted">status ' + v.status + '</span>';
+      detail.innerHTML = (v.panel && v.panel.length)
+        ? '<div class="lens"><b>judge</b> why this ranked where it did:</div>'
+          + v.panel.map((p) => '<div class="lens"><b>' + esc(p.lens) + '</b>' + esc(p.rationale) + '</div>').join('')
+        : '';
       if (actionsEnabled) syncActions();
     }
     function onItemClick(id) {
@@ -362,6 +431,15 @@ export function renderDashboardHtml(
         setBusy(true); setToast('Restoring ' + id + '…', 'work');
         try { await post('/api/snapshot-restore', { id }); location.reload(); }
         catch (e) { setToast('Restore failed: ' + e.message, 'bad'); setBusy(false); }
+      });
+      // --- config & resource toggles (write tiraz.config.json; apply to next gen/breed) ---
+      document.querySelectorAll('.cfg-toggle').forEach((cb) => {
+        cb.addEventListener('change', async () => {
+          if (window.__busy) { cb.checked = !cb.checked; return; }
+          setBusy(true); setToast('Updating config…', 'work');
+          try { await post('/api/config', { kind: cb.dataset.kind, id: cb.dataset.id, enabled: cb.checked }); location.reload(); }
+          catch (e) { cb.checked = !cb.checked; setToast('Config update failed: ' + e.message, 'bad'); setBusy(false); }
+        });
       });
       function sync() {
         const v = cur ? data[cur] : null;

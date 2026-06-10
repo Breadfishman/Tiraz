@@ -118,6 +118,12 @@ It's the cockpit for human-steered evolution; the top action bar calls back into
   human-directed graft (`tiraz recombine`), run as a polled background job.
 - **⬆ Promote** — greenfield merges to base; integration opens a PR (`tiraz promote`). Confirmed first.
 
+Selecting a variant also shows the taste judge's **per-lens rationale** (why it ranked where it did)
+in a detail strip. A collapsible **⚙ Config & resources** panel surfaces the run's component sources
+and capability libraries — each **hyperlinked** to its docs — with **toggles** (sources + the 3D /
+Remotion modules) that write `tiraz.config.json` and apply to the next gen/breed; that's the GUI home
+for the toggles that otherwise live in `tiraz skills` / `tiraz sources`.
+
 Long-running — Ctrl-C stops the dashboard (and any dev servers). Needs a playground harness; the
 variants' worktrees (or cached static builds) to serve.
 

@@ -129,6 +129,71 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('liked these · 5v');
   });
 
+  it('surfaces the per-lens judge rationale in the variant data', () => {
+    const m = manifestWith(
+      [
+        node('g0-n0', {
+          fitness: {
+            ...fitness(80, 1, true),
+            taste: {
+              rank: 1,
+              derivedScore: 80,
+              panel: [{ lens: 'layout', model: 'x', rationale: 'asymmetric grid with tension' }],
+            },
+          },
+        }),
+      ],
+      [['g0-n0']],
+    );
+    const html = renderDashboardHtml(m, { 'g0-n0': 'http://x/1' });
+    expect(html).toContain('asymmetric grid with tension');
+    expect(html).toContain('"lens":"layout"');
+  });
+
+  it('renders the config & resources panel with toggles and hyperlinks', () => {
+    const m = manifestWith([node('g0-n0')], [['g0-n0']]);
+    const html = renderDashboardHtml(
+      m,
+      { 'g0-n0': 'http://x/1' },
+      {
+        actionsEnabled: true,
+        resources: {
+          skills: { primary: 'impeccable', overlay: 'none' },
+          modules: { threeD: false, remotion: false },
+          sources: [
+            {
+              id: 'magic-ui',
+              name: 'Magic UI',
+              tier: 'bundled',
+              url: 'https://magicui.design',
+              license: 'MIT',
+              enabled: true,
+              restricted: false,
+            },
+          ],
+          capabilities: [
+            {
+              id: 'gsap',
+              name: 'GSAP',
+              category: 'animation',
+              module: 'core',
+              url: 'https://www.npmjs.com/package/gsap',
+              license: 'MIT',
+              enabled: true,
+              restricted: false,
+            },
+          ],
+        },
+      },
+    );
+    expect(html).toContain('Config &amp; resources');
+    expect(html).toContain('href="https://magicui.design"');
+    expect(html).toContain('href="https://www.npmjs.com/package/gsap"');
+    expect(html).toContain('data-kind="source" data-id="magic-ui"');
+    expect(html).toContain('data-kind="module" data-id="threeD"');
+    expect(html).toContain("post('/api/config'");
+  });
+
   it('marks survivor / promoted status on sidebar items and groups by generation', () => {
     const m = manifestWith(
       [

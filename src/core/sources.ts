@@ -13,6 +13,8 @@ export interface ComponentSource {
   /** Stable id, also the prefix a fetched component is recorded under (e.g. `react-bits/SplitText`). */
   id: string;
   name: string;
+  /** Homepage / docs URL, surfaced as a reference link in the dashboard. */
+  url: string;
   tier: SourceTier;
   license: string;
   /** Enabling this source requires its own toggle + surfaces {@link ComponentSource.warning}. */
@@ -45,6 +47,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'magic-ui',
     name: 'Magic UI',
+    url: 'https://magicui.design',
     tier: 'bundled',
     license: 'MIT',
     restricted: false,
@@ -61,6 +64,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'react-bits',
     name: 'React Bits',
+    url: 'https://www.reactbits.dev',
     tier: 'fetch',
     license: 'MIT + Commons Clause',
     restricted: false,
@@ -78,6 +82,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: '21st-registry',
     name: '21st.dev registry',
+    url: 'https://21st.dev',
     tier: 'fetch',
     license: 'Community (MIT-class)',
     restricted: false,
@@ -88,6 +93,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'cult-ui',
     name: 'Cult UI',
+    url: 'https://www.cult-ui.com',
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
@@ -97,6 +103,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'motion-primitives',
     name: 'Motion Primitives',
+    url: 'https://motion-primitives.com',
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
@@ -113,6 +120,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'kokonut-ui',
     name: 'Kokonut UI',
+    url: 'https://kokonutui.com',
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
@@ -123,6 +131,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'smoothui',
     name: 'SmoothUI',
+    url: 'https://www.smoothui.dev',
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
@@ -133,6 +142,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'eldora-ui',
     name: 'Eldora UI',
+    url: 'https://www.eldoraui.site',
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
@@ -143,6 +153,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'indie-ui',
     name: 'Indie UI',
+    url: 'https://ui.indie-starter.dev',
     tier: 'fetch',
     license: 'MIT',
     restricted: false,
@@ -153,6 +164,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'animate-ui',
     name: 'Animate UI',
+    url: 'https://animate-ui.com',
     tier: 'fetch',
     license: 'MIT + Commons Clause',
     restricted: false,
@@ -164,6 +176,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'origin-ui',
     name: 'Origin UI',
+    url: 'https://originui.com',
     tier: 'fetch',
     license: 'MIT (components) / AGPL-3.0 (repo)',
     restricted: false,
@@ -175,6 +188,7 @@ export const SOURCES: readonly ComponentSource[] = [
   {
     id: 'aceternity',
     name: 'Aceternity UI',
+    url: 'https://ui.aceternity.com',
     tier: 'fetch',
     license: 'Restrictive ToS (no redistribution)',
     restricted: true,
