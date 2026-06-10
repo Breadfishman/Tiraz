@@ -10,6 +10,7 @@
 
 import { z } from 'zod';
 import type { JudgeCandidate, JudgeContext, PairwiseJudge, PairwiseVerdict } from './taste-judge';
+import { antiSlopRubric } from './taste-rubric';
 
 /** Lens-specific rubrics, mirroring `frontend-design`'s taste criteria (SPEC §9). */
 const LENS_RUBRICS: Record<string, string> = {
@@ -22,9 +23,9 @@ const LENS_RUBRICS: Record<string, string> = {
   motion:
     'implied motion and interaction polish: easing, choreography, micro-interaction cues visible in ' +
     'the still. Reward restraint and intent; penalise generic or absent motion affordances.',
-  'generic-feel':
-    'overall originality: does it look AI-generated / templated, or designed with taste? Reward ' +
-    'distinctive, considered work; penalise the generic "AI default" look.',
+  // The anti-slop lens draws on the shared taste rubric so the judge grades on the same concrete
+  // catalog of slop tells / excellence markers the agent builds against (taste-rubric.ts).
+  'generic-feel': antiSlopRubric(),
 };
 
 const DEFAULT_RUBRIC = 'overall design quality and taste for this brief.';

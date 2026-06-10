@@ -2,6 +2,7 @@ import { spawn } from 'node:child_process';
 import type { DesignSystem } from './ds-adherence';
 import type { Genome } from './genome';
 import { signaturesFor } from './sources';
+import { tasteBarSection } from './taste-rubric';
 
 export interface AgentRunOptions {
   /** Working directory (the variant's worktree). */
@@ -77,6 +78,10 @@ export function composePrompt(
   if (genome.target !== undefined) {
     lines.push('## Target', `Scope your work to: ${genome.target}`, '');
   }
+
+  // The shared taste bar, high in the prompt: the agent builds against the same rubric the judge
+  // grades on (see taste-rubric.ts) — the main lever against output that reads as AI-slop.
+  lines.push(...tasteBarSection());
 
   if (genome.parents.length > 0) {
     lines.push(

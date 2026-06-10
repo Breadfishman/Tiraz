@@ -7,6 +7,23 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Taste quality — one shared rubric for generator and judge** (`core/taste-rubric.ts`, `agent.ts`,
+  `vision-judge.ts`). The biggest lever on "still looks like AI-slop" was that the two sides of the
+  loop spoke in generalities: the agent was told to have "non-generic taste" but never what slop _is_,
+  and the judge's anti-slop lens was a single vague sentence — so neither generation nor selection
+  pushed hard against the AI-default look. New `taste-rubric.ts` is a single, concrete source of
+  truth: a catalog of **slop tells** (centered single-column hero + two pill buttons; purple/blue
+  gradients + glassmorphism; a symmetric row of three equal emoji cards; framework-default
+  spacing/radii; timid type scale; stock section order; decorative blur blobs; no signature element)
+  and **excellence markers** (confident wide type scale + font pairing; committed restrained palette;
+  intentional asymmetry/negative space; one signature element; detail craft; choreographed restraint).
+  `composePrompt` now injects this as a high-priority **"Taste bar — clear it"** directive, and the
+  judge's `generic-feel` lens grades against the **same** catalog (`antiSlopRubric()`) — so a variant
+  is built against the exact bar it is scored on, with no drift. Tuning the catalog moves both
+  generation and selection at once. _Iteration 1; effectiveness is best judged live (A/B a round
+  before/after)._ Next levers: a self-critique-and-revise pass during generation, a dedicated palette
+  lens, and reference exemplars for the judge.
+
 - **Dashboard now drives the search + serves static builds at scale** (`cli/dashboard.ts`,
   `core/dashboard.ts`, `core/static-serve.ts`, `core/render-harness.ts`). Two backlog items landed:
   - **Static builds (scale).** Instead of booting one dev server per variant (resource-heavy, the

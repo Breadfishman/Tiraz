@@ -23,6 +23,9 @@ describe('composePrompt', () => {
     expect(prompt).toContain('- impeccable');
     expect(prompt).toContain('variance (distance from conventional): 7');
     expect(prompt).toContain('Variation seed: 42');
+    // The shared taste bar is always present (built against the same rubric the judge grades on).
+    expect(prompt).toContain('## Taste bar — clear it (this is graded)');
+    expect(prompt).toContain('Avoid these slop tells');
     expect(prompt).not.toContain('## Target');
     expect(prompt).not.toContain('## Recombination');
     expect(prompt).not.toContain('## Apply these commands');

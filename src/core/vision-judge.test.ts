@@ -24,6 +24,13 @@ describe('buildJudgePrompt', () => {
     expect(prompt).toContain('(no brief supplied)');
     expect(prompt).toContain('overall design quality');
   });
+
+  it('grades the anti-slop lens against the shared concrete rubric', () => {
+    const { prompt } = buildJudgePrompt('A landing page', 'generic-feel');
+    expect(prompt).toContain('originality');
+    expect(prompt).toContain('Penalise slop tells');
+    expect(prompt).toContain('emoji used as iconography');
+  });
 });
 
 describe('parseVerdict', () => {
