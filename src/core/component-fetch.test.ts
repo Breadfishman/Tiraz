@@ -11,6 +11,7 @@ import {
 describe('COMPONENT_REGISTRY', () => {
   it('ships only verified shadcn-registry entries (each live-confirmed)', () => {
     expect(COMPONENT_REGISTRY.map((r) => r.id).sort()).toEqual([
+      'aceternity',
       'cult-ui',
       'eldora-ui',
       'kokonut-ui',
@@ -97,6 +98,18 @@ describe('resolveFetchPlan', () => {
   it('returns [] for an empty budget, zero, or negative budget', () => {
     expect(resolveFetchPlan(['magic-ui'], { budget: 0 })).toEqual([]);
     expect(resolveFetchPlan(['magic-ui'], { budget: -3 })).toEqual([]);
+  });
+
+  it('plans aceternity only when it is explicitly permitted (the restricted, toggle-gated source)', () => {
+    // Aceternity carries the largest item set, but is never planned unless it is in the permitted
+    // list — and resolveSources only admits it when config.sources.aceternity is toggled on.
+    expect(registryFor('aceternity')?.items.length).toBeGreaterThanOrEqual(100);
+    expect(
+      resolveFetchPlan(['magic-ui'], { budget: 50 }).some((r) => r.source === 'aceternity'),
+    ).toBe(false);
+    const plan = resolveFetchPlan(['aceternity'], { budget: 3 });
+    expect(plan.every((r) => r.source === 'aceternity')).toBe(true);
+    expect(plan.map((r) => r.item)).toEqual(['grid', 'moving-line', 'sparkles']);
   });
 
   it('returns [] when no permitted source has a registry entry', () => {

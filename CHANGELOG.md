@@ -27,9 +27,12 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
   shadcn registry CLI (`npx shadcn@latest add <url> --yes`, verified live), and `composePrompt` tells
   the agent to **import + compose + restyle** those real components through the design system rather
   than rebuild them.
-  - A pure `COMPONENT_REGISTRY` — **6 live-verified sources**: `magic-ui`, `cult-ui`, `kokonut-ui`,
-    `react-bits`, `eldora-ui`, `smoothui` (each URL template + item confirmed to return valid registry
-    JSON; verified-only, expand-by-verification) — plus `resolveFetchPlan` (round-robins items across
+  - A pure `COMPONENT_REGISTRY` — **7 sources**: `magic-ui`, `cult-ui`, `kokonut-ui`, `react-bits`,
+    `eldora-ui`, `smoothui` (each URL template + item confirmed live; verified-only,
+    expand-by-verification), plus **`aceternity`** (109 core components, restricted/toggle-gated — only
+    fetched when `config.sources.aceternity` is on, off by default; slugs sourced from Aceternity's
+    registry index with 6 spot-verified, best-effort skip on any drift) — plus `resolveFetchPlan`
+    (round-robins items across
     permitted sources, capped by `fetchBudget`, deduped) + `buildFetchCommand`; a pluggable
     `FetchTransport` union (`shadcn-registry` now; `mcp` / `copy` / `signatures` are the roadmap).
     Provenance recorded to `.tiraz/provenance.json`. (`motion-primitives` / `origin-ui` / `animate-ui`
