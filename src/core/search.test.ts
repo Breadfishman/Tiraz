@@ -137,6 +137,58 @@ describe('generateGeneration', () => {
       generateGeneration({ cwd: repo, brief: 'b', count: 0, harness: 'storybook' }, await deps()),
     ).rejects.toBeInstanceOf(SearchError);
   });
+
+  it('materializes a round in parallel (variants overlap inside the agent)', async () => {
+    const repo = await initRepo();
+    let active = 0;
+    let peak = 0;
+    let release = (): void => {
+      /* replaced synchronously by the Promise executor below */
+    };
+    const bothActive = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    // This only completes if both variants reach the agent concurrently: the first to arrive blocks
+    // on `bothActive`, which is released only once a second variant is also active. A sequential loop
+    // would deadlock here — so completion itself proves parallelism, and `peak` confirms the overlap.
+    const barrierAgent: Agent = {
+      run: async () => {
+        active += 1;
+        peak = Math.max(peak, active);
+        if (active >= 2) release();
+        await bothActive;
+        active -= 1;
+        return { ok: true, exitCode: 0, output: 'done' };
+      },
+    };
+    const d: GenDeps = { ...(await deps()), agent: barrierAgent };
+    const nodes = await generateGeneration(
+      { cwd: repo, brief: 'b', count: 2, harness: 'storybook' },
+      d,
+    );
+    expect(nodes.map((n) => n.genome.id)).toEqual(['g0-n0', 'g0-n1']);
+    expect(peak).toBeGreaterThanOrEqual(2);
+  });
+
+  it('persists the variants that succeed and surfaces the ones that fail', async () => {
+    const repo = await initRepo();
+    // The worktree path carries the variant id, so the agent can fail exactly one of the round.
+    const partialAgent: Agent = {
+      run: (opts) =>
+        Promise.resolve(
+          opts.cwd.includes('g0-n1')
+            ? { ok: false, exitCode: 1, output: 'boom' }
+            : { ok: true, exitCode: 0, output: 'done' },
+        ),
+    };
+    const d: GenDeps = { ...(await deps()), agent: partialAgent };
+    await expect(
+      generateGeneration({ cwd: repo, brief: 'b', count: 2, harness: 'storybook' }, d),
+    ).rejects.toBeInstanceOf(SearchError);
+    // The variant that succeeded is still saved (parallel-safe incremental persistence).
+    const manifest = await loadManifest(repo);
+    expect(Object.keys(manifest?.nodes ?? {})).toEqual(['g0-n0']);
+  });
 });
 
 describe('breedGeneration', () => {

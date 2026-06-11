@@ -132,7 +132,9 @@ function buildResourcePanel(resources: ResourceView | undefined): string {
           <input type="range" id="cfg-taste" min="0" max="100" step="1" value="${String(tastePct)}" />
           <span class="rval" id="tasteval">${String(tastePct)}% taste</span></label>
       </div>
-      <div class="rsec"><h4>Component sources</h4>${resources.sources.map(sourceRow).join('')}</div>
+      <div class="rsec"><h4>Component sources</h4>
+        <label class="rrow"><input type="checkbox" class="cfg-toggle" data-kind="fetchmode" data-id="fetchmode"${resources.fetchMode === 'install' ? ' checked' : ''} /> Fetch real components from sources (install) <span class="rlic">budget ${String(resources.fetchBudget)}/variant</span></label>
+        ${resources.sources.map(sourceRow).join('')}</div>
       <div class="rsec"><h4>Capability libraries</h4>
         ${moduleToggle('threeD', '3D module (Three.js / R3F)', resources.modules.threeD)}
         ${moduleToggle('remotion', 'Video module (Remotion)', resources.modules.remotion)}

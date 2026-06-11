@@ -109,6 +109,55 @@ describe('composePrompt', () => {
     );
   });
 
+  it('emits the compose section for fetched components and keeps signatures for un-fetched sources', () => {
+    const prompt = composePrompt(
+      { ...base, sources: ['magic-ui', 'react-bits'] },
+      ['frontend-design'],
+      [],
+      undefined,
+      undefined,
+      [{ source: 'magic-ui', item: 'marquee' }],
+    );
+    // magic-ui got a real component → compose, do not reimplement.
+    expect(prompt).toContain('## Real components installed — compose, do not reimplement');
+    expect(prompt).toContain('- magic-ui/marquee');
+    // react-bits got nothing → keeps the signatures fallback; magic-ui is dropped from it.
+    expect(prompt).toContain('## Blend distinctively');
+    expect(prompt).toContain('- react-bits: ');
+    expect(prompt).not.toContain('- magic-ui: ');
+  });
+
+  it('omits the signatures section entirely when every permitted source was fetched', () => {
+    const prompt = composePrompt(
+      { ...base, sources: ['magic-ui'] },
+      ['frontend-design'],
+      [],
+      undefined,
+      undefined,
+      [{ source: 'magic-ui', item: 'marquee' }],
+    );
+    expect(prompt).toContain('## Real components installed');
+    expect(prompt).not.toContain('## Blend distinctively');
+  });
+
+  it('falls back to the signatures section unchanged when no components are fetched', () => {
+    const withFetched = composePrompt(
+      { ...base, sources: ['magic-ui', 'react-bits'] },
+      ['frontend-design'],
+      [],
+      undefined,
+      undefined,
+      [],
+    );
+    const withoutArg = composePrompt({ ...base, sources: ['magic-ui', 'react-bits'] }, [
+      'frontend-design',
+    ]);
+    expect(withFetched).toBe(withoutArg);
+    expect(withFetched).not.toContain('## Real components installed');
+    expect(withFetched).toContain('## Blend distinctively');
+    expect(withFetched).toContain('- magic-ui: ');
+  });
+
   it('omits the axes line when a graft has no axes', () => {
     const prompt = composePrompt(
       { ...base, graft: { parents: ['a', 'b'], instructions: 'graft' } },

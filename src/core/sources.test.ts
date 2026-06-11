@@ -96,7 +96,13 @@ describe('resolveSources', () => {
 
   it('throws on an unknown configured source', () => {
     // Bypass schema validation (it permits arbitrary strings) to test the registry guard.
-    const cfg = { bundled: ['magic-ui'], fetch: ['bogus-source'], aceternity: false };
+    const cfg = {
+      bundled: ['magic-ui'],
+      fetch: ['bogus-source'],
+      aceternity: false,
+      fetchMode: 'install' as const,
+      fetchBudget: 6,
+    };
     expect(() => resolveSources(cfg)).toThrow(SourceError);
   });
 });

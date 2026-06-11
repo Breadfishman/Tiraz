@@ -62,6 +62,16 @@ export const TirazConfigSchema = z.strictObject({
       // Aceternity is toggleable; enabling it should surface a ToS warning at the
       // CLI layer (SPEC §12) — the schema only records the toggle.
       aceternity: z.boolean(),
+      // Genuine component fetching (SPEC §12, Phase 1). `install` pre-fetches real components from a
+      // permitted source's registry into each variant's worktree and asks the agent to compose +
+      // restyle them; `signatures` is the prompt-only fallback (today's behavior). Default `install`,
+      // reconciled with the hard rule: install is best-effort and silently falls back to signatures
+      // when a worktree has no `components.json` / the source has no transport. `fetchBudget` caps the
+      // components installed per variant (bounds network + time). These fields carry FIELD-LEVEL
+      // defaults so an existing `tiraz.config.json` with a `sources` block but without these keys
+      // still validates and picks them up.
+      fetchMode: z.enum(['signatures', 'install']).default('install'),
+      fetchBudget: z.number().int().min(0).max(20).default(6),
     })
     .default({
       bundled: ['magic-ui'],
@@ -77,6 +87,8 @@ export const TirazConfigSchema = z.strictObject({
         'eldora-ui',
       ],
       aceternity: false,
+      fetchMode: 'install',
+      fetchBudget: 6,
     }),
 
   harness: z.enum(['auto', 'storybook', 'ladle', 'histoire', 'scratch', 'app']).default('auto'),
@@ -91,11 +103,21 @@ export const TirazConfigSchema = z.strictObject({
     .default({ threeD: false, remotion: false }),
 
   /**
-   * Generation behaviour. `selfCritique` adds a second agent pass after the first render: the agent
-   * reviews its own rendered output against the slop-tell rubric and fixes the worst offenders in
-   * place (SPEC §9 anti-slop). On by default — it is the headline taste lever for generation.
+   * Generation behaviour.
+   * - `selfCritique` adds a second agent pass after the first render: the agent reviews its own
+   *   rendered output against the slop-tell rubric and fixes the worst offenders in place (SPEC §9
+   *   anti-slop). On by default — it is the headline taste lever for generation.
+   * - `concurrency` is how many variants in a round are materialized in parallel (SPEC §7). Each
+   *   variant is fully isolated (own worktree, port, and branch), so concurrent runs are safe; the
+   *   cap bounds the load (concurrent agent sessions + harness boots). Field-defaulted so existing
+   *   configs keep validating.
    */
-  generation: z.strictObject({ selfCritique: z.boolean() }).default({ selfCritique: true }),
+  generation: z
+    .strictObject({
+      selfCritique: z.boolean().default(true),
+      concurrency: z.number().int().min(1).max(16).default(4),
+    })
+    .default({ selfCritique: true, concurrency: 4 }),
 });
 
 /** Fully-resolved configuration (all fields present after parsing). */

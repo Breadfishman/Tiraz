@@ -2,7 +2,7 @@ import { access, mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import type { Agent } from './agent';
+import type { Agent, CommandRunner } from './agent';
 import { spawnRunner } from './agent';
 import { updateConfig } from './config';
 import { GenError, runGen } from './gen';
@@ -289,6 +289,65 @@ describe('runGen', () => {
     expect(renderCalls).toBe(1);
     expect(node.status).toBe('generated');
     expect(await exists(node.screenshot ?? '')).toBe(true);
+  });
+
+  it('install mode fetches real components and feeds them to the agent prompt', async () => {
+    const repo = await initRepo();
+    const skillsSourceDir = await skillsSource();
+    // A repo with components.json is the gate for install mode (shadcn needs it). It must be COMMITTED
+    // so it lands in the freshly-checked-out variant worktree. The default fetch set includes cult-ui
+    // and kokonut-ui, which have verified registry entries, so the plan is non-empty.
+    await writeFile(
+      path.join(repo, 'components.json'),
+      JSON.stringify({ $schema: 'https://ui.shadcn.com/schema.json' }),
+      'utf8',
+    );
+    await spawnRunner('git', ['add', '-A'], { cwd: repo });
+    await spawnRunner('git', ['commit', '-q', '-m', 'add components.json'], { cwd: repo });
+
+    const prompts: string[] = [];
+    const capturingAgent: Agent = {
+      run: (opts) => {
+        prompts.push(opts.prompt);
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+      },
+    };
+
+    // Delegate real git (worktree creation) to spawnRunner; only intercept the shadcn installs so we
+    // record them and report exit 0 without touching the network.
+    const shadcnCalls: { command: string; args: string[] }[] = [];
+    const fakeRunner: CommandRunner = (command, args, opts) => {
+      if (command === 'npx' && args.includes('shadcn@latest')) {
+        shadcnCalls.push({ command, args });
+        return Promise.resolve({ exitCode: 0, stdout: '', stderr: '' });
+      }
+      return spawnRunner(command, args, opts);
+    };
+
+    await runGen(
+      { cwd: repo, brief: 'A hero section', harness: 'storybook' },
+      {
+        agent: capturingAgent,
+        renderer: fakeRenderer,
+        skillsSourceDir,
+        runner: fakeRunner,
+        now: () => '2026-06-08T00:00:00.000Z',
+      },
+    );
+
+    // The shadcn registry CLI was invoked for at least one component, with the expected arg shape.
+    // Bundled Magic UI leads the round-robin (it's fetched alongside the Tier-2 fetch sources).
+    expect(shadcnCalls.length).toBeGreaterThan(0);
+    expect(shadcnCalls[0]?.args).toEqual([
+      '--yes',
+      'shadcn@latest',
+      'add',
+      expect.stringContaining('magicui.design/r/'),
+      '--yes',
+    ]);
+    // The first (build) prompt tells the agent to compose the real installed components.
+    expect(prompts[0]).toContain('## Real components installed — compose, do not reimplement');
+    expect(prompts[0]).toContain('- magic-ui/marquee');
   });
 
   it('throws GenError when the agent fails', async () => {

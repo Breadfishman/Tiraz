@@ -19,6 +19,7 @@ export default defineConfig({
         'src/core/anthropic-io.ts',
         'src/core/claude-judge-io.ts',
         'src/core/ds-collect-io.ts',
+        'src/core/component-fetch-io.ts',
       ],
       thresholds: {
         lines: 90,

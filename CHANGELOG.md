@@ -7,6 +7,47 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Parallel round materialization** (`core/pool.ts`, `core/search.ts`, `core/gen.ts`,
+  `core/config.ts`). A round's variants used to be generated **one at a time** (an `await` loop), so a
+  round of N took ~N × the per-variant agent time. They now run through a **bounded-concurrency pool**
+  (`mapPool`) capped by `generation.concurrency` (default 4), so wall-clock is roughly the slowest
+  single variant. Each variant is already fully isolated (own worktree / port / branch), so the only
+  unsafe-to-parallelize step — `git worktree add`, which races on the repo's locks — is serialized by
+  a small `Mutex` (`createMutex`) while the expensive agent + render work runs concurrently. All ports
+  are assigned up front (no race), persistence stays **incremental and order-deterministic** (writes
+  serialized; the generation is rebuilt from completed nodes in input order), and a single variant's
+  failure is now surfaced **without discarding** the variants that succeeded (the round only aborts if
+  every variant failed).
+
+- **Genuine Tier-2 component fetching (Phase 1)** (`core/component-fetch.ts`,
+  `core/component-fetch-io.ts`, `core/agent.ts`, `core/gen.ts`, `core/search.ts`, `core/config.ts`,
+  `core/resources.ts`, `core/dashboard.ts`, `cli/dashboard.ts`). Until now the agent was only told a
+  source's **signature strings** and asked to reimplement them — nothing was actually fetched. Now,
+  before the coding agent runs, Tiraz **installs real components** into the variant's worktree via the
+  shadcn registry CLI (`npx shadcn@latest add <url> --yes`, verified live), and `composePrompt` tells
+  the agent to **import + compose + restyle** those real components through the design system rather
+  than rebuild them.
+  - A pure `COMPONENT_REGISTRY` — **6 live-verified sources**: `magic-ui`, `cult-ui`, `kokonut-ui`,
+    `react-bits`, `eldora-ui`, `smoothui` (each URL template + item confirmed to return valid registry
+    JSON; verified-only, expand-by-verification) — plus `resolveFetchPlan` (round-robins items across
+    permitted sources, capped by `fetchBudget`, deduped) + `buildFetchCommand`; a pluggable
+    `FetchTransport` union (`shadcn-registry` now; `mcp` / `copy` / `signatures` are the roadmap).
+    Provenance recorded to `.tiraz/provenance.json`. (`motion-primitives` / `origin-ui` / `animate-ui`
+    are not yet added — their registries blocked the verification fetch; pending a live confirm.)
+  - **Bundled sources now fetch too**: Magic UI is `bundled` tier so it never appeared in a genome's
+    Tier-2 `sources` and was silently never pulled. The caller now passes bundled source ids into the
+    fetch plan, and the prompt's COMPOSE section renders for any fetched component (no longer gated on
+    `genome.sources`), with an accurate "find them under `components/`" hint (fetched components land
+    in source-specific dirs, not always `components/ui/`).
+  - **Default ON** (`sources.fetchMode: 'install'`, `sources.fetchBudget: 6`, both field-level
+    defaulted so existing configs keep validating), made safe by the **hard fallback rule**:
+    `fetchComponents` is best-effort and never throws or blocks a variant — an empty plan, a worktree
+    with no `components.json`, or any per-source error silently falls back to today's signatures
+    behavior. A GUI toggle in the cockpit Config panel (`kind: 'fetchmode'`) turns it off.
+  - **Not yet wired:** fetched components aren't yet credited in DS-adherence scoring (Phase 1.5) —
+    provenance is recorded for it, but the scoring pipeline was left untouched on purpose. See
+    [docs/plans/component-fetch.md](./docs/plans/component-fetch.md).
+
 - **Taste quality (iteration 2)** (`core/taste-rubric.ts`, `core/agent.ts`, `core/gen.ts`,
   `core/search.ts`, `core/vision-judge.ts`, `core/taste-judge.ts`, `core/config.ts`). Three levers to
   move output from "getting there" to "designed", all anchored to the one shared rubric:

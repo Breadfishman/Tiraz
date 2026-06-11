@@ -6,6 +6,7 @@ import {
   isSourceEnabled,
   npmUrl,
   setDials,
+  setFetchMode,
   setOverlaySkill,
   setPrimarySkill,
   setTasteWeight,
@@ -60,6 +61,18 @@ describe('buildResourceView', () => {
     expect(view.dials).toEqual(config.dials);
     expect(view.weights).toEqual(config.fitness.weights);
   });
+
+  it('surfaces the genuine-fetch mode + budget', () => {
+    const view = buildResourceView(config);
+    expect(view.fetchMode).toBe('install');
+    expect(view.fetchBudget).toBe(6);
+    const off = buildResourceView(
+      TirazConfigSchema.parse({
+        sources: { bundled: [], fetch: [], aceternity: false, fetchMode: 'signatures' },
+      }),
+    );
+    expect(off.fetchMode).toBe('signatures');
+  });
 });
 
 describe('isSourceEnabled / isCapabilityEnabled', () => {
@@ -105,6 +118,20 @@ describe('toggleModule', () => {
       threeD: false,
       remotion: true,
     });
+  });
+});
+
+describe('setFetchMode', () => {
+  it('maps true→install and false→signatures', () => {
+    expect(setFetchMode(config, true).sources.fetchMode).toBe('install');
+    expect(setFetchMode(config, false).sources.fetchMode).toBe('signatures');
+  });
+
+  it('leaves the rest of the sources block intact', () => {
+    const next = setFetchMode(config, false);
+    expect(next.sources.bundled).toEqual(config.sources.bundled);
+    expect(next.sources.fetch).toEqual(config.sources.fetch);
+    expect(next.sources.fetchBudget).toBe(config.sources.fetchBudget);
   });
 });
 

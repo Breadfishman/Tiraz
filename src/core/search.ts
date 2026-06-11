@@ -9,6 +9,7 @@ import type { GenDeps } from './gen';
 import { generateVariant, usedPorts } from './gen';
 import type { Manifest, VariantNode } from './manifest';
 import { createManifest, loadManifest, saveManifest, upsertNode } from './manifest';
+import { createMutex, mapPool } from './pool';
 import { resolveCapabilities } from './capabilities';
 import { collectDesignSystem } from './ds-collect-io';
 import { seedPrimaries } from './skills-registry';
@@ -96,40 +97,99 @@ async function materialize(
   deps: GenDeps,
 ): Promise<VariantNode[]> {
   const harness = await detectHarness(cwd, harnessKind);
-  const ports = new Set(usedPorts(manifest));
   const capabilities = resolveCapabilities(config.modules).libraries.map((c) => c.name);
   const designSystem = await collectDesignSystem(cwd);
+  // Bundled-tier sources (e.g. Magic UI) are fetched alongside each genome's Tier-2 `sources`.
+  const bundledSources = resolveSources(config.sources).bundled.map((source) => source.id);
 
-  // Persist after EACH variant (not all-at-once): a long, agent-driven run that's interrupted then
-  // keeps every completed variant instead of losing the whole generation.
-  const nodes: VariantNode[] = [];
-  const ids: string[] = [];
-  let updated = manifest;
-  for (const { genome, baseRef, directive } of items) {
+  // Assign every port up front (sequentially, before any concurrency) so parallel variants can't
+  // race for the same one. Each variant is otherwise fully isolated (own worktree + branch).
+  const ports = new Set(usedPorts(manifest));
+  const portByIndex = items.map(() => {
     const port = assignPort(ports);
     ports.add(port);
-    const node = await generateVariant(
-      {
-        cwd,
-        mode: config.mode,
-        genome,
-        generation,
-        port,
-        harness,
-        capabilities,
-        designSystem,
-        selfCritique: config.generation.selfCritique,
-        ...(baseRef !== undefined ? { baseRef } : {}),
-        ...(directive !== undefined ? { directive } : {}),
-      },
-      deps,
+    return port;
+  });
+
+  // Persist after EACH variant completes (not all-at-once) so an interrupted round keeps every
+  // finished variant. Variants finish out of order under concurrency, so writes are serialized
+  // through this chain and the generation is always rebuilt from completed nodes in input order —
+  // keeping `manifest.json` deterministic regardless of completion order.
+  // One shared lock so concurrent variants create their worktrees one at a time (git worktree add
+  // races otherwise); the agent + render work still runs fully in parallel.
+  const lockedDeps: GenDeps = { ...deps, worktreeLock: createMutex() };
+
+  const completed = new Array<VariantNode | null>(items.length).fill(null);
+  let persistChain: Promise<void> = Promise.resolve();
+  const persist = async (index: number, node: VariantNode): Promise<void> => {
+    completed[index] = node;
+    persistChain = persistChain.then(async () => {
+      let updated = manifest;
+      const ids: string[] = [];
+      for (const done of completed) {
+        if (done !== null) {
+          updated = upsertNode(updated, done);
+          ids.push(done.genome.id);
+        }
+      }
+      await saveManifest(cwd, withGeneration(updated, generation, ids));
+    });
+    await persistChain;
+  };
+
+  const settled = await mapPool(
+    items,
+    config.generation.concurrency,
+    async ({ genome, baseRef, directive }, index) => {
+      const node = await generateVariant(
+        {
+          cwd,
+          mode: config.mode,
+          genome,
+          generation,
+          port: portByIndex[index] ?? assignPort(ports),
+          harness,
+          capabilities,
+          designSystem,
+          selfCritique: config.generation.selfCritique,
+          fetchMode: config.sources.fetchMode,
+          fetchBudget: config.sources.fetchBudget,
+          bundledSources,
+          ...(baseRef !== undefined ? { baseRef } : {}),
+          ...(directive !== undefined ? { directive } : {}),
+        },
+        lockedDeps,
+      );
+      await persist(index, node);
+      return node;
+    },
+  );
+
+  // Successes (in input order) are already persisted; surface any per-variant failures rather than
+  // silently dropping them. The whole round only aborts if nothing succeeded.
+  const nodes = completed.filter((node): node is VariantNode => node !== null);
+  const failures = settled.flatMap((result, index) =>
+    result.status === 'rejected'
+      ? [`${items[index]?.genome.id ?? `#${String(index)}`}: ${describeReason(result.reason)}`]
+      : [],
+  );
+  if (failures.length > 0) {
+    if (nodes.length === 0) {
+      throw new SearchError(
+        `All ${String(items.length)} variants failed:\n  ${failures.join('\n  ')}`,
+      );
+    }
+    throw new SearchError(
+      `${String(failures.length)} of ${String(items.length)} variants failed (the ` +
+        `${String(nodes.length)} that succeeded were saved):\n  ${failures.join('\n  ')}`,
     );
-    nodes.push(node);
-    ids.push(node.genome.id);
-    updated = withGeneration(upsertNode(updated, node), generation, ids);
-    await saveManifest(cwd, updated);
   }
   return nodes;
+}
+
+/** Human-readable message for a rejected variant (unknown thrown value → best-effort string). */
+function describeReason(reason: unknown): string {
+  return reason instanceof Error ? reason.message : String(reason);
 }
 
 export interface GenerationOptions {

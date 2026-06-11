@@ -162,6 +162,8 @@ describe('renderDashboardHtml', () => {
           modules: { threeD: false, remotion: false },
           dials: { variance: 7, motion: 3, density: 6 },
           weights: { dsAdherence: 0.4, taste: 0.6 },
+          fetchMode: 'install',
+          fetchBudget: 6,
           sources: [
             {
               id: 'magic-ui',
@@ -193,6 +195,9 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('href="https://www.npmjs.com/package/gsap"');
     expect(html).toContain('data-kind="source" data-id="magic-ui"');
     expect(html).toContain('data-kind="module" data-id="threeD"');
+    // Genuine-fetch toggle (the off switch for the default-on install mode), reflecting current mode.
+    expect(html).toContain('data-kind="fetchmode" data-id="fetchmode"');
+    expect(html).toContain('Fetch real components from sources (install)');
     expect(html).toContain("post('/api/config'");
     // Skill selects (primary seed + overlay) with the active values pre-selected.
     expect(html).toContain('id="cfg-primary"');

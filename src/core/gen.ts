@@ -2,6 +2,8 @@ import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Agent, CommandRunner } from './agent';
 import { composeCritiquePrompt, composePrompt, spawnRunner } from './agent';
+import { resolveFetchPlan } from './component-fetch';
+import { fetchComponents } from './component-fetch-io';
 import type { TirazConfig } from './config';
 import { loadConfig } from './config';
 import type { DetectedHarness, HarnessKind } from './detect';
@@ -19,10 +21,12 @@ import {
   saveManifest,
   upsertNode,
 } from './manifest';
+import type { Mutex } from './pool';
 import type { Renderer } from './render';
 import { installResolvedSkills } from './skills-install';
 import { resolveActiveSkills } from './skills-registry';
 import { resolveSources } from './sources';
+import type { WorktreeInfo } from './worktree';
 import { addWorktree, assignPort, linkNodeModules } from './worktree';
 
 export class GenError extends Error {
@@ -37,6 +41,13 @@ export interface VariantDeps {
   skillsSourceDir: string;
   /** Injected for git operations / tests. */
   runner?: CommandRunner;
+  /**
+   * Optional serializer for the `git worktree add` step. When a round materializes variants in
+   * parallel, concurrent `git worktree add` calls contend on the repo's locks — the search
+   * controller passes a shared {@link Mutex} so only one worktree is created at a time, while the
+   * expensive agent + render work still runs fully in parallel. Absent → no serialization.
+   */
+  worktreeLock?: Mutex;
 }
 
 export interface GenerateVariantContext {
@@ -60,6 +71,21 @@ export interface GenerateVariantContext {
    * worst offenders in place, then we re-commit and re-render. Defaults to off when omitted.
    */
   selfCritique?: boolean;
+  /**
+   * Genuine component fetching (SPEC §12, Phase 1). In `'install'` mode, real components from the
+   * genome's permitted sources are pre-fetched into the worktree before the agent runs and the
+   * prompt asks the agent to compose + restyle them; `'signatures'` (or omitted) keeps the
+   * prompt-only behaviour. Best-effort: a worktree with no `components.json` silently falls back.
+   */
+  fetchMode?: 'signatures' | 'install';
+  /** Max components to install per variant when `fetchMode === 'install'` (defaults to 6). */
+  fetchBudget?: number;
+  /**
+   * Bundled-tier source ids (e.g. `magic-ui`) — fetched alongside the genome's Tier-2 `sources`.
+   * Bundled sources are always available but aren't recorded on the genome, so the caller passes
+   * them here; without this they'd never be installed even though they have a registry entry.
+   */
+  bundledSources?: string[];
 }
 
 /**
@@ -81,13 +107,19 @@ export async function generateVariant(
   const branch = `tiraz/${ctx.genome.id}`;
   const worktreePath = path.join(ctx.cwd, '.tiraz', 'worktrees', ctx.genome.id);
   await mkdir(path.dirname(worktreePath), { recursive: true });
-  await addWorktree({
-    repoRoot: ctx.cwd,
-    branch,
-    worktreePath,
-    ...(ctx.baseRef !== undefined ? { baseRef: ctx.baseRef } : {}),
-    ...(deps.runner !== undefined ? { runner: deps.runner } : {}),
-  });
+  // Serialized under concurrency (see VariantDeps.worktreeLock): concurrent `git worktree add` calls
+  // race on the repo's locks, so this one step is queued while the rest of the pipeline stays parallel.
+  const createWorktree = (): Promise<WorktreeInfo> =>
+    addWorktree({
+      repoRoot: ctx.cwd,
+      branch,
+      worktreePath,
+      ...(ctx.baseRef !== undefined ? { baseRef: ctx.baseRef } : {}),
+      ...(deps.runner !== undefined ? { runner: deps.runner } : {}),
+    });
+  await (deps.worktreeLock !== undefined
+    ? deps.worktreeLock.run(createWorktree)
+    : createWorktree());
 
   await installResolvedSkills(resolved.all, {
     sourceDir: deps.skillsSourceDir,
@@ -97,12 +129,28 @@ export async function generateVariant(
   // A fresh worktree has no node_modules (gitignored); link the repo's so the harness can boot.
   await linkNodeModules(ctx.cwd, worktreePath);
 
+  // Genuine component fetching (SPEC §12, Phase 1): in install mode, pre-fetch real components from
+  // the genome's permitted sources into the worktree so the agent composes + restyles real code.
+  // Best-effort — with no `components.json` (or any failure) this returns [] and we fall through to
+  // the signatures behaviour, so the variant is never blocked.
+  const fetched =
+    ctx.fetchMode === 'install'
+      ? await fetchComponents(
+          worktreePath,
+          resolveFetchPlan([...(ctx.bundledSources ?? []), ...(ctx.genome.sources ?? [])], {
+            budget: ctx.fetchBudget ?? 6,
+          }),
+          deps.runner !== undefined ? { runner: deps.runner } : {},
+        )
+      : [];
+
   const prompt = composePrompt(
     ctx.genome,
     activeSkillIds,
     ctx.capabilities ?? [],
     ctx.designSystem,
     ctx.directive,
+    fetched.map((f) => ({ source: f.source, item: f.item })),
   );
   const agentResult = await deps.agent.run({
     cwd: worktreePath,
@@ -200,7 +248,9 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
   const id = genomeId(generation, 0);
   const now = deps.now ?? (() => new Date().toISOString());
   const resolved = resolveActiveSkills(config);
-  const permittedSources = resolveSources(config.sources).permittedIds;
+  const resolvedSources = resolveSources(config.sources);
+  const permittedSources = resolvedSources.permittedIds;
+  const bundledSources = resolvedSources.bundled.map((source) => source.id);
 
   const genome: Genome = {
     id,
@@ -232,6 +282,9 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
       capabilities,
       designSystem,
       selfCritique: config.generation.selfCritique,
+      fetchMode: config.sources.fetchMode,
+      fetchBudget: config.sources.fetchBudget,
+      bundledSources,
     },
     deps,
   );

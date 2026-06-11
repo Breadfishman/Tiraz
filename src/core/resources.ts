@@ -42,6 +42,10 @@ export interface ResourceView {
   modules: { threeD: boolean; remotion: boolean };
   dials: { variance: number; motion: number; density: number };
   weights: { dsAdherence: number; taste: number };
+  /** Genuine component fetching (SPEC §12): whether real components are installed (`install`). */
+  fetchMode: 'signatures' | 'install';
+  /** Max components installed per variant in `install` mode. */
+  fetchBudget: number;
   sources: ResourceSourceView[];
   capabilities: ResourceCapabilityView[];
 }
@@ -118,6 +122,8 @@ export function buildResourceView(config: TirazConfig): ResourceView {
     modules: { threeD: config.modules.threeD, remotion: config.modules.remotion },
     dials: { ...config.dials },
     weights: { ...config.fitness.weights },
+    fetchMode: config.sources.fetchMode,
+    fetchBudget: config.sources.fetchBudget,
     sources,
     capabilities,
   };
@@ -143,6 +149,18 @@ export function toggleSource(config: TirazConfig, id: string, enabled: boolean):
       : [...present, id]
     : present.filter((x) => x !== id);
   return { ...config, sources: { ...config.sources, [key]: next } };
+}
+
+/**
+ * Return a copy of `config` with genuine component fetching toggled (SPEC §12, Phase 1):
+ * `true` → `'install'` (pre-fetch + compose real components), `false` → `'signatures'` (prompt-only
+ * fallback). The off switch for a feature that defaults on.
+ */
+export function setFetchMode(config: TirazConfig, enabled: boolean): TirazConfig {
+  return {
+    ...config,
+    sources: { ...config.sources, fetchMode: enabled ? 'install' : 'signatures' },
+  };
 }
 
 /** Return a copy of `config` with a capability module toggled on/off. */

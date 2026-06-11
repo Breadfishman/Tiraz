@@ -65,6 +65,7 @@ export function composePrompt(
   capabilities: string[] = [],
   designSystem?: DesignSystem,
   directive?: string,
+  fetched?: { source: string; item: string }[],
 ): string {
   const lines: string[] = [
     '# Tiraz variant brief',
@@ -131,18 +132,44 @@ export function composePrompt(
     lines.push('');
   }
 
-  if (genome.sources && genome.sources.length > 0) {
+  // Real components fetched into this worktree get the COMPOSE section (import + restyle the real
+  // code). This is independent of `genome.sources` because bundled sources (e.g. Magic UI) are
+  // fetched too without appearing in the genome's Tier-2 list.
+  const fetchedComponents = fetched ?? [];
+  if (fetchedComponents.length > 0) {
     lines.push(
-      '## Blend distinctively — do not copy one library (anti-slop)',
-      'Draw inspiration from these sources, each known for signature effects. BLEND elements from',
-      "several into one cohesive, original composition — never replicate a single library's look",
-      'wholesale (that only swaps one generic style for another). The result must not be mistakable',
-      "for any one library's demo. Style everything through the design system's tokens.",
+      '## Real components installed — compose, do not reimplement',
+      'These are PRODUCTION components from your permitted sources, ALREADY installed in this',
+      'worktree (find them under the `components/` directory). IMPORT and COMPOSE them into an',
+      'original layout, and RESTYLE them through the design system’s tokens — do NOT rebuild them',
+      'from scratch and do NOT leave them as their stock demo look.',
     );
-    for (const { id, signatures } of signaturesFor(genome.sources)) {
-      lines.push(`- ${id}: ${signatures.join(', ')}`);
+    for (const { source, item } of fetchedComponents) {
+      lines.push(`- ${source}/${item}`);
     }
     lines.push('');
+  }
+
+  if (genome.sources && genome.sources.length > 0) {
+    // Sources that did NOT get a fetched item fall back to the signatures section — exactly today's
+    // behaviour, so install mode degrades gracefully per source.
+    const fetchedSourceIds = new Set(fetchedComponents.map((f) => f.source));
+    const signatureFallback = signaturesFor(genome.sources).filter(
+      ({ id }) => !fetchedSourceIds.has(id),
+    );
+    if (signatureFallback.length > 0) {
+      lines.push(
+        '## Blend distinctively — do not copy one library (anti-slop)',
+        'Draw inspiration from these sources, each known for signature effects. BLEND elements from',
+        "several into one cohesive, original composition — never replicate a single library's look",
+        'wholesale (that only swaps one generic style for another). The result must not be mistakable',
+        "for any one library's demo. Style everything through the design system's tokens.",
+      );
+      for (const { id, signatures } of signatureFallback) {
+        lines.push(`- ${id}: ${signatures.join(', ')}`);
+      }
+      lines.push('');
+    }
   }
 
   if (capabilities.length > 0) {

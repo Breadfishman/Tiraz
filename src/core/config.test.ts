@@ -51,12 +51,16 @@ describe('TirazConfigSchema', () => {
         'eldora-ui',
       ],
       aceternity: false,
+      // Genuine component fetching defaults on, with a 6-component-per-variant budget (SPEC §12).
+      fetchMode: 'install',
+      fetchBudget: 6,
     });
     expect(config.framework).toBe('astro');
     expect(config.lintThreshold).toBe(80);
     expect(config.modules).toEqual({ threeD: false, remotion: false });
-    // Self-critique-and-revise second pass is on by default (the headline anti-slop lever).
-    expect(config.generation).toEqual({ selfCritique: true });
+    // Self-critique-and-revise second pass is on by default (the headline anti-slop lever); a round
+    // materializes up to `concurrency` variants in parallel.
+    expect(config.generation).toEqual({ selfCritique: true, concurrency: 4 });
   });
 
   it('rejects unknown top-level keys (catches config typos)', () => {
@@ -78,6 +82,39 @@ describe('TirazConfigSchema', () => {
       fitness: { lintFloorRequired: true, weights: { dsAdherence: 0.7, taste: 0.7 } },
     });
     expect(result.success).toBe(false);
+  });
+
+  it('defaults fetchMode/fetchBudget for an existing sources block that lacks them (guards demo configs)', () => {
+    // An existing-style sources block written before genuine fetching existed: no fetchMode/fetchBudget.
+    const result = TirazConfigSchema.safeParse({
+      sources: { bundled: ['magic-ui'], fetch: ['cult-ui'], aceternity: false },
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.sources.fetchMode).toBe('install');
+    expect(result.success && result.data.sources.fetchBudget).toBe(6);
+  });
+
+  it('accepts an explicit signatures fetchMode and a custom budget', () => {
+    const result = TirazConfigSchema.safeParse({
+      sources: {
+        bundled: ['magic-ui'],
+        fetch: [],
+        aceternity: false,
+        fetchMode: 'signatures',
+        fetchBudget: 0,
+      },
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.sources.fetchMode).toBe('signatures');
+    expect(result.success && result.data.sources.fetchBudget).toBe(0);
+  });
+
+  it('rejects an out-of-range fetchBudget', () => {
+    expect(
+      TirazConfigSchema.safeParse({
+        sources: { bundled: [], fetch: [], aceternity: false, fetchBudget: 21 },
+      }).success,
+    ).toBe(false);
   });
 
   it('accepts fitness weights that sum to 1', () => {

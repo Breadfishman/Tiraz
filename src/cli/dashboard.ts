@@ -23,6 +23,7 @@ import type { ServerProcess } from '../core/playwright-renderer';
 import {
   buildResourceView,
   setDials,
+  setFetchMode,
   setOverlaySkill,
   setPrimarySkill,
   setTasteWeight,
@@ -69,7 +70,7 @@ const RecombineBody = z.object({
 const SnapshotBody = z.object({ label: z.string() });
 const RestoreBody = z.object({ id: z.string() });
 const ConfigBody = z.object({
-  kind: z.enum(['source', 'module', 'primary', 'overlay', 'dial', 'weight']),
+  kind: z.enum(['source', 'module', 'primary', 'overlay', 'dial', 'weight', 'fetchmode']),
   id: z.string(),
   enabled: z.boolean().optional(),
   value: z.number().optional(),
@@ -500,6 +501,11 @@ async function runDashboard(
           const next = setDials(cfg, { [id]: value });
           await updateConfig(cwd, (raw) => {
             raw.dials = next.dials;
+          });
+        } else if (kind === 'fetchmode') {
+          const next = setFetchMode(cfg, enabled === true);
+          await updateConfig(cwd, (raw) => {
+            raw.sources = next.sources;
           });
         } else {
           if (value === undefined) {

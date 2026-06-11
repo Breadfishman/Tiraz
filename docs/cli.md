@@ -130,6 +130,9 @@ single `/api/config` endpoint) and applies to the next gen/breed:
   `redesign-existing-projects` primary; the seed applies to greenfield/diversity).
 - **Design dials** — variance / motion / density sliders (1–10).
 - **Fitness weight** — one taste↔DS slider (sets both weights to sum to 1).
+- **Fetch real components** — toggle install mode (`sources.fetchMode`): on (default), Tiraz installs
+  real components from the permitted sources into each worktree before the agent runs; off falls back
+  to the reimplement-from-signatures behavior.
 
 A **Score latest** cockpit button runs `tiraz score` on the newest generation as a polled background
 job (`/api/score`), so you can breed → score → review entirely from the page.
@@ -199,6 +202,11 @@ worktree, links the repo's `node_modules`, runs the coding agent (`claude`), and
 the target with the live Playwright renderer (boots the detected Storybook/Ladle/Histoire server,
 captures, tears it down). Wired and runnable; needs a live environment — the `claude` binary, a
 component playground in the target repo, and Playwright browsers (`npx playwright install chromium`).
+
+When `sources.fetchMode` is `install` (the default), each worktree first has real components installed
+from its permitted sources (shadcn registry CLI) so the agent composes them rather than reimplementing;
+this is best-effort and silently falls back to signatures if the repo has no `components.json` or a
+fetch fails (see [docs/plans/component-fetch.md](./plans/component-fetch.md)).
 
 - `-b, --brief <text>` (required) · `-c, --count <n>` (default 3) · `-t, --target <scope>` ·
   `--harness <kind>`.
