@@ -89,6 +89,13 @@ export const TirazConfigSchema = z.strictObject({
   modules: z
     .strictObject({ threeD: z.boolean(), remotion: z.boolean() })
     .default({ threeD: false, remotion: false }),
+
+  /**
+   * Generation behaviour. `selfCritique` adds a second agent pass after the first render: the agent
+   * reviews its own rendered output against the slop-tell rubric and fixes the worst offenders in
+   * place (SPEC §9 anti-slop). On by default — it is the headline taste lever for generation.
+   */
+  generation: z.strictObject({ selfCritique: z.boolean() }).default({ selfCritique: true }),
 });
 
 /** Fully-resolved configuration (all fields present after parsing). */

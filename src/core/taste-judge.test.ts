@@ -48,10 +48,15 @@ describe('runTasteTournament', () => {
     const result = await runTasteTournament(candidates('a', 'b'), {
       brief: 'hero',
       judge: scoreJudge({ a: 10, b: 1 }),
-      // default 3-lens mixed-model panel
+      // default 4-lens mixed-model panel
     });
-    expect(result.a?.panel.map((p) => p.lens)).toEqual(['typography', 'layout', 'generic-feel']);
-    expect(result.a?.panel[2]?.model).toBe('claude-sonnet-4-6');
+    expect(result.a?.panel.map((p) => p.lens)).toEqual([
+      'typography',
+      'layout',
+      'palette',
+      'generic-feel',
+    ]);
+    expect(result.a?.panel[3]?.model).toBe('claude-sonnet-4-6');
     expect(result.b?.panel.every((p) => p.rationale === 'no winning verdict for this lens')).toBe(
       true,
     );

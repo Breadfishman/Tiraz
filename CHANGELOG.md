@@ -7,6 +7,39 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Taste quality (iteration 2)** (`core/taste-rubric.ts`, `core/agent.ts`, `core/gen.ts`,
+  `core/search.ts`, `core/vision-judge.ts`, `core/taste-judge.ts`, `core/config.ts`). Three levers to
+  move output from "getting there" to "designed", all anchored to the one shared rubric:
+  - **Self-critique-and-revise pass** — after the first render, the agent is run a **second time**
+    with `composeCritiquePrompt` (the shared `tasteBarSection()` rubric + the screenshot path): it
+    self-reviews its own committed output, fixes the 2–3 worst slop tells **in place** (no rebuild),
+    then re-commits and re-renders. Gated by a new `generation.selfCritique` config flag (**on by
+    default**); best-effort, so a failed critique pass keeps the original render rather than failing
+    the variant. This is the headline generation lever.
+  - **Palette/colour judge lens** — added `palette` to the judge panel (`DEFAULT_LENSES` is now
+    typography / layout / palette / generic-feel): rewards a committed, restrained palette with
+    confident accent + contrast; penalises default framework palettes and the stock purple/blue
+    gradient. Palette confidence is a big slop differentiator.
+  - **Judge calibration anchors** — `JUDGE_SYSTEM` now carries concise few-shot "this is taste vs.
+    this is slop" anchors drawn from the shared `EXCELLENCE_MARKERS` / `SLOP_TELLS` (imported, not
+    duplicated), so the judge grades against the same bar the generator builds to.
+
+- **GUI/CLI parity — the rest of the toggles in the cockpit** (`core/resources.ts`,
+  `core/dashboard.ts`, `cli/dashboard.ts`). The Config & resources panel now drives the knobs that
+  were CLI-only, plus a scoring action — most of the engine is now steerable from the page:
+  - **Skills** — primary-seed and overlay `<select>`s (was read-only) write `tiraz.config.json`
+    (`setPrimarySkill` / `setOverlaySkill`); integration mode's forced `redesign-existing-projects`
+    primary is preserved, with a note that the seed is for greenfield/diversity (mirrors
+    `tiraz skills use`).
+  - **Design dials** — three 1–10 sliders (variance / motion / density) with live readouts
+    (`setDials`, clamped per dial).
+  - **Fitness weight** — one taste↔DS slider (0–100% taste) that sets both weights to sum to 1
+    (`setTasteWeight`).
+  - **Score latest generation** — a cockpit button POSTing `/api/score`, run as a polled background
+    job via the same `startJob` path as breed/recombine (reuses the `tiraz score` entrypoint;
+    auto-picks api/claude-cli judge). All config knobs route through the one `/api/config` endpoint
+    (`kind: source|module|primary|overlay|dial|weight`).
+
 - **Cockpit: Config & Resources panel + judge rationale** (`core/resources.ts`, `core/dashboard.ts`,
   `core/sources.ts`, `cli/dashboard.ts`). Two dashboard additions:
   - **Config & Resources panel** — a collapsible "⚙ Config & resources" panel surfaces the run's

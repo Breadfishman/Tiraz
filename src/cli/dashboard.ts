@@ -6,7 +6,12 @@ import path from 'node:path';
 import type { Command } from 'commander';
 import { z } from 'zod';
 import { ClaudeCodeAgent, spawnRunner } from '../core/agent';
+import { createVisionJudge } from '../core/anthropic-io';
 import { cull, favorite, selectSurvivors } from '../core/beam';
+import { createClaudeCliJudge } from '../core/claude-judge-io';
+import { collectDesignSystem, collectUsedValues } from '../core/ds-collect-io';
+import { lint } from '../core/lint';
+import { runScore } from '../core/score';
 import { describeError, loadConfig, updateConfig } from '../core/config';
 import { renderDashboardHtml } from '../core/dashboard';
 import { detectHarness } from '../core/detect';
@@ -15,7 +20,15 @@ import type { VariantNode } from '../core/manifest';
 import { createPlaywrightRenderer, launchServerProcess } from '../core/playwright-io';
 import { promoteVariant } from '../core/promote';
 import type { ServerProcess } from '../core/playwright-renderer';
-import { buildResourceView, toggleModule, toggleSource } from '../core/resources';
+import {
+  buildResourceView,
+  setDials,
+  setOverlaySkill,
+  setPrimarySkill,
+  setTasteWeight,
+  toggleModule,
+  toggleSource,
+} from '../core/resources';
 import {
   harnessBuildCommand,
   harnessServeCommand,
@@ -56,9 +69,10 @@ const RecombineBody = z.object({
 const SnapshotBody = z.object({ label: z.string() });
 const RestoreBody = z.object({ id: z.string() });
 const ConfigBody = z.object({
-  kind: z.enum(['source', 'module']),
+  kind: z.enum(['source', 'module', 'primary', 'overlay', 'dial', 'weight']),
   id: z.string(),
-  enabled: z.boolean(),
+  enabled: z.boolean().optional(),
+  value: z.number().optional(),
 });
 
 /** Live render URL for a dev-server variant on a fresh port (reuse its recorded renderUrl). */
@@ -384,6 +398,44 @@ async function runDashboard(
         sendJson(res, 202, { jobId });
         return;
       }
+      if (url === '/api/score') {
+        if (jobInFlight) {
+          sendJson(res, 409, { error: 'An agent job is already running' });
+          return;
+        }
+        const current = await loadManifest(cwd);
+        if (current === null || current.generations.length === 0) {
+          sendJson(res, 409, { error: 'No generation to score' });
+          return;
+        }
+        const generationIndex = current.generations.length - 1;
+        const { config: cfg } = await loadConfig(cwd);
+        // Auto-pick the judge exactly like `tiraz score`: API when a key is set, else the local CLI.
+        const judge =
+          process.env.ANTHROPIC_API_KEY !== undefined
+            ? createVisionJudge()
+            : createClaudeCliJudge();
+        const jobId = startJob(`Scoring generation ${String(generationIndex)}…`, async () => {
+          const designSystem = await collectDesignSystem(cwd);
+          await runScore(cwd, generationIndex, {
+            lint: (node) =>
+              lint({
+                target: node.renderUrl ?? node.worktree,
+                threshold: cfg.lintThreshold,
+                fast: true,
+                cwd,
+              }),
+            designSystem,
+            collectUsedValues,
+            judge,
+            weights: cfg.fitness.weights,
+          });
+          // Scoring mutates fitness on existing nodes; no new variants are produced to mount.
+          return [];
+        });
+        sendJson(res, 202, { jobId });
+        return;
+      }
       if (url === '/api/snapshot') {
         const parsed = SnapshotBody.safeParse(body);
         if (!parsed.success) {
@@ -407,24 +459,56 @@ async function runDashboard(
       if (url === '/api/config') {
         const parsed = ConfigBody.safeParse(body);
         if (!parsed.success) {
-          sendJson(res, 400, { error: 'Expected { kind: "source"|"module", id, enabled }' });
+          sendJson(res, 400, { error: 'Expected { kind, id, enabled? | value? }' });
           return;
         }
-        const { kind, id, enabled } = parsed.data;
+        const { kind, id, enabled, value } = parsed.data;
         const { config: cfg } = await loadConfig(cwd);
         if (kind === 'source') {
-          const next = toggleSource(cfg, id, enabled);
+          const next = toggleSource(cfg, id, enabled === true);
           await updateConfig(cwd, (raw) => {
             raw.sources = next.sources;
           });
-        } else {
+        } else if (kind === 'module') {
           if (id !== 'threeD' && id !== 'remotion') {
             sendJson(res, 400, { error: 'Unknown module' });
             return;
           }
-          const next = toggleModule(cfg, id, enabled);
+          const next = toggleModule(cfg, id, enabled === true);
           await updateConfig(cwd, (raw) => {
             raw.modules = next.modules;
+          });
+        } else if (kind === 'primary') {
+          const next = setPrimarySkill(cfg, id);
+          await updateConfig(cwd, (raw) => {
+            raw.primary = next.primary;
+          });
+        } else if (kind === 'overlay') {
+          const next = setOverlaySkill(cfg, id);
+          await updateConfig(cwd, (raw) => {
+            raw.overlay = next.overlay;
+          });
+        } else if (kind === 'dial') {
+          if (value === undefined) {
+            sendJson(res, 400, { error: 'Expected { value: number } for a dial' });
+            return;
+          }
+          if (id !== 'variance' && id !== 'motion' && id !== 'density') {
+            sendJson(res, 400, { error: 'Unknown dial' });
+            return;
+          }
+          const next = setDials(cfg, { [id]: value });
+          await updateConfig(cwd, (raw) => {
+            raw.dials = next.dials;
+          });
+        } else {
+          if (value === undefined) {
+            sendJson(res, 400, { error: 'Expected { value: number } for a weight' });
+            return;
+          }
+          const next = setTasteWeight(cfg, value / 100);
+          await updateConfig(cwd, (raw) => {
+            raw.fitness = next.fitness;
           });
         }
         sendJson(res, 200, { ok: true });

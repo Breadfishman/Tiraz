@@ -120,9 +120,19 @@ It's the cockpit for human-steered evolution; the top action bar calls back into
 
 Selecting a variant also shows the taste judge's **per-lens rationale** (why it ranked where it did)
 in a detail strip. A collapsible **⚙ Config & resources** panel surfaces the run's component sources
-and capability libraries — each **hyperlinked** to its docs — with **toggles** (sources + the 3D /
-Remotion modules) that write `tiraz.config.json` and apply to the next gen/breed; that's the GUI home
-for the toggles that otherwise live in `tiraz skills` / `tiraz sources`.
+and capability libraries — each **hyperlinked** to its docs — and is the GUI home for the toggles that
+otherwise live in `tiraz skills` / `tiraz sources`. Each control writes `tiraz.config.json` (via the
+single `/api/config` endpoint) and applies to the next gen/breed:
+
+- **Sources** + the **3D / Remotion modules** — live toggles (the restricted Aceternity shows its ToS
+  warning).
+- **Skills** — primary-seed and overlay `<select>`s (integration mode keeps its forced
+  `redesign-existing-projects` primary; the seed applies to greenfield/diversity).
+- **Design dials** — variance / motion / density sliders (1–10).
+- **Fitness weight** — one taste↔DS slider (sets both weights to sum to 1).
+
+A **Score latest** cockpit button runs `tiraz score` on the newest generation as a polled background
+job (`/api/score`), so you can breed → score → review entirely from the page.
 
 Long-running — Ctrl-C stops the dashboard (and any dev servers). Needs a playground harness; the
 variants' worktrees (or cached static builds) to serve.

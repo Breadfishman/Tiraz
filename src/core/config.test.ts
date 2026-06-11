@@ -55,6 +55,8 @@ describe('TirazConfigSchema', () => {
     expect(config.framework).toBe('astro');
     expect(config.lintThreshold).toBe(80);
     expect(config.modules).toEqual({ threeD: false, remotion: false });
+    // Self-critique-and-revise second pass is on by default (the headline anti-slop lever).
+    expect(config.generation).toEqual({ selfCritique: true });
   });
 
   it('rejects unknown top-level keys (catches config typos)', () => {

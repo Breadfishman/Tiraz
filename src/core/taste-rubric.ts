@@ -50,6 +50,35 @@ export function tasteBarSection(): string[] {
 }
 
 /**
+ * Judge-side rubric text for the dedicated palette / colour lens. Palette confidence is a major slop
+ * differentiator, so it gets its own panelist. Concrete and consistent with the shared catalog:
+ * reward a committed, restrained palette; penalise the stock framework / purple-blue-gradient look.
+ */
+export function paletteRubric(): string {
+  return [
+    'colour only: palette confidence and restraint, intentional accent use, and contrast.',
+    'Reward a committed, restrained palette — often one assertive accent — used with intent, with',
+    'confident foreground/background contrast and considered neutrals.',
+    'Penalise default framework palettes, muddy or rainbow colour, low-contrast timidity, and the',
+    'stock purple/blue gradient (and gradient text). The more decisive, cohesive palette wins.',
+  ].join(' ');
+}
+
+/**
+ * A few concise calibration anchors (drawn from the shared catalog) that describe what "taste"
+ * versus "slop" looks like, so the judge's bar is grounded few-shot rather than free-floating.
+ * Reuses `SLOP_TELLS` / `EXCELLENCE_MARKERS` strings so it never drifts from the rest of the rubric.
+ */
+export function calibrationAnchors(): string[] {
+  return [
+    'Calibration anchors (what the bar looks like):',
+    `- SLOP: ${SLOP_TELLS[0] ?? ''} with ${SLOP_TELLS[1] ?? ''} — generic, machine-generated.`,
+    `- SLOP: ${SLOP_TELLS[2] ?? ''}, and ${SLOP_TELLS[9] ?? ''}.`,
+    `- TASTE: ${EXCELLENCE_MARKERS[0] ?? ''}, plus ${EXCELLENCE_MARKERS[3] ?? ''}.`,
+  ];
+}
+
+/**
  * Judge-side rubric text for the originality / anti-slop lens — the concrete criteria the vision
  * model applies when picking the less-templated, more-designed option.
  */

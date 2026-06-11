@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { JudgeCandidate } from './taste-judge';
 import { DEFAULT_LENSES, runTasteTournament } from './taste-judge';
+import { EXCELLENCE_MARKERS, SLOP_TELLS } from './taste-rubric';
 import {
   VisionPairwiseJudge,
   type VisionComplete,
@@ -30,6 +31,24 @@ describe('buildJudgePrompt', () => {
     expect(prompt).toContain('originality');
     expect(prompt).toContain('Penalise slop tells');
     expect(prompt).toContain('emoji used as iconography');
+  });
+
+  it('grades the dedicated palette lens on colour confidence and the stock-gradient tell', () => {
+    const { prompt } = buildJudgePrompt('A landing page', 'palette');
+    expect(prompt).toContain('palette');
+    expect(prompt).toContain('committed, restrained palette');
+    expect(prompt).toContain('purple/blue gradient');
+    expect(prompt).toContain('contrast');
+  });
+
+  it('anchors the critic with calibration exemplars drawn from the shared rubric', () => {
+    const { system } = buildJudgePrompt('A landing page', 'typography');
+    expect(system).toContain('Calibration anchors');
+    expect(system).toContain('SLOP:');
+    expect(system).toContain('TASTE:');
+    // Drawn from the shared catalog, not duplicated strings.
+    expect(system).toContain(SLOP_TELLS[0] ?? '');
+    expect(system).toContain(EXCELLENCE_MARKERS[0] ?? '');
   });
 });
 

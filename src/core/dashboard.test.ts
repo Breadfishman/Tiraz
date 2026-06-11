@@ -160,6 +160,8 @@ describe('renderDashboardHtml', () => {
         resources: {
           skills: { primary: 'impeccable', overlay: 'none' },
           modules: { threeD: false, remotion: false },
+          dials: { variance: 7, motion: 3, density: 6 },
+          weights: { dsAdherence: 0.4, taste: 0.6 },
           sources: [
             {
               id: 'magic-ui',
@@ -192,6 +194,33 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('data-kind="source" data-id="magic-ui"');
     expect(html).toContain('data-kind="module" data-id="threeD"');
     expect(html).toContain("post('/api/config'");
+    // Skill selects (primary seed + overlay) with the active values pre-selected.
+    expect(html).toContain('id="cfg-primary"');
+    expect(html).toContain('id="cfg-overlay"');
+    expect(html).toContain('<option value="impeccable" selected>');
+    expect(html).toContain('<option value="redesign-existing-projects">');
+    expect(html).toContain('<option value="none" selected>'); // overlay default
+    expect(html).toContain("wireSkill('cfg-primary', 'primary')");
+    expect(html).toContain("wireSkill('cfg-overlay', 'overlay')");
+    expect(html).toContain("post('/api/config', { kind, id: sel.value");
+    // Integration-mode note about the forced primary.
+    expect(html).toContain('redesign-existing-projects');
+    // Design-dial sliders reflecting the current values.
+    expect(html).toContain('data-dial="variance"');
+    expect(html).toContain('data-dial="motion"');
+    expect(html).toContain('data-dial="density"');
+    expect(html).toContain("kind: 'dial'");
+    // Fitness taste↔DS weight slider showing 60% taste.
+    expect(html).toContain('id="cfg-taste"');
+    expect(html).toContain('60% taste');
+    expect(html).toContain("kind: 'weight'");
+  });
+
+  it('renders a "Score latest" action that posts to /api/score', () => {
+    const m = manifestWith([node('g0-n0')], [['g0-n0']]);
+    const html = renderDashboardHtml(m, { 'g0-n0': 'http://x/1' }, { actionsEnabled: true });
+    expect(html).toContain('id="act-score"');
+    expect(html).toContain("post('/api/score'");
   });
 
   it('marks survivor / promoted status on sidebar items and groups by generation', () => {

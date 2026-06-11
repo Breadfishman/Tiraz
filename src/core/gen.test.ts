@@ -4,6 +4,7 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import type { Agent } from './agent';
 import { spawnRunner } from './agent';
+import { updateConfig } from './config';
 import { GenError, runGen } from './gen';
 import { loadManifest } from './manifest';
 import type { Renderer } from './render';
@@ -157,6 +158,137 @@ describe('runGen', () => {
     const manifest = await loadManifest(repo);
     expect(manifest?.generations).toEqual([['g0-n0'], ['g1-n0']]);
     expect(Object.keys(manifest?.nodes ?? {}).sort()).toEqual(['g0-n0', 'g1-n0']);
+  });
+
+  it('runs a second self-critique agent pass + re-render when generation.selfCritique is on', async () => {
+    const repo = await initRepo();
+    const skillsSourceDir = await skillsSource();
+
+    let agentCalls = 0;
+    const prompts: string[] = [];
+    const countingAgent: Agent = {
+      run: (opts) => {
+        agentCalls += 1;
+        prompts.push(opts.prompt);
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+      },
+    };
+    let renderCalls = 0;
+    const countingRenderer: Renderer = {
+      render: async (req) => {
+        renderCalls += 1;
+        await writeFile(req.screenshotPath, 'fake-png', 'utf8');
+        return {
+          renderUrl: `http://localhost:${String(req.port)}/`,
+          screenshotPath: req.screenshotPath,
+        };
+      },
+    };
+
+    // Default config has selfCritique on.
+    await runGen(
+      { cwd: repo, brief: 'A hero section', harness: 'storybook' },
+      {
+        agent: countingAgent,
+        renderer: countingRenderer,
+        skillsSourceDir,
+        runner: spawnRunner,
+        now: () => '2026-06-08T00:00:00.000Z',
+      },
+    );
+
+    expect(agentCalls).toBe(2);
+    expect(renderCalls).toBe(2);
+    // The second pass is the self-critique prompt, not a rebuild.
+    expect(prompts[1]).toContain('# Tiraz self-critique pass');
+    expect(prompts[1]).toContain('## Taste bar — clear it (this is graded)');
+  });
+
+  it('runs exactly one agent pass + one render when generation.selfCritique is off', async () => {
+    const repo = await initRepo();
+    const skillsSourceDir = await skillsSource();
+    await updateConfig(repo, (raw) => {
+      raw.generation = { selfCritique: false };
+    });
+
+    let agentCalls = 0;
+    const countingAgent: Agent = {
+      run: () => {
+        agentCalls += 1;
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+      },
+    };
+    let renderCalls = 0;
+    const countingRenderer: Renderer = {
+      render: async (req) => {
+        renderCalls += 1;
+        await writeFile(req.screenshotPath, 'fake-png', 'utf8');
+        return {
+          renderUrl: `http://localhost:${String(req.port)}/`,
+          screenshotPath: req.screenshotPath,
+        };
+      },
+    };
+
+    await runGen(
+      { cwd: repo, brief: 'A hero section', harness: 'storybook' },
+      {
+        agent: countingAgent,
+        renderer: countingRenderer,
+        skillsSourceDir,
+        runner: spawnRunner,
+        now: () => '2026-06-08T00:00:00.000Z',
+      },
+    );
+
+    expect(agentCalls).toBe(1);
+    expect(renderCalls).toBe(1);
+  });
+
+  it('keeps the first render when the self-critique pass fails (variant not discarded)', async () => {
+    const repo = await initRepo();
+    const skillsSourceDir = await skillsSource();
+
+    let agentCalls = 0;
+    const flakyAgent: Agent = {
+      run: () => {
+        agentCalls += 1;
+        // First pass succeeds; the self-critique pass fails.
+        return Promise.resolve(
+          agentCalls === 1
+            ? { ok: true, exitCode: 0, output: 'done' }
+            : { ok: false, exitCode: 1, output: 'critique boom' },
+        );
+      },
+    };
+    let renderCalls = 0;
+    const countingRenderer: Renderer = {
+      render: async (req) => {
+        renderCalls += 1;
+        await writeFile(req.screenshotPath, 'fake-png', 'utf8');
+        return {
+          renderUrl: `http://localhost:${String(req.port)}/`,
+          screenshotPath: req.screenshotPath,
+        };
+      },
+    };
+
+    const node = await runGen(
+      { cwd: repo, brief: 'A hero section', harness: 'storybook' },
+      {
+        agent: flakyAgent,
+        renderer: countingRenderer,
+        skillsSourceDir,
+        runner: spawnRunner,
+        now: () => '2026-06-08T00:00:00.000Z',
+      },
+    );
+
+    // Critique pass ran but failed → no re-commit, no re-render; the first render is kept.
+    expect(agentCalls).toBe(2);
+    expect(renderCalls).toBe(1);
+    expect(node.status).toBe('generated');
+    expect(await exists(node.screenshot ?? '')).toBe(true);
   });
 
   it('throws GenError when the agent fails', async () => {

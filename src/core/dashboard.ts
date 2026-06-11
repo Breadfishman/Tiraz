@@ -95,12 +95,42 @@ function buildResourcePanel(resources: ResourceView | undefined): string {
   const moduleToggle = (id: 'threeD' | 'remotion', label: string, on: boolean): string =>
     `<label class="rrow"><input type="checkbox" class="cfg-toggle" data-kind="module" data-id="${id}"${on ? ' checked' : ''} /> ${label}</label>`;
 
+  const skillOption = (value: string, current: string): string =>
+    `<option value="${escapeHtml(value)}"${value === current ? ' selected' : ''}>${escapeHtml(value)}</option>`;
+  const primaryOptions = ['impeccable', 'design-taste-frontend', 'redesign-existing-projects']
+    .map((v) => skillOption(v, resources.skills.primary))
+    .join('');
+  const overlayOptions = ['none', 'minimalist', 'brutalist', 'soft']
+    .map((v) => skillOption(v, resources.skills.overlay))
+    .join('');
+
+  const dialSlider = (id: 'variance' | 'motion' | 'density', value: number): string =>
+    `<label class="rrow rdial">${id}
+      <input type="range" class="cfg-dial" data-dial="${id}" min="1" max="10" step="1" value="${String(value)}" />
+      <span class="rval" id="dialval-${id}">${String(value)}</span></label>`;
+
+  const tastePct = Math.round(resources.weights.taste * 100);
+
   return `<details class="respanel">
     <summary>⚙ Config &amp; resources</summary>
     <div class="respanel-body">
-      <p class="rnote">Toggles write <code>tiraz.config.json</code> and apply to the next gen / breed.</p>
+      <p class="rnote">Edits write <code>tiraz.config.json</code> and apply to the next gen / breed / score.</p>
       <div class="rsec"><h4>Design skills</h4>
-        <div class="rrow rdim">primary: ${escapeHtml(resources.skills.primary)} · overlay: ${escapeHtml(resources.skills.overlay)} <span class="rlic">switch via <code>tiraz skills</code></span></div>
+        <label class="rrow">primary seed
+          <select id="cfg-primary" class="cfgsel">${primaryOptions}</select></label>
+        <label class="rrow">overlay
+          <select id="cfg-overlay" class="cfgsel">${overlayOptions}</select></label>
+        <p class="rnote rdim" style="grid-column:auto">In integration mode the active primary is forced to <code>redesign-existing-projects</code>; the seed still applies to greenfield / diversity.</p>
+      </div>
+      <div class="rsec"><h4>Design dials</h4>
+        ${dialSlider('variance', resources.dials.variance)}
+        ${dialSlider('motion', resources.dials.motion)}
+        ${dialSlider('density', resources.dials.density)}
+      </div>
+      <div class="rsec"><h4>Fitness weighting</h4>
+        <label class="rrow rdial">taste ↔ DS
+          <input type="range" id="cfg-taste" min="0" max="100" step="1" value="${String(tastePct)}" />
+          <span class="rval" id="tasteval">${String(tastePct)}% taste</span></label>
       </div>
       <div class="rsec"><h4>Component sources</h4>${resources.sources.map(sourceRow).join('')}</div>
       <div class="rsec"><h4>Capability libraries</h4>
@@ -195,6 +225,7 @@ export function renderDashboardHtml(
         </span>
       </div>
       <div class="arow">
+        <button class="abtn" id="act-score" title="Score the latest generation (lint floor + DS-adherence + taste judge — minutes)">⚖ Score latest</button>
         <button class="abtn" id="act-snapshot" title="Save a checkpoint of the whole population you can revert to">📸 Snapshot</button>
         <select id="act-snap-select" class="snapsel">
           <option value="">— restore a snapshot —</option>
@@ -266,6 +297,9 @@ export function renderDashboardHtml(
   .rsec:nth-of-type(3) { grid-column: 1 / -1; }
   .rrow { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; color: #c7c7cf; }
   .rrow.rdim { opacity: 0.55; } .rrow a { color: #8ab4ff; text-decoration: none; } .rrow a:hover { text-decoration: underline; }
+  .cfgsel { background: #16161c; color: #e7e7ea; border: 1px solid #2a2a36; border-radius: 6px; padding: 4px 7px; font: inherit; }
+  .rdial { gap: 10px; } .rdial input[type=range] { flex: 1; min-width: 90px; }
+  .rval { color: #9a9aa3; font-variant-numeric: tabular-nums; min-width: 56px; text-align: right; }
   .rbadge { background: #20202a; border-radius: 5px; padding: 0 6px; font-size: 10px; color: #9a9aa3; }
   .rlic { color: #6f6f78; font-size: 11px; } .rwarn { color: #e0a96b; font-size: 11px; }
   .detail { padding: 8px 18px; border-bottom: 1px solid #1e1e24; background: #0c0c10; color: #9a9aa3;
@@ -432,7 +466,15 @@ export function renderDashboardHtml(
         try { await post('/api/snapshot-restore', { id }); location.reload(); }
         catch (e) { setToast('Restore failed: ' + e.message, 'bad'); setBusy(false); }
       });
-      // --- config & resource toggles (write tiraz.config.json; apply to next gen/breed) ---
+      // --- score the latest generation (long agent job; polled like breed/recombine) ---
+      const scoreBtn = document.getElementById('act-score');
+      scoreBtn.addEventListener('click', async () => {
+        if (window.__busy) return;
+        setBusy(true); setToast('Scoring the latest generation…', 'work');
+        try { const { jobId } = await post('/api/score', {}); pollJob(jobId); }
+        catch (e) { setToast('Score failed: ' + e.message, 'bad'); setBusy(false); }
+      });
+      // --- config & resource toggles (write tiraz.config.json; apply to next gen/breed/score) ---
       document.querySelectorAll('.cfg-toggle').forEach((cb) => {
         cb.addEventListener('change', async () => {
           if (window.__busy) { cb.checked = !cb.checked; return; }
@@ -441,12 +483,50 @@ export function renderDashboardHtml(
           catch (e) { cb.checked = !cb.checked; setToast('Config update failed: ' + e.message, 'bad'); setBusy(false); }
         });
       });
+      // --- skill selects (primary seed + overlay) ---
+      function wireSkill(elId, kind) {
+        const sel = document.getElementById(elId);
+        if (!sel) return;
+        let prev = sel.value;
+        sel.addEventListener('change', async () => {
+          if (window.__busy) { sel.value = prev; return; }
+          setBusy(true); setToast('Updating skill…', 'work');
+          try { await post('/api/config', { kind, id: sel.value, enabled: true }); location.reload(); }
+          catch (e) { sel.value = prev; setToast('Skill update failed: ' + e.message, 'bad'); setBusy(false); }
+        });
+      }
+      wireSkill('cfg-primary', 'primary');
+      wireSkill('cfg-overlay', 'overlay');
+      // --- design dials (write on release; live-update the readout while dragging) ---
+      document.querySelectorAll('.cfg-dial').forEach((sl) => {
+        const out = document.getElementById('dialval-' + sl.dataset.dial);
+        sl.addEventListener('input', () => { if (out) out.textContent = sl.value; });
+        sl.addEventListener('change', async () => {
+          if (window.__busy) return;
+          setBusy(true); setToast('Updating dials…', 'work');
+          try { await post('/api/config', { kind: 'dial', id: sl.dataset.dial, value: parseInt(sl.value, 10) }); location.reload(); }
+          catch (e) { setToast('Dial update failed: ' + e.message, 'bad'); setBusy(false); }
+        });
+      });
+      // --- fitness taste↔DS weight ---
+      const tasteSl = document.getElementById('cfg-taste');
+      const tasteOut = document.getElementById('tasteval');
+      if (tasteSl) {
+        tasteSl.addEventListener('input', () => { if (tasteOut) tasteOut.textContent = tasteSl.value + '% taste'; });
+        tasteSl.addEventListener('change', async () => {
+          if (window.__busy) return;
+          setBusy(true); setToast('Updating fitness weights…', 'work');
+          try { await post('/api/config', { kind: 'weight', id: 'taste', value: parseInt(tasteSl.value, 10) }); location.reload(); }
+          catch (e) { setToast('Weight update failed: ' + e.message, 'bad'); setBusy(false); }
+        });
+      }
       function sync() {
         const v = cur ? data[cur] : null;
         const disabled = window.__busy || !v;
         ['act-heart','act-cull','act-cull-lineage','act-focus','act-promote','act-breed','act-combine-start'].forEach((id) => { btns[id].disabled = disabled; });
         btns['act-combine-go'].disabled = window.__busy;
         snapBtn.disabled = window.__busy; restoreBtn.disabled = window.__busy;
+        scoreBtn.disabled = window.__busy;
       }
       window.__syncActions = sync;
     }

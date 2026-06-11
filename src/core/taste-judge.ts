@@ -32,10 +32,11 @@ export interface PairwiseJudge {
   compare(a: JudgeCandidate, b: JudgeCandidate, ctx: JudgeContext): Promise<PairwiseVerdict>;
 }
 
-/** Default mixed-model 3-lens panel (SPEC §9): one Sonnet panelist de-correlates the Opus judges. */
+/** Default mixed-model 4-lens panel (SPEC §9): one Sonnet panelist de-correlates the Opus judges. */
 export const DEFAULT_LENSES: readonly LensConfig[] = [
   { lens: 'typography', model: 'claude-opus-4-8' },
   { lens: 'layout', model: 'claude-opus-4-8' },
+  { lens: 'palette', model: 'claude-opus-4-8' },
   { lens: 'generic-feel', model: 'claude-sonnet-4-6' },
 ];
 

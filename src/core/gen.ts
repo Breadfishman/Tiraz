@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Agent, CommandRunner } from './agent';
-import { composePrompt, spawnRunner } from './agent';
+import { composeCritiquePrompt, composePrompt, spawnRunner } from './agent';
 import type { TirazConfig } from './config';
 import { loadConfig } from './config';
 import type { DetectedHarness, HarnessKind } from './detect';
@@ -54,6 +54,12 @@ export interface GenerateVariantContext {
   baseRef?: string;
   /** One-shot human directive for directed breeding ("what to improve") — passed to the agent. */
   directive?: string;
+  /**
+   * Run the optional self-critique-and-revise second pass after the first render (SPEC §9). When
+   * enabled the agent reviews its own rendered output against the slop-tell rubric and fixes the
+   * worst offenders in place, then we re-commit and re-render. Defaults to off when omitted.
+   */
+  selfCritique?: boolean;
 }
 
 /**
@@ -114,20 +120,40 @@ export async function generateVariant(
   // children branch off it (breed/recombine refine, not restart) and what `promote` actually merges.
   // A no-op commit (agent made no changes) exits non-zero; that's fine, so failures are ignored.
   const git = deps.runner ?? spawnRunner;
-  await git('git', ['add', '-A'], { cwd: worktreePath });
-  await git('git', ['commit', '-q', '-m', `tiraz: variant ${ctx.genome.id}`], {
-    cwd: worktreePath,
-  });
+  const commitWork = async (message: string): Promise<void> => {
+    await git('git', ['add', '-A'], { cwd: worktreePath });
+    await git('git', ['commit', '-q', '-m', message], { cwd: worktreePath });
+  };
+  await commitWork(`tiraz: variant ${ctx.genome.id}`);
 
   const screenshotPath = path.join(ctx.cwd, '.tiraz', 'screenshots', `${ctx.genome.id}.png`);
   await mkdir(path.dirname(screenshotPath), { recursive: true });
-  const render = await deps.renderer.render({
-    worktreeDir: worktreePath,
-    harness: ctx.harness,
-    target: ctx.genome.target ?? '',
-    port: ctx.port,
-    screenshotPath,
-  });
+  const renderShot = (): ReturnType<Renderer['render']> =>
+    deps.renderer.render({
+      worktreeDir: worktreePath,
+      harness: ctx.harness,
+      target: ctx.genome.target ?? '',
+      port: ctx.port,
+      screenshotPath,
+    });
+  let render = await renderShot();
+
+  // Optional self-critique-and-revise pass (SPEC §9): the agent reviews its own rendered output
+  // against the taste bar and fixes the worst slop tells in place, then we re-commit and re-render
+  // to refresh the screenshot. The first pass already succeeded, so a critique-pass failure (or a
+  // no-op commit) must not discard the variant — we keep the original render in that case.
+  if (ctx.selfCritique === true) {
+    const critique = await deps.agent.run({
+      cwd: worktreePath,
+      prompt: composeCritiquePrompt(ctx.genome, render.screenshotPath),
+      skills: activeSkillIds,
+      ...(ctx.genome.sources !== undefined ? { sources: ctx.genome.sources } : {}),
+    });
+    if (critique.ok) {
+      await commitWork(`tiraz: variant ${ctx.genome.id} (self-critique)`);
+      render = await renderShot();
+    }
+  }
 
   return {
     genome: ctx.genome,
@@ -205,6 +231,7 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
       harness,
       capabilities,
       designSystem,
+      selfCritique: config.generation.selfCritique,
     },
     deps,
   );

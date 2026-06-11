@@ -157,6 +157,48 @@ export function composePrompt(
   return lines.join('\n');
 }
 
+/**
+ * Compose the self-critique-and-revise prompt for the optional second generation pass (SPEC §9):
+ * the agent has already built + committed this component in the worktree; it now critically reviews
+ * its own rendered output against the shared taste bar and fixes ONLY the worst slop tells, without
+ * rebuilding. Injects the same `tasteBarSection()` rubric the judge grades on. Pure and
+ * deterministic — mentioning the screenshot only when a path is supplied.
+ */
+export function composeCritiquePrompt(genome: Genome, screenshotPath?: string): string {
+  const lines: string[] = [
+    '# Tiraz self-critique pass',
+    '',
+    'You ALREADY built this component for the brief below and committed it in this worktree. Do NOT',
+    'rebuild it and do NOT restart from scratch. Your job now is a focused, critical self-review.',
+    '',
+    '## Brief',
+    genome.brief,
+    '',
+  ];
+
+  if (screenshotPath !== undefined && screenshotPath.trim() !== '') {
+    lines.push(
+      '## Your rendered output',
+      `A screenshot of your current rendered work is at: ${screenshotPath}`,
+      'Inspect it to see how the work actually reads, then judge it against the taste bar below.',
+      '',
+    );
+  }
+
+  lines.push(...tasteBarSection());
+
+  lines.push(
+    '## What to do',
+    'Critically self-review your committed work against the taste bar above. Identify the 2-3 WORST',
+    'slop tells actually present in it, then fix ONLY those — preserving the overall direction and',
+    'everything that already works. Targeted edits, not a rebuild. If something already clears the',
+    'bar, leave it alone.',
+    '',
+    `Variation seed: ${String(genome.seed)} — keep this variant's distinctive identity.`,
+  );
+  return lines.join('\n');
+}
+
 export interface CommandResult {
   exitCode: number;
   stdout: string;

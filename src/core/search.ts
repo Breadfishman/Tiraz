@@ -118,6 +118,7 @@ async function materialize(
         harness,
         capabilities,
         designSystem,
+        selfCritique: config.generation.selfCritique,
         ...(baseRef !== undefined ? { baseRef } : {}),
         ...(directive !== undefined ? { directive } : {}),
       },

@@ -5,6 +5,10 @@ import {
   isCapabilityEnabled,
   isSourceEnabled,
   npmUrl,
+  setDials,
+  setOverlaySkill,
+  setPrimarySkill,
+  setTasteWeight,
   toggleModule,
   toggleSource,
 } from './resources';
@@ -49,10 +53,12 @@ describe('buildResourceView', () => {
     expect(withThreeD.capabilities.find((c) => c.id === 'three')?.enabled).toBe(true);
   });
 
-  it('surfaces the active skills and modules', () => {
+  it('surfaces the active skills, modules, dials and fitness weights', () => {
     const view = buildResourceView(config);
     expect(view.skills).toEqual({ primary: config.primary, overlay: config.overlay });
     expect(view.modules).toEqual({ threeD: false, remotion: false });
+    expect(view.dials).toEqual(config.dials);
+    expect(view.weights).toEqual(config.fitness.weights);
   });
 });
 
@@ -99,5 +105,64 @@ describe('toggleModule', () => {
       threeD: false,
       remotion: true,
     });
+  });
+});
+
+describe('setPrimarySkill', () => {
+  it('sets a valid primary seed', () => {
+    expect(setPrimarySkill(config, 'design-taste-frontend').primary).toBe('design-taste-frontend');
+    expect(setPrimarySkill(config, 'redesign-existing-projects').primary).toBe(
+      'redesign-existing-projects',
+    );
+  });
+
+  it('returns the config unchanged for an unknown id', () => {
+    expect(setPrimarySkill(config, 'nope')).toBe(config);
+    expect(setPrimarySkill(config, 'none')).toBe(config); // "none" is an overlay, not a primary
+  });
+});
+
+describe('setOverlaySkill', () => {
+  it('sets a valid overlay (including clearing to none)', () => {
+    expect(setOverlaySkill(config, 'brutalist').overlay).toBe('brutalist');
+    expect(setOverlaySkill(setOverlaySkill(config, 'soft'), 'none').overlay).toBe('none');
+  });
+
+  it('returns the config unchanged for an unknown overlay', () => {
+    expect(setOverlaySkill(config, 'impeccable')).toBe(config); // a primary id is not an overlay
+    expect(setOverlaySkill(config, 'nope')).toBe(config);
+  });
+});
+
+describe('setDials', () => {
+  it('overrides only the provided dials', () => {
+    const next = setDials(config, { variance: 8 });
+    expect(next.dials).toEqual({ variance: 8, motion: 5, density: 5 });
+  });
+
+  it('clamps and rounds out-of-range / non-finite values into 1..10', () => {
+    expect(setDials(config, { variance: 99 }).dials.variance).toBe(10);
+    expect(setDials(config, { motion: 0 }).dials.motion).toBe(1);
+    expect(setDials(config, { density: -5 }).dials.density).toBe(1);
+    expect(setDials(config, { variance: 7.6 }).dials.variance).toBe(8);
+    expect(setDials(config, { motion: Number.NaN }).dials.motion).toBe(1);
+  });
+
+  it('leaves all dials intact for an empty patch', () => {
+    expect(setDials(config, {}).dials).toEqual(config.dials);
+  });
+});
+
+describe('setTasteWeight', () => {
+  it('sets taste and dsAdherence so they sum to 1', () => {
+    const next = setTasteWeight(config, 0.7);
+    expect(next.fitness.weights).toEqual({ taste: 0.7, dsAdherence: 0.30000000000000004 });
+    expect(next.fitness.weights.taste + next.fitness.weights.dsAdherence).toBeCloseTo(1);
+  });
+
+  it('clamps the taste weight into 0..1', () => {
+    expect(setTasteWeight(config, 2).fitness.weights).toEqual({ taste: 1, dsAdherence: 0 });
+    expect(setTasteWeight(config, -1).fitness.weights).toEqual({ taste: 0, dsAdherence: 1 });
+    expect(setTasteWeight(config, Number.NaN).fitness.weights.taste).toBe(0);
   });
 });

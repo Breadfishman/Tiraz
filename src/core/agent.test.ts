@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import type { Genome } from './genome';
 import type { CommandResult, CommandRunner } from './agent';
-import { ClaudeCodeAgent, MagicAgent, composePrompt, spawnRunner } from './agent';
+import {
+  ClaudeCodeAgent,
+  MagicAgent,
+  composeCritiquePrompt,
+  composePrompt,
+  spawnRunner,
+} from './agent';
 
 const base: Genome = {
   id: 'g0-n0',
@@ -110,6 +116,31 @@ describe('composePrompt', () => {
     );
     expect(prompt).toContain('## Recombination');
     expect(prompt).not.toContain('Axes to graft:');
+  });
+});
+
+describe('composeCritiquePrompt', () => {
+  it('instructs a focused self-review against the shared taste bar without rebuilding', () => {
+    const prompt = composeCritiquePrompt(base);
+    expect(prompt).toContain('# Tiraz self-critique pass');
+    expect(prompt).toContain('ALREADY built this component');
+    expect(prompt).toContain('do NOT restart from scratch');
+    expect(prompt).toContain('A hero section for a coffee roaster.'); // the brief
+    // The same shared rubric the judge grades on (taste-rubric.ts).
+    expect(prompt).toContain('## Taste bar — clear it (this is graded)');
+    expect(prompt).toContain('Avoid these slop tells');
+    expect(prompt).toContain('2-3 WORST');
+    expect(prompt).toContain('preserving the overall direction');
+    expect(prompt).toContain('Variation seed: 42');
+    // No screenshot path supplied → no screenshot section.
+    expect(prompt).not.toContain('## Your rendered output');
+  });
+
+  it('mentions the rendered screenshot when a path is given (and omits it when blank)', () => {
+    const withShot = composeCritiquePrompt(base, '/shots/g0-n0.png');
+    expect(withShot).toContain('## Your rendered output');
+    expect(withShot).toContain('/shots/g0-n0.png');
+    expect(composeCritiquePrompt(base, '   ')).not.toContain('## Your rendered output');
   });
 });
 

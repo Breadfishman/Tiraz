@@ -10,7 +10,7 @@
 
 import { z } from 'zod';
 import type { JudgeCandidate, JudgeContext, PairwiseJudge, PairwiseVerdict } from './taste-judge';
-import { antiSlopRubric } from './taste-rubric';
+import { antiSlopRubric, calibrationAnchors, paletteRubric } from './taste-rubric';
 
 /** Lens-specific rubrics, mirroring `frontend-design`'s taste criteria (SPEC §9). */
 const LENS_RUBRICS: Record<string, string> = {
@@ -23,6 +23,8 @@ const LENS_RUBRICS: Record<string, string> = {
   motion:
     'implied motion and interaction polish: easing, choreography, micro-interaction cues visible in ' +
     'the still. Reward restraint and intent; penalise generic or absent motion affordances.',
+  // Dedicated palette/colour lens — palette confidence is a major slop differentiator (taste-rubric.ts).
+  palette: paletteRubric(),
   // The anti-slop lens draws on the shared taste rubric so the judge grades on the same concrete
   // catalog of slop tells / excellence markers the agent builds against (taste-rubric.ts).
   'generic-feel': antiSlopRubric(),
@@ -30,10 +32,15 @@ const LENS_RUBRICS: Record<string, string> = {
 
 const DEFAULT_RUBRIC = 'overall design quality and taste for this brief.';
 
-const JUDGE_SYSTEM =
+// A few concise calibration anchors (from the shared rubric) so the critic's bar is grounded few-shot
+// rather than free-floating — kept consistent with what the generator builds against (taste-rubric.ts).
+const JUDGE_SYSTEM = [
   'You are a senior design critic with exceptional, non-generic taste. You compare two UI ' +
-  'screenshots and judge which is better on a single specified dimension. You are decisive and ' +
-  'never call a tie.';
+    'screenshots and judge which is better on a single specified dimension. You are decisive and ' +
+    'never call a tie.',
+  '',
+  ...calibrationAnchors(),
+].join('\n');
 
 export interface JudgePrompt {
   system: string;
