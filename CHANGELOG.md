@@ -7,13 +7,16 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
-- **Dashboard: Actions dropdown + side-by-side compare** (`core/dashboard.ts`). The action buttons
-  (heart / cull / focus / breed / combine / promote / score / snapshot) now collapse into a single
-  **"⚙ Actions ▾"** dropdown so the top stays uncluttered, and the fullscreen control moved off the
-  preview into a small persistent view toolbar (no longer floats over the variant). New **⊞ Compare**
-  mode: toggle it, then click variants in the sidebar to view 2–4 of them in **side-by-side iframes**
-  (a grid in the stage) — for eyeballing what to blend across variants; Esc exits. Fullscreen still
-  works (button + `f`), and now fullscreens the compare grid too.
+- **Dashboard: collapsible info stack + side-by-side compare** (`core/dashboard.ts`). The whole info
+  stack above the preview — the variant line (`g0-n2 …`), the per-lens judge rationale
+  (typography / layout / generic-feel …), and the Config & resources panel — now collapses into one
+  **info dropdown** (collapsed by default, with a one-line summary of the selected variant), so the
+  preview / compare grid gets the full height. The action buttons likewise fold into a single
+  **"⚙ Actions ▾"** dropdown, and the fullscreen control moved off the preview into a small persistent
+  view toolbar (no longer floats over the variant). New **⊞ Compare** mode: toggle it, then click
+  variants in the sidebar to view 2–4 of them in **side-by-side iframes** (a grid in the stage) — for
+  eyeballing what to blend; Esc exits. Fullscreen still works (button + `f`) and fullscreens the
+  compare grid too.
 
 - **Phase 1.5 — credit fetched components in DS-adherence** (`core/component-fetch.ts`,
   `core/component-fetch-io.ts`, `core/twentyfirst-io.ts`, `core/ds-collect.ts`,

@@ -292,6 +292,15 @@ export function renderDashboardHtml(
   .badge { background: #20202a; border-radius: 6px; padding: 1px 7px; font-weight: 700; font-size: 11px; align-self: start; }
   .badge.muted { color: #6f6f78; font-weight: 400; }
   main { display: flex; flex-direction: column; min-width: 0; }
+  /* Collapsible info stack (variant line + judge lenses + Config) — collapsed by default so the
+     preview / compare grid gets the full height. */
+  .infopanel { border-bottom: 1px solid #1e1e24; background: #0c0c10; }
+  .infopanel > summary { cursor: pointer; padding: 8px 18px; color: #c7c7cf; font-size: 13px;
+                         user-select: none; list-style: none; display: flex; gap: 10px; align-items: baseline; }
+  .infopanel > summary::-webkit-details-marker { display: none; }
+  .infopanel > summary::before { content: '▸ '; color: #6f6f78; }
+  .infopanel[open] > summary::before { content: '▾ '; }
+  .infobody > .respanel, .infobody > .detail { border-bottom: 0; }
   .bar { display: flex; gap: 14px; align-items: baseline; padding: 12px 18px; border-bottom: 1px solid #1e1e24; flex-wrap: wrap; }
   .bar .t { font-weight: 700; } .muted { color: #6f6f78; } .ok { color: #5bd6a0; } .bad { color: #e06b6b; }
   .actions { display: flex; flex-direction: column; gap: 8px; padding: 10px 18px; border-bottom: 1px solid #1e1e24; background: #0e0e12; }
@@ -357,9 +366,14 @@ export function renderDashboardHtml(
   </aside>
   <main>
     ${topTools}
-    <div class="bar" id="bar"><span class="muted">Select a variant to view it live →</span></div>
-    ${resourcePanel}
-    <div class="detail" id="detail"></div>
+    <details class="infopanel" id="infopanel">
+      <summary id="infosum"><span class="muted">Select a variant →</span></summary>
+      <div class="infobody">
+        <div class="bar" id="bar"><span class="muted">Select a variant to view it live →</span></div>
+        <div class="detail" id="detail"></div>
+        ${resourcePanel}
+      </div>
+    </details>
     <div class="stage" id="stagewrap">
       <iframe id="stage" title="variant" src=""></iframe>
       <div class="compare" id="comparewrap"></div>
@@ -392,6 +406,10 @@ export function renderDashboardHtml(
         + ' · ' + (v.parents.length ? '← ' + v.parents.join(', ') : 'seed') + '</span>'
         + '<span class="muted">variance ' + v.dials.variance + ' · motion ' + v.dials.motion + ' · density ' + v.dials.density + '</span>'
         + fit + '<span class="muted">status ' + v.status + '</span>';
+      // Concise summary so the (collapsed) info panel still shows what's selected at a glance.
+      document.getElementById('infosum').innerHTML =
+        '<span class="t">' + id + (v.best ? ' ★' : '') + '</span>' + fit
+        + '<span class="muted">status ' + v.status + '</span>';
       detail.innerHTML = (v.panel && v.panel.length)
         ? '<div class="lens"><b>judge</b> why this ranked where it did:</div>'
           + v.panel.map((p) => '<div class="lens"><b>' + esc(p.lens) + '</b>' + esc(p.rationale) + '</div>').join('')
@@ -414,6 +432,8 @@ export function renderDashboardHtml(
     }
     function renderCompare() {
       document.querySelectorAll('.item').forEach((b) => b.classList.toggle('cmpsel', compareSel.includes(b.dataset.id)));
+      document.getElementById('infosum').innerHTML = '<span class="t">Comparing</span> <span class="muted">'
+        + (compareSel.length ? compareSel.join(' · ') : 'pick variants from the sidebar') + '</span>';
       if (!compareSel.length) {
         cmpwrap.classList.remove('on'); cmpwrap.innerHTML = '';
         frame.style.display = 'none'; empty.style.display = 'block';

@@ -60,6 +60,11 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('id="cmp-toggle"');
     expect(html).toContain('id="comparewrap"');
     expect(html).toContain('renderCompare');
+    // The variant line + judge lenses + Config collapse into one info dropdown so the preview fills.
+    expect(html).toContain('class="infopanel"');
+    expect(html).toMatch(
+      /<details class="infopanel"[\s\S]*id="bar"[\s\S]*id="detail"[\s\S]*<\/details>/,
+    );
   });
 
   it('collapses the action controls into an Actions dropdown (decluttered top)', () => {
