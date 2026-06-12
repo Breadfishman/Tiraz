@@ -54,6 +54,9 @@ describe('TirazConfigSchema', () => {
       // Genuine component fetching defaults on, with a 6-component-per-variant budget (SPEC §12).
       fetchMode: 'install',
       fetchBudget: 6,
+      // 21st.dev semantic search is opt-in (hosted, API-keyed) — off by default.
+      twentyFirst: false,
+      twentyFirstBudget: 3,
     });
     expect(config.framework).toBe('astro');
     expect(config.lintThreshold).toBe(80);
@@ -92,6 +95,9 @@ describe('TirazConfigSchema', () => {
     expect(result.success).toBe(true);
     expect(result.success && result.data.sources.fetchMode).toBe('install');
     expect(result.success && result.data.sources.fetchBudget).toBe(6);
+    // The 21st.dev keys also field-default (off / budget 3) so legacy configs validate.
+    expect(result.success && result.data.sources.twentyFirst).toBe(false);
+    expect(result.success && result.data.sources.twentyFirstBudget).toBe(3);
   });
 
   it('accepts an explicit signatures fetchMode and a custom budget', () => {

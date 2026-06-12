@@ -20,6 +20,7 @@ export default defineConfig({
         'src/core/claude-judge-io.ts',
         'src/core/ds-collect-io.ts',
         'src/core/component-fetch-io.ts',
+        'src/core/twentyfirst-io.ts',
       ],
       thresholds: {
         lines: 90,

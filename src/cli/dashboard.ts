@@ -24,6 +24,7 @@ import {
   buildResourceView,
   setDials,
   setFetchMode,
+  setTwentyFirst,
   setOverlaySkill,
   setPrimarySkill,
   setTasteWeight,
@@ -70,7 +71,16 @@ const RecombineBody = z.object({
 const SnapshotBody = z.object({ label: z.string() });
 const RestoreBody = z.object({ id: z.string() });
 const ConfigBody = z.object({
-  kind: z.enum(['source', 'module', 'primary', 'overlay', 'dial', 'weight', 'fetchmode']),
+  kind: z.enum([
+    'source',
+    'module',
+    'primary',
+    'overlay',
+    'dial',
+    'weight',
+    'fetchmode',
+    'twentyfirst',
+  ]),
   id: z.string(),
   enabled: z.boolean().optional(),
   value: z.number().optional(),
@@ -504,6 +514,11 @@ async function runDashboard(
           });
         } else if (kind === 'fetchmode') {
           const next = setFetchMode(cfg, enabled === true);
+          await updateConfig(cwd, (raw) => {
+            raw.sources = next.sources;
+          });
+        } else if (kind === 'twentyfirst') {
+          const next = setTwentyFirst(cfg, enabled === true);
           await updateConfig(cwd, (raw) => {
             raw.sources = next.sources;
           });

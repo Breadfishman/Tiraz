@@ -72,6 +72,14 @@ export const TirazConfigSchema = z.strictObject({
       // still validates and picks them up.
       fetchMode: z.enum(['signatures', 'install']).default('install'),
       fetchBudget: z.number().int().min(0).max(20).default(6),
+      // 21st.dev semantic-search source (SPEC §12, Phase 2/3). Unlike the shadcn-registry sources
+      // (fixed slug lists), this is QUERY-DRIVEN: a planning agent pass picks search queries and each
+      // hits 21st.dev's authed `fetch-ui` endpoint, which returns real component code. OFF by default
+      // — it is a hosted, API-keyed service (needs `TWENTY_FIRST_API_KEY`) so it must be opted into.
+      // `twentyFirstBudget` caps the queries (= components) installed per variant. Field-defaulted so
+      // existing configs validate without these keys.
+      twentyFirst: z.boolean().default(false),
+      twentyFirstBudget: z.number().int().min(0).max(8).default(3),
     })
     .default({
       bundled: ['magic-ui'],
@@ -89,6 +97,8 @@ export const TirazConfigSchema = z.strictObject({
       aceternity: false,
       fetchMode: 'install',
       fetchBudget: 6,
+      twentyFirst: false,
+      twentyFirstBudget: 3,
     }),
 
   harness: z.enum(['auto', 'storybook', 'ladle', 'histoire', 'scratch', 'app']).default('auto'),

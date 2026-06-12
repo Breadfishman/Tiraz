@@ -7,6 +7,28 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **21st.dev semantic-search fetching (Phase 2/3 — agent-chosen + a real second transport)**
+  (`core/twentyfirst.ts`, `core/twentyfirst-io.ts`, `core/gen.ts`, `core/search.ts`, `core/config.ts`,
+  `core/resources.ts`, `core/dashboard.ts`, `cli/dashboard.ts`, `cli.ts`). The `21st-registry` source
+  was previously signatures-only (it is **not** a plain shadcn registry, so the registry probe never
+  resolved it). It is now genuine via 21st.dev's authed semantic-search endpoint — a fundamentally
+  different, query-driven transport from the fixed-slug shadcn path:
+  - A **planning agent pass** (`composePlanningPrompt` → `parsePlannedQueries`) runs before the build:
+    the agent picks up to `sources.twentyFirstBudget` short search queries (2–4 words) that would most
+    elevate _this_ brief. This is the long-planned **agent-chosen** path (SPEC §12, Phase 2).
+  - Each query hits `POST https://magic.21st.dev/api/fetch-ui` (header `x-api-key`), which semantically
+    searches 21st's library and returns **real component code inline**. The top match per query is
+    written to the worktree (`components/ui/<slug>.tsx`), recorded in `provenance.json`, and listed in
+    the compose prompt's "Real components installed — compose, do not reimplement" section alongside the
+    shadcn-fetched ones.
+  - **Off by default**, opted into via `sources.twentyFirst` (config or the dashboard Config panel) and
+    gated on `TWENTY_FIRST_API_KEY`. Same hard rule as the shadcn path — best-effort, **never blocks a
+    variant**: no key, a failed plan, an offline endpoint, or a malformed response all degrade to
+    "fetch nothing" and the variant proceeds on signatures. The HTTP + filesystem glue lives in the
+    coverage-excluded `twentyfirst-io.ts`; all parsing/prompt/request logic is pure + unit-tested.
+  - The CLI entrypoint now best-effort loads a local `.env` (`process.loadEnvFile`), so a key placed
+    there (e.g. `TWENTY_FIRST_API_KEY`, `ANTHROPIC_API_KEY`) reaches `process.env` at runtime.
+
 - **Parallel round materialization** (`core/pool.ts`, `core/search.ts`, `core/gen.ts`,
   `core/config.ts`). A round's variants used to be generated **one at a time** (an `await` loop), so a
   round of N took ~N × the per-variant agent time. They now run through a **bounded-concurrency pool**

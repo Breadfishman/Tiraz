@@ -155,6 +155,8 @@ async function materialize(
           fetchMode: config.sources.fetchMode,
           fetchBudget: config.sources.fetchBudget,
           bundledSources,
+          twentyFirst: config.sources.twentyFirst,
+          twentyFirstBudget: config.sources.twentyFirstBudget,
           ...(baseRef !== undefined ? { baseRef } : {}),
           ...(directive !== undefined ? { directive } : {}),
         },

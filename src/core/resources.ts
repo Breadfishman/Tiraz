@@ -46,6 +46,8 @@ export interface ResourceView {
   fetchMode: 'signatures' | 'install';
   /** Max components installed per variant in `install` mode. */
   fetchBudget: number;
+  /** 21st.dev semantic-search fetching (SPEC §12, Phase 2/3): whether it is opted in (needs a key). */
+  twentyFirst: boolean;
   sources: ResourceSourceView[];
   capabilities: ResourceCapabilityView[];
 }
@@ -124,6 +126,7 @@ export function buildResourceView(config: TirazConfig): ResourceView {
     weights: { ...config.fitness.weights },
     fetchMode: config.sources.fetchMode,
     fetchBudget: config.sources.fetchBudget,
+    twentyFirst: config.sources.twentyFirst,
     sources,
     capabilities,
   };
@@ -161,6 +164,15 @@ export function setFetchMode(config: TirazConfig, enabled: boolean): TirazConfig
     ...config,
     sources: { ...config.sources, fetchMode: enabled ? 'install' : 'signatures' },
   };
+}
+
+/**
+ * Return a copy of `config` with 21st.dev semantic-search fetching toggled (SPEC §12, Phase 2/3).
+ * Off by default — it is a hosted, API-keyed service, so enabling it also requires
+ * `TWENTY_FIRST_API_KEY` in the environment (the fetch is a no-op without a key).
+ */
+export function setTwentyFirst(config: TirazConfig, enabled: boolean): TirazConfig {
+  return { ...config, sources: { ...config.sources, twentyFirst: enabled } };
 }
 
 /** Return a copy of `config` with a capability module toggled on/off. */

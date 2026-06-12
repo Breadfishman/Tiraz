@@ -164,6 +164,7 @@ describe('renderDashboardHtml', () => {
           weights: { dsAdherence: 0.4, taste: 0.6 },
           fetchMode: 'install',
           fetchBudget: 6,
+          twentyFirst: false,
           sources: [
             {
               id: 'magic-ui',

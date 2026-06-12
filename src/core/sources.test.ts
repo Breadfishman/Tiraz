@@ -102,6 +102,8 @@ describe('resolveSources', () => {
       aceternity: false,
       fetchMode: 'install' as const,
       fetchBudget: 6,
+      twentyFirst: false,
+      twentyFirstBudget: 3,
     };
     expect(() => resolveSources(cfg)).toThrow(SourceError);
   });

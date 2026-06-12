@@ -4,6 +4,7 @@ import type { Agent, CommandRunner } from './agent';
 import { composeCritiquePrompt, composePrompt, spawnRunner } from './agent';
 import { resolveFetchPlan } from './component-fetch';
 import { fetchComponents } from './component-fetch-io';
+import { planAndFetchTwentyFirst } from './twentyfirst-io';
 import type { TirazConfig } from './config';
 import { loadConfig } from './config';
 import type { DetectedHarness, HarnessKind } from './detect';
@@ -86,6 +87,15 @@ export interface GenerateVariantContext {
    * them here; without this they'd never be installed even though they have a registry entry.
    */
   bundledSources?: string[];
+  /**
+   * 21st.dev semantic-search fetching (SPEC §12, Phase 2/3). When enabled (and `TWENTY_FIRST_API_KEY`
+   * is set), a planning agent pass picks search queries and Tiraz installs the matching real
+   * components from 21st.dev's `fetch-ui` endpoint before the main agent runs. Best-effort: no key,
+   * a failed plan, or an offline endpoint silently fetches nothing and the variant proceeds.
+   */
+  twentyFirst?: boolean;
+  /** Max 21st.dev queries (= components) per variant when {@link twentyFirst} is on (defaults to 3). */
+  twentyFirstBudget?: number;
 }
 
 /**
@@ -144,13 +154,30 @@ export async function generateVariant(
         )
       : [];
 
+  // 21st.dev semantic-search fetching (SPEC §12, Phase 2/3): when enabled, a planning agent pass picks
+  // search queries and the matching real components are installed into the worktree. Same hard rule —
+  // best-effort, never blocks the variant (no key / failed plan / offline → fetches nothing).
+  const twentyFirstFetched =
+    ctx.twentyFirst === true
+      ? await planAndFetchTwentyFirst({
+          worktreeDir: worktreePath,
+          genome: ctx.genome,
+          ...(ctx.designSystem !== undefined ? { designSystem: ctx.designSystem } : {}),
+          agent: deps.agent,
+          activeSkillIds,
+          budget: ctx.twentyFirstBudget ?? 3,
+        })
+      : [];
+
+  const allFetched = [...fetched, ...twentyFirstFetched];
+
   const prompt = composePrompt(
     ctx.genome,
     activeSkillIds,
     ctx.capabilities ?? [],
     ctx.designSystem,
     ctx.directive,
-    fetched.map((f) => ({ source: f.source, item: f.item })),
+    allFetched.map((f) => ({ source: f.source, item: f.item })),
   );
   const agentResult = await deps.agent.run({
     cwd: worktreePath,
@@ -285,6 +312,8 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
       fetchMode: config.sources.fetchMode,
       fetchBudget: config.sources.fetchBudget,
       bundledSources,
+      twentyFirst: config.sources.twentyFirst,
+      twentyFirstBudget: config.sources.twentyFirstBudget,
     },
     deps,
   );

@@ -134,6 +134,7 @@ function buildResourcePanel(resources: ResourceView | undefined): string {
       </div>
       <div class="rsec"><h4>Component sources</h4>
         <label class="rrow"><input type="checkbox" class="cfg-toggle" data-kind="fetchmode" data-id="fetchmode"${resources.fetchMode === 'install' ? ' checked' : ''} /> Fetch real components from sources (install) <span class="rlic">budget ${String(resources.fetchBudget)}/variant</span></label>
+        <label class="rrow"><input type="checkbox" class="cfg-toggle" data-kind="twentyfirst" data-id="twentyfirst"${resources.twentyFirst ? ' checked' : ''} /> 21st.dev semantic search (agent-chosen) <span class="rlic">needs TWENTY_FIRST_API_KEY</span></label>
         ${resources.sources.map(sourceRow).join('')}</div>
       <div class="rsec"><h4>Capability libraries</h4>
         ${moduleToggle('threeD', '3D module (Three.js / R3F)', resources.modules.threeD)}

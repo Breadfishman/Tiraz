@@ -53,6 +53,16 @@ export function buildProgram(): Command {
   return program;
 }
 
+// Best-effort: load a local `.env` from the working directory so keys placed there (e.g.
+// TWENTY_FIRST_API_KEY for 21st.dev fetching, ANTHROPIC_API_KEY for the vision judge) reach
+// process.env. Node 22's built-in `loadEnvFile` throws when the file is absent — that is fine, env
+// vars then come from the shell instead.
+try {
+  process.loadEnvFile();
+} catch {
+  // No readable `.env` in cwd — rely on the ambient environment.
+}
+
 try {
   await buildProgram().parseAsync();
 } catch (err) {
