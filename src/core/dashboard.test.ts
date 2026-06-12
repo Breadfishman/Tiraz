@@ -54,9 +54,22 @@ describe('renderDashboardHtml', () => {
     // endpoints embedded for the client switcher
     expect(html).toContain('http://localhost:41000/iframe.html?id=hero--default');
     expect(html).toContain('<iframe');
-    // fullscreen preview control (a view feature, present regardless of actions)
+    // view controls (present regardless of actions): fullscreen + side-by-side compare
     expect(html).toContain('id="fsbtn"');
     expect(html).toContain('requestFullscreen');
+    expect(html).toContain('id="cmp-toggle"');
+    expect(html).toContain('id="comparewrap"');
+    expect(html).toContain('renderCompare');
+  });
+
+  it('collapses the action controls into an Actions dropdown (decluttered top)', () => {
+    const m = manifestWith([node('g0-n0')], [['g0-n0']]);
+    const html = renderDashboardHtml(m, { 'g0-n0': 'http://x/1' }, { actionsEnabled: true });
+    // The action buttons live inside a <details> dropdown rather than an always-open bar.
+    expect(html).toContain('class="actmenu"');
+    expect(html).toMatch(/<details class="actmenu">[\s\S]*id="act-heart"[\s\S]*<\/details>/);
+    // Compare is available alongside the dropdown.
+    expect(html).toContain('id="cmp-toggle"');
   });
 
   it('marks a variant with no live endpoint as not running (disabled)', () => {

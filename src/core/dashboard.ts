@@ -208,8 +208,11 @@ export function renderDashboardHtml(
 
   const data = JSON.stringify(Object.fromEntries(views.map((v) => [v.id, v])));
 
-  const actionBar = actions
-    ? `<div class="actions" id="actions">
+  // The action buttons collapse into a single "Actions ▾" dropdown so the top stays uncluttered.
+  const actionsMenu = actions
+    ? `<details class="actmenu">
+      <summary class="vbtn">⚙ Actions ▾</summary>
+      <div class="actions" id="actions">
       <div class="arow">
         <button class="abtn" id="act-heart" title="Favorite this variant (keep it; no siblings pruned)">♥ Heart</button>
         <button class="abtn" id="act-cull" title="Cull this variant (mark pruned)">✕ Cull</button>
@@ -246,9 +249,17 @@ export function renderDashboardHtml(
         </select>
         <button class="abtn" id="act-restore">Restore</button>
       </div>
-      <span class="toast" id="toast"></span>
-    </div>`
+      </div>
+    </details>`
     : '';
+
+  // Persistent view toolbar: compare + fullscreen (work in read-only too) + the actions dropdown.
+  const topTools = `<div class="toptools">
+    <button class="vbtn" id="cmp-toggle" title="Compare variants side by side — click variants to add/remove (Esc exits)">⊞ Compare</button>
+    <button class="vbtn" id="fsbtn" title="Fullscreen the preview (press f; Esc to exit)">⛶ Fullscreen</button>
+    ${actionsMenu}
+    <span class="toast" id="toast"></span>
+  </div>`;
 
   const resourcePanel = buildResourcePanel(actions ? opts.resources : undefined);
 
@@ -317,11 +328,25 @@ export function renderDashboardHtml(
   .detail .lens { margin-bottom: 4px; }
   .stage { flex: 1; min-height: 0; background: #fff; position: relative; }
   iframe { width: 100%; height: 100%; border: 0; display: block; }
-  .fsbtn { position: absolute; top: 10px; right: 10px; z-index: 6; background: rgba(18,18,24,0.82);
-           color: #e8e8ef; border: 1px solid #2a2a34; border-radius: 6px; padding: 5px 10px;
-           font-size: 12px; cursor: pointer; opacity: 0.5; transition: opacity 0.12s; }
-  .fsbtn:hover { opacity: 1; }
   .stage:fullscreen { background: #fff; }
+  /* Persistent view toolbar + the collapsible Actions dropdown. */
+  .toptools { display: flex; gap: 8px; align-items: center; padding: 8px 18px;
+              border-bottom: 1px solid #1e1e24; background: #0e0e12; flex-wrap: wrap; }
+  .vbtn { background: #16161c; color: #e7e7ea; border: 1px solid #2a2a36; border-radius: 6px;
+          padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; list-style: none; }
+  .vbtn::-webkit-details-marker { display: none; }
+  .vbtn:hover { border-color: #3a3a48; } .vbtn.on { background: #2a2a3a; border-color: #5a5ad0; }
+  .actmenu { position: relative; }
+  .actmenu > .actions { position: absolute; top: 100%; left: 0; z-index: 20; margin-top: 6px;
+                        border: 1px solid #2a2a36; border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); min-width: 360px; }
+  /* Side-by-side compare grid (each selected variant in its own pane). */
+  .compare { display: none; width: 100%; height: 100%; gap: 1px; background: #1e1e24; }
+  .compare.on { display: grid; }
+  .cmpcell { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: #fff; }
+  .cmphdr { font-size: 11px; padding: 4px 8px; background: #0e0e12; color: #c7c7cf; border-bottom: 1px solid #1e1e24;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .cmpcell iframe { flex: 1; }
+  .item.cmpsel { outline: 2px solid #5a5ad0; outline-offset: -2px; }
   .empty { color: #6f6f78; padding: 40px; }
   kbd { background: #20202a; border-radius: 4px; padding: 1px 5px; }
 </style></head>
@@ -331,12 +356,13 @@ export function renderDashboardHtml(
     ${sidebar || '<div class="empty">No variants yet — run <kbd>tiraz gen</kbd>.</div>'}
   </aside>
   <main>
+    ${topTools}
     <div class="bar" id="bar"><span class="muted">Select a variant to view it live →</span></div>
-    ${actionBar}
     ${resourcePanel}
     <div class="detail" id="detail"></div>
-    <div class="stage" id="stagewrap"><iframe id="stage" title="variant" src=""></iframe>
-      <button class="fsbtn" id="fsbtn" title="Fullscreen preview (press f; Esc to exit)">⛶ Fullscreen</button>
+    <div class="stage" id="stagewrap">
+      <iframe id="stage" title="variant" src=""></iframe>
+      <div class="compare" id="comparewrap"></div>
       <div class="empty" id="empty" style="display:none">This variant has no live render.</div></div>
   </main>
   <script>
@@ -344,13 +370,18 @@ export function renderDashboardHtml(
     const actionsEnabled = ${String(actions)};
     const order = Object.keys(data);
     const frame = document.getElementById('stage'), bar = document.getElementById('bar'),
-          empty = document.getElementById('empty'), detail = document.getElementById('detail');
+          empty = document.getElementById('empty'), detail = document.getElementById('detail'),
+          cmpwrap = document.getElementById('comparewrap'), cmpToggle = document.getElementById('cmp-toggle');
     let cur = null;
+    let compareMode = false;
+    const compareSel = []; // ids picked for side-by-side (selection order; capped)
+    const COMPARE_MAX = 4;
     function esc(s) { return String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c])); }
     function select(id) {
       const v = data[id]; if (!v) return;
       document.querySelectorAll('.item').forEach((b) => b.classList.toggle('active', b.dataset.id === id));
       cur = id;
+      cmpwrap.classList.remove('on'); cmpwrap.innerHTML = ''; // leave any compare grid
       if (v.url) { frame.style.display = 'block'; empty.style.display = 'none'; frame.src = v.url; }
       else { frame.style.display = 'none'; empty.style.display = 'block'; }
       const fit = v.composite != null
@@ -369,10 +400,59 @@ export function renderDashboardHtml(
     }
     function onItemClick(id) {
       if (actionsEnabled && window.__combining && id !== window.__combineA) { window.__pickB(id); return; }
+      if (compareMode) { toggleCompare(id); return; }
       select(id);
     }
     document.querySelectorAll('.item:not([disabled])').forEach((b) => b.addEventListener('click', () => onItemClick(b.dataset.id)));
+
+    // --- side-by-side compare: pick variants, render them in a grid of iframes ---
+    function toggleCompare(id) {
+      const i = compareSel.indexOf(id);
+      if (i >= 0) compareSel.splice(i, 1);
+      else if (compareSel.length < COMPARE_MAX) compareSel.push(id);
+      renderCompare();
+    }
+    function renderCompare() {
+      document.querySelectorAll('.item').forEach((b) => b.classList.toggle('cmpsel', compareSel.includes(b.dataset.id)));
+      if (!compareSel.length) {
+        cmpwrap.classList.remove('on'); cmpwrap.innerHTML = '';
+        frame.style.display = 'none'; empty.style.display = 'block';
+        empty.textContent = 'Compare mode — click variants in the sidebar to view them side by side.';
+        return;
+      }
+      frame.style.display = 'none'; empty.style.display = 'none';
+      const cols = compareSel.length === 1 ? 1 : compareSel.length <= 4 ? 2 : 3;
+      cmpwrap.style.gridTemplateColumns = 'repeat(' + cols + ', 1fr)';
+      cmpwrap.classList.add('on');
+      cmpwrap.innerHTML = compareSel.map((id) => {
+        const v = data[id];
+        const hdr = '<div class="cmphdr">' + esc(id) + (v && v.best ? ' ★' : '')
+          + (v && v.composite != null ? ' · ' + v.composite : '') + '</div>';
+        const body = v && v.url
+          ? '<iframe src="' + v.url + '"></iframe>'
+          : '<div class="empty">no live render</div>';
+        return '<div class="cmpcell">' + hdr + body + '</div>';
+      }).join('');
+    }
+    function setCompareMode(on) {
+      compareMode = on;
+      cmpToggle.classList.toggle('on', on);
+      cmpToggle.textContent = on ? '⊞ Comparing… (Esc to exit)' : '⊞ Compare';
+      if (on) {
+        compareSel.length = 0;
+        if (cur) compareSel.push(cur); // seed with the current variant
+        renderCompare();
+      } else {
+        compareSel.length = 0;
+        document.querySelectorAll('.item').forEach((b) => b.classList.remove('cmpsel'));
+        empty.textContent = 'This variant has no live render.';
+        if (cur) select(cur); else { cmpwrap.classList.remove('on'); cmpwrap.innerHTML = ''; }
+      }
+    }
+    cmpToggle.addEventListener('click', () => setCompareMode(!compareMode));
     document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && compareMode) { setCompareMode(false); return; }
+      if (compareMode) return; // arrows don't navigate while comparing
       if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
       const live = order.filter((id) => data[id].url); if (!live.length) return;
       const i = live.indexOf(cur); const n = (i + (e.key === 'ArrowDown' ? 1 : -1) + live.length) % live.length;
