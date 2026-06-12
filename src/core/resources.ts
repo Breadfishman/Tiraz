@@ -11,7 +11,7 @@ import type { CapabilityCategory, CapabilityModule } from './capabilities';
 import { CAPABILITIES } from './capabilities';
 import type { TirazConfig } from './config';
 import type { ComponentSource, SourceTier } from './sources';
-import { SOURCES } from './sources';
+import { RESTRICTED_TOGGLES, SOURCES, restrictedEnabled } from './sources';
 
 export interface ResourceSourceView {
   id: string;
@@ -79,7 +79,7 @@ export function npmUrl(pkg: string): string {
 /** Whether a source is currently permitted by the config (restricted sources via their own toggle). */
 export function isSourceEnabled(source: ComponentSource, cfg: TirazConfig['sources']): boolean {
   if (source.restricted) {
-    return source.id === 'aceternity' ? cfg.aceternity : false;
+    return restrictedEnabled(source.id, cfg);
   }
   return cfg.bundled.includes(source.id) || cfg.fetch.includes(source.id);
 }
@@ -141,8 +141,9 @@ export function toggleSource(config: TirazConfig, id: string, enabled: boolean):
   const source = SOURCES.find((s) => s.id === id);
   if (source === undefined) return config;
   if (source.restricted) {
-    if (id !== 'aceternity') return config;
-    return { ...config, sources: { ...config.sources, aceternity: enabled } };
+    const key = RESTRICTED_TOGGLES[id];
+    if (key === undefined) return config;
+    return { ...config, sources: { ...config.sources, [key]: enabled } };
   }
   const key = source.tier === 'bundled' ? 'bundled' : 'fetch';
   const present = config.sources[key];

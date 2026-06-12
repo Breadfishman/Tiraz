@@ -3,6 +3,7 @@ import type { TirazConfig } from './config';
 import { TirazConfigSchema } from './config';
 import {
   ACETERNITY_TOS_WARNING,
+  SKIPER_TOS_WARNING,
   EXCLUDED_SOURCES,
   SOURCES,
   SourceError,
@@ -28,19 +29,19 @@ describe('getSource', () => {
 });
 
 describe('SOURCES registry', () => {
-  it('covers the verified ecosystem with exactly one restricted source carrying a warning', () => {
+  it('marks the restricted sources, each carrying a warning', () => {
     const restricted = SOURCES.filter((s) => s.restricted);
-    expect(restricted.map((s) => s.id)).toEqual(['aceternity']);
+    expect(restricted.map((s) => s.id).sort()).toEqual(['aceternity', 'skiper-ui']);
     expect(restricted.every((s) => s.warning !== undefined && s.warning.length > 0)).toBe(true);
     // The expanded menu includes the clean-MIT additions.
     const ids = SOURCES.map((s) => s.id);
-    for (const id of ['cult-ui', 'motion-primitives', 'kokonut-ui', 'smoothui', 'eldora-ui']) {
+    for (const id of ['cult-ui', 'kokonut-ui', 'smoothui', 'eldora-ui', 'tailark', 'mynaui']) {
       expect(ids).toContain(id);
     }
   });
 
   it('records why license-incompatible sources are excluded rather than dropping them silently', () => {
-    expect(EXCLUDED_SOURCES.map((s) => s.id)).toEqual(['hover-dev', 'skiper-ui']);
+    expect(EXCLUDED_SOURCES.map((s) => s.id)).toEqual(['hover-dev']);
     expect(EXCLUDED_SOURCES.every((s) => s.reason.length > 0)).toBe(true);
   });
 
@@ -70,8 +71,11 @@ describe('default config sources', () => {
       'kokonut-ui',
       'smoothui',
       'eldora-ui',
+      'tailark',
+      'mynaui',
     ]);
     expect(resolved.permittedIds).not.toContain('aceternity');
+    expect(resolved.permittedIds).not.toContain('skiper-ui');
     expect(resolved.warnings).toEqual([]);
   });
 });
@@ -94,12 +98,23 @@ describe('resolveSources', () => {
     expect(on.warnings).toEqual([ACETERNITY_TOS_WARNING]);
   });
 
+  it('admits Skiper UI only via its own toggle, with its attribution warning', () => {
+    const off = resolveSources(sourcesConfig({ fetch: ['react-bits'] }));
+    expect(off.permittedIds).not.toContain('skiper-ui');
+    expect(off.warnings).toEqual([]);
+
+    const on = resolveSources(sourcesConfig({ fetch: ['react-bits'], skiper: true }));
+    expect(on.permittedIds).toContain('skiper-ui');
+    expect(on.warnings).toEqual([SKIPER_TOS_WARNING]);
+  });
+
   it('throws on an unknown configured source', () => {
     // Bypass schema validation (it permits arbitrary strings) to test the registry guard.
     const cfg = {
       bundled: ['magic-ui'],
       fetch: ['bogus-source'],
       aceternity: false,
+      skiper: false,
       fetchMode: 'install' as const,
       fetchBudget: 6,
       twentyFirst: false,

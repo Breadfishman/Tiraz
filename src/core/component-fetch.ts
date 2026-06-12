@@ -79,6 +79,30 @@ export const COMPONENT_REGISTRY: readonly SourceRegistry[] = [
     items: ['siri-orb'],
   },
   {
+    // Tailark — MIT shadcn marketing blocks (hero/features/pricing/etc.); slugs spot-verified live.
+    id: 'tailark',
+    transport: 'shadcn-registry',
+    urlTemplate: 'https://tailark.com/r/{name}.json',
+    items: ['hero-section-1', 'features-1', 'pricing-1', 'testimonials-1', 'call-to-action-1'],
+  },
+  {
+    // MynaUI — MIT Tailwind + shadcn components; numbered slugs (button1, accordion1, …), verified live.
+    id: 'mynaui',
+    transport: 'shadcn-registry',
+    urlTemplate: 'https://mynaui.com/r/{name}.json',
+    items: ['button1', 'accordion1', 'badge1', 'input1', 'avatar1', 'tabs1'],
+  },
+  {
+    // RESTRICTED source: only fetched when `config.sources.skiper` is toggled on (off by default,
+    // surfaces a ToS warning). Skiper UI mixes free (attribution-required) and paid components; only
+    // the publicly-fetchable free slugs are listed, and the warning flags the attribution + paid mix.
+    // Note the distinct `/registry/` path (not `/r/`). Slugs spot-verified live.
+    id: 'skiper-ui',
+    transport: 'shadcn-registry',
+    urlTemplate: 'https://skiper-ui.com/registry/{name}.json',
+    items: ['skiper3', 'skiper40', 'skiper54', 'skiper67'],
+  },
+  {
     // RESTRICTED source: only fetched when `config.sources.aceternity` is toggled on (off by default,
     // surfaces a ToS warning) — see sources.ts. The full core-component set, with slugs sourced from
     // Aceternity's registry index (registry.json); 6 spot-verified live (3d-card, bento-grid,

@@ -16,8 +16,11 @@ describe('COMPONENT_REGISTRY', () => {
       'eldora-ui',
       'kokonut-ui',
       'magic-ui',
+      'mynaui',
       'react-bits',
+      'skiper-ui',
       'smoothui',
+      'tailark',
     ]);
     for (const reg of COMPONENT_REGISTRY) {
       expect(reg.transport).toBe('shadcn-registry');

@@ -7,6 +7,22 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Three more verified component sources: Tailark, MynaUI, Skiper UI** (`core/component-fetch.ts`,
+  `core/sources.ts`, `core/config.ts`, `core/resources.ts`). Each registry URL + every listed slug was
+  confirmed live (verify-then-add):
+  - **Tailark** (`https://tailark.com/r/{name}.json`, MIT) — shadcn marketing **blocks** (hero /
+    features / pricing / testimonials / CTA); ideal for full landing pages. On by default.
+  - **MynaUI** (`https://mynaui.com/r/{name}.json`, MIT) — Tailwind + shadcn + Radix components
+    (numbered slugs: `button1`, `accordion1`, …). On by default.
+  - **Skiper UI** (`https://skiper-ui.com/registry/{name}.json`, free-tier + paid) — animated
+    components; **restricted/toggle-gated** like Aceternity (off by default via `sources.skiper`,
+    surfaces an attribution + paid-mix warning), and moved out of `EXCLUDED_SOURCES`. Only the
+    publicly-fetchable free slugs are listed.
+  - The restricted-source toggle handling was generalized (`RESTRICTED_TOGGLES` + `restrictedEnabled`)
+    so it cleanly supports both Aceternity and Skiper rather than hard-coding one. React Bits was
+    already wired; this brings the registry to **10 shadcn-registry sources** (+ 21st.dev semantic
+    search), with the default fetch menu now including Tailark + MynaUI.
+
 - **21st.dev semantic-search fetching (Phase 2/3 — agent-chosen + a real second transport)**
   (`core/twentyfirst.ts`, `core/twentyfirst-io.ts`, `core/gen.ts`, `core/search.ts`, `core/config.ts`,
   `core/resources.ts`, `core/dashboard.ts`, `cli/dashboard.ts`, `cli.ts`). The `21st-registry` source

@@ -49,8 +49,12 @@ describe('TirazConfigSchema', () => {
         'kokonut-ui',
         'smoothui',
         'eldora-ui',
+        'tailark',
+        'mynaui',
       ],
       aceternity: false,
+      // Skiper UI is restricted (free+paid, attribution) — off by default like Aceternity.
+      skiper: false,
       // Genuine component fetching defaults on, with a 6-component-per-variant budget (SPEC §12).
       fetchMode: 'install',
       fetchBudget: 6,

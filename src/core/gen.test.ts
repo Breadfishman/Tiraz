@@ -133,6 +133,8 @@ describe('runGen', () => {
       'kokonut-ui',
       'smoothui',
       'eldora-ui',
+      'tailark',
+      'mynaui',
     ]);
   });
 

@@ -37,6 +37,13 @@ export const ACETERNITY_TOS_WARNING =
   'personal site) but risky for enterprise or commercial work. Tiraz never bundles it — it is ' +
   'only fetched into your repo on demand. Enable it only if your use case fits those terms.';
 
+/** The attribution / paid-mix warning surfaced when Skiper UI is enabled (SPEC §12, §17). */
+export const SKIPER_TOS_WARNING =
+  'Skiper UI mixes free and paid components: the free tier requires attribution, and many ' +
+  'components are premium (paid). Tiraz only fetches the publicly-available free slugs and never ' +
+  'bundles them — keep the required attribution, and do not rely on paid components being fetchable. ' +
+  'Enable it only if those terms fit your use.';
+
 /**
  * The known component sources (SPEC §12 / §13 — licenses verified against live sources, 2026).
  * Diversity across sources is itself an anti-slop mechanism: drawing from one well industrializes a
@@ -151,6 +158,30 @@ export const SOURCES: readonly ComponentSource[] = [
       '150+ animated effects (React + Motion): marquees, globes, animated beams, text reveals.',
   },
   {
+    id: 'tailark',
+    name: 'Tailark',
+    url: 'https://tailark.com',
+    tier: 'fetch',
+    license: 'MIT',
+    restricted: false,
+    signatures: ['hero sections', 'feature grids', 'pricing tables', 'testimonials', 'CTAs'],
+    notes:
+      'MIT shadcn marketing BLOCKS (whole sections, not atoms): heroes, features, pricing, ' +
+      'testimonials, CTAs — ideal for full landing pages. Registry verified live.',
+  },
+  {
+    id: 'mynaui',
+    name: 'MynaUI',
+    url: 'https://mynaui.com',
+    tier: 'fetch',
+    license: 'MIT',
+    restricted: false,
+    signatures: ['buttons', 'accordions', 'inputs', 'badges', 'avatars', 'tabs'],
+    notes:
+      'MIT Tailwind + shadcn + Radix component set (clean form/control primitives). Numbered slugs ' +
+      '(button1, accordion1, …); registry verified live.',
+  },
+  {
     id: 'indie-ui',
     name: 'Indie UI',
     url: 'https://ui.indie-starter.dev',
@@ -205,6 +236,25 @@ export const SOURCES: readonly ComponentSource[] = [
       'High-impact hero effects (3D cards, aurora/spotlight/meteors). Toggleable, OFF by default. ' +
       'Its ToS forbids reproducing material — many effects are reimplemented MIT in Magic UI / Eldora.',
   },
+  {
+    id: 'skiper-ui',
+    name: 'Skiper UI',
+    url: 'https://skiper-ui.com',
+    tier: 'fetch',
+    license: 'Free tier (attribution) + paid premium',
+    restricted: true,
+    signatures: [
+      'card swipers',
+      'theme toggles',
+      'marquees',
+      'scroll effects',
+      'interactive cards',
+    ],
+    warning: SKIPER_TOS_WARNING,
+    notes:
+      'Un-common animated components (card swipers, scroll effects). Toggleable, OFF by default. ' +
+      'Free tier needs attribution and mixes in paid components — only free slugs are fetchable.',
+  },
 ] as const;
 
 /**
@@ -216,11 +266,6 @@ export const SOURCES: readonly ComponentSource[] = [
  */
 export const EXCLUDED_SOURCES: readonly { id: string; name: string; reason: string }[] = [
   { id: 'hover-dev', name: 'Hover.dev', reason: 'Proprietary/paid; forbids redistribution.' },
-  {
-    id: 'skiper-ui',
-    name: 'Skiper UI',
-    reason: 'Free tier requires attribution and mixes in paid components; opt in manually.',
-  },
 ] as const;
 
 export class SourceError extends Error {
@@ -252,9 +297,24 @@ export interface ResolvedSources {
 }
 
 /**
+ * Each restricted source maps to its dedicated off-by-default config toggle (SPEC §12, §17). A
+ * restricted source is never admitted via the `fetch` list — only by flipping its own boolean.
+ */
+export const RESTRICTED_TOGGLES: Record<string, 'aceternity' | 'skiper'> = {
+  aceternity: 'aceternity',
+  'skiper-ui': 'skiper',
+};
+
+/** Whether a restricted source is enabled via its dedicated config toggle (false if it has none). */
+export function restrictedEnabled(id: string, cfg: TirazConfig['sources']): boolean {
+  const key = RESTRICTED_TOGGLES[id];
+  return key !== undefined ? cfg[key] : false;
+}
+
+/**
  * Resolve the configured sources (SPEC §12) into the bundled set, the permitted Tier-2 fetch set,
- * and any warnings. A restricted source (Aceternity) is only permitted when explicitly toggled on,
- * and toggling it on yields its ToS warning. Throws {@link SourceError} on an unknown id.
+ * and any warnings. A restricted source (Aceternity, Skiper UI) is only permitted when its dedicated
+ * toggle is on, and enabling it yields its ToS warning. Throws {@link SourceError} on an unknown id.
  */
 export function resolveSources(cfg: TirazConfig['sources']): ResolvedSources {
   const bundled: ComponentSource[] = [];
@@ -273,12 +333,12 @@ export function resolveSources(cfg: TirazConfig['sources']): ResolvedSources {
     (source.tier === 'bundled' ? bundled : fetch).push(source);
   }
 
-  if (cfg.aceternity) {
-    const aceternity = getSource('aceternity');
-    if (aceternity !== undefined) {
-      fetch.push(aceternity);
-      if (aceternity.warning !== undefined) {
-        warnings.push(aceternity.warning);
+  // Restricted sources are admitted only via their dedicated toggle, each surfacing its ToS warning.
+  for (const source of SOURCES) {
+    if (source.restricted && restrictedEnabled(source.id, cfg)) {
+      fetch.push(source);
+      if (source.warning !== undefined) {
+        warnings.push(source.warning);
       }
     }
   }

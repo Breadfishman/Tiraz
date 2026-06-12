@@ -59,9 +59,11 @@ export const TirazConfigSchema = z.strictObject({
     .strictObject({
       bundled: z.array(z.string()),
       fetch: z.array(z.string()),
-      // Aceternity is toggleable; enabling it should surface a ToS warning at the
-      // CLI layer (SPEC §12) — the schema only records the toggle.
+      // Aceternity and Skiper UI are restricted/toggleable; enabling either should surface a ToS
+      // warning at the CLI layer (SPEC §12) — the schema only records the toggles. `skiper` is
+      // field-defaulted (off) so existing configs without it still validate.
       aceternity: z.boolean(),
+      skiper: z.boolean().default(false),
       // Genuine component fetching (SPEC §12, Phase 1). `install` pre-fetches real components from a
       // permitted source's registry into each variant's worktree and asks the agent to compose +
       // restyle them; `signatures` is the prompt-only fallback (today's behavior). Default `install`,
@@ -93,8 +95,11 @@ export const TirazConfigSchema = z.strictObject({
         'kokonut-ui',
         'smoothui',
         'eldora-ui',
+        'tailark',
+        'mynaui',
       ],
       aceternity: false,
+      skiper: false,
       fetchMode: 'install',
       fetchBudget: 6,
       twentyFirst: false,
