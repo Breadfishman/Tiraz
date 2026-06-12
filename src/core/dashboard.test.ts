@@ -54,6 +54,9 @@ describe('renderDashboardHtml', () => {
     // endpoints embedded for the client switcher
     expect(html).toContain('http://localhost:41000/iframe.html?id=hero--default');
     expect(html).toContain('<iframe');
+    // fullscreen preview control (a view feature, present regardless of actions)
+    expect(html).toContain('id="fsbtn"');
+    expect(html).toContain('requestFullscreen');
   });
 
   it('marks a variant with no live endpoint as not running (disabled)', () => {

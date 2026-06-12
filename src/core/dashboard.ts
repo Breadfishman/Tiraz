@@ -312,6 +312,11 @@ export function renderDashboardHtml(
   .detail .lens { margin-bottom: 4px; }
   .stage { flex: 1; min-height: 0; background: #fff; position: relative; }
   iframe { width: 100%; height: 100%; border: 0; display: block; }
+  .fsbtn { position: absolute; top: 10px; right: 10px; z-index: 6; background: rgba(18,18,24,0.82);
+           color: #e8e8ef; border: 1px solid #2a2a34; border-radius: 6px; padding: 5px 10px;
+           font-size: 12px; cursor: pointer; opacity: 0.5; transition: opacity 0.12s; }
+  .fsbtn:hover { opacity: 1; }
+  .stage:fullscreen { background: #fff; }
   .empty { color: #6f6f78; padding: 40px; }
   kbd { background: #20202a; border-radius: 4px; padding: 1px 5px; }
 </style></head>
@@ -325,7 +330,8 @@ export function renderDashboardHtml(
     ${actionBar}
     ${resourcePanel}
     <div class="detail" id="detail"></div>
-    <div class="stage"><iframe id="stage" title="variant" src=""></iframe>
+    <div class="stage" id="stagewrap"><iframe id="stage" title="variant" src=""></iframe>
+      <button class="fsbtn" id="fsbtn" title="Fullscreen preview (press f; Esc to exit)">⛶ Fullscreen</button>
       <div class="empty" id="empty" style="display:none">This variant has no live render.</div></div>
   </main>
   <script>
@@ -366,6 +372,25 @@ export function renderDashboardHtml(
       const live = order.filter((id) => data[id].url); if (!live.length) return;
       const i = live.indexOf(cur); const n = (i + (e.key === 'ArrowDown' ? 1 : -1) + live.length) % live.length;
       select(live[n]); e.preventDefault();
+    });
+    // Fullscreen the live preview (a view feature — available with or without actions).
+    const stageWrap = document.getElementById('stagewrap'), fsbtn = document.getElementById('fsbtn');
+    function openCurrentInTab() { if (cur && data[cur] && data[cur].url) window.open(data[cur].url, '_blank'); }
+    function toggleFullscreen() {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        (document.exitFullscreen || document.webkitExitFullscreen || function () {}).call(document);
+        return;
+      }
+      const req = stageWrap.requestFullscreen || stageWrap.webkitRequestFullscreen;
+      if (req) { try { Promise.resolve(req.call(stageWrap)).catch(openCurrentInTab); } catch (e) { openCurrentInTab(); } }
+      else { openCurrentInTab(); }
+    }
+    fsbtn.addEventListener('click', toggleFullscreen);
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'f' || e.metaKey || e.ctrlKey || e.altKey) return;
+      const t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT')) return;
+      toggleFullscreen(); e.preventDefault();
     });
     if (actionsEnabled) wireActions();
     if ('${first}') select('${first}');
