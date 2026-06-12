@@ -31,8 +31,11 @@ import {
 /** The subset of the global `fetch` we use — injectable so tests don't hit the network. */
 export type FetchImpl = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body: string },
+  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal },
 ) => Promise<{ ok: boolean; json: () => Promise<unknown> }>;
+
+/** Hard cap on a single `fetch-ui` request so a stalled response can't block the variant. */
+const FETCH_TIMEOUT_MS = 30_000;
 
 export interface PlanAndFetchTwentyFirstOptions {
   worktreeDir: string;
@@ -101,6 +104,7 @@ export async function planAndFetchTwentyFirst(
           method: req.method,
           headers: req.headers,
           body: req.body,
+          signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
         });
         if (!res.ok) continue;
         const top = pickTopComponent(parseFetchUiResponse(await res.json()));

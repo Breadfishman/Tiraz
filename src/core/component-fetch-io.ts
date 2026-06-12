@@ -10,12 +10,68 @@
  * provenance we managed to collect.
  */
 
+import { spawn } from 'node:child_process';
 import { access, readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
-import type { CommandRunner } from './agent';
-import { spawnRunner } from './agent';
+import type { CommandResult, CommandRunner } from './agent';
 import type { FetchProvenance, FetchRef } from './component-fetch';
 import { buildFetchCommand } from './component-fetch';
+
+/** Hard cap on a single `shadcn add` (network-stall backstop; normal installs finish in seconds). */
+const INSTALL_TIMEOUT_MS = 120_000;
+
+/**
+ * A {@link CommandRunner} for the shadcn installs — the shared `spawnRunner` can't safely run these.
+ * `npx shadcn add` fires interactive prompts that `--yes` does NOT cover (framework selection when
+ * undetected; the React-19 peer-dependency strategy prompt when a component needs an npm install). On
+ * an inherited/open stdin those block forever and freeze the whole variant (observed live). This runner:
+ *
+ * 1. **closes stdin** (`stdio[0] = 'ignore'`) so any such prompt gets EOF instead of hanging — the
+ *    concrete mechanism behind the never-block-a-variant rule;
+ * 2. forces **`npm_config_legacy_peer_deps`** so the peer-dep prompt never triggers in the first place
+ *    (the install then *succeeds* rather than being skipped);
+ * 3. **hard-kills after `timeoutMs`** as a network-stall backstop, resolving non-zero so the caller
+ *    skips that install and falls back to signatures.
+ */
+function shadcnRunner(timeoutMs: number): CommandRunner {
+  return (command, args, opts) =>
+    new Promise<CommandResult>((resolve) => {
+      const child = spawn(command, args, {
+        cwd: opts.cwd,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: { ...process.env, npm_config_legacy_peer_deps: 'true' },
+      });
+      let stdout = '';
+      let stderr = '';
+      let settled = false;
+      const finish = (result: CommandResult): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        resolve(result);
+      };
+      const timer = setTimeout(() => {
+        child.kill('SIGKILL');
+        finish({
+          exitCode: 124,
+          stdout,
+          stderr: `${stderr}\n[tiraz] shadcn add timed out after ${String(timeoutMs)}ms`,
+        });
+      }, timeoutMs);
+      child.stdout.on('data', (chunk: Buffer) => {
+        stdout += chunk.toString();
+      });
+      child.stderr.on('data', (chunk: Buffer) => {
+        stderr += chunk.toString();
+      });
+      child.on('error', () => {
+        finish({ exitCode: 1, stdout, stderr });
+      });
+      child.on('close', (code) => {
+        finish({ exitCode: code ?? 0, stdout, stderr });
+      });
+    });
+}
 
 /** Whether a path exists (used to gate on the worktree having a `components.json`). */
 async function exists(target: string): Promise<boolean> {
@@ -52,14 +108,14 @@ async function readProvenance(file: string): Promise<FetchProvenance[]> {
 export async function fetchComponents(
   worktreeDir: string,
   plan: readonly FetchRef[],
-  deps: { runner?: CommandRunner },
+  deps: { runner?: CommandRunner; timeoutMs?: number },
 ): Promise<FetchProvenance[]> {
   const collected: FetchProvenance[] = [];
   try {
     if (plan.length === 0) return collected;
     if (!(await exists(path.join(worktreeDir, 'components.json')))) return collected;
 
-    const runner = deps.runner ?? spawnRunner;
+    const runner = deps.runner ?? shadcnRunner(deps.timeoutMs ?? INSTALL_TIMEOUT_MS);
     for (const ref of plan) {
       try {
         const { command, args } = buildFetchCommand(ref);
