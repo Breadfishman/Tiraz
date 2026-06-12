@@ -6,9 +6,13 @@
 
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import type { FetchProvenance } from './component-fetch';
+import { fetchedFiles } from './component-fetch';
 import type { DesignSystem, UsedValues } from './ds-adherence';
 import {
   buildDesignSystem,
+  dropComponents,
+  extractExportedComponents,
   extractUsedValues,
   mergeUsedValues,
   parseCssCustomProperties,
@@ -99,13 +103,34 @@ export async function collectDesignSystem(repoRoot: string): Promise<DesignSyste
   return buildDesignSystem(props, components);
 }
 
+/** Read a worktree's `.tiraz/provenance.json` (fetched-component records), or `[]` if absent. */
+async function readProvenance(worktree: string): Promise<FetchProvenance[]> {
+  try {
+    const parsed = JSON.parse(
+      await readFile(path.join(worktree, '.tiraz', 'provenance.json'), 'utf8'),
+    ) as unknown;
+    return Array.isArray(parsed) ? (parsed as FetchProvenance[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 /**
  * Collect the values a variant actually used (SPEC §9): the scoped target file if it resolves to
  * one, otherwise a bounded scan of the worktree's source. Feeds {@link extractUsedValues}.
+ *
+ * Phase 1.5 (SPEC §12): FETCHED component files (recorded in `.tiraz/provenance.json`) are EXCLUDED
+ * from the scan, and the agent's imports of those fetched components are dropped — so DS-adherence
+ * scores the agent's *authored* design choices, not the intentional hardcoded values inside library
+ * code it composed. No provenance (e.g. a homegrown variant) → nothing excluded, today's behaviour.
  */
 export async function collectUsedValues(node: VariantNode): Promise<UsedValues> {
-  let files: string[] = [];
+  const provenance = await readProvenance(node.worktree);
+  const fetchedAbsolute = new Set(
+    fetchedFiles(provenance).map((rel) => path.join(node.worktree, rel)),
+  );
 
+  let files: string[] = [];
   const target = node.genome.target;
   if (target !== undefined) {
     const parsed = parseTarget(target);
@@ -120,7 +145,18 @@ export async function collectUsedValues(node: VariantNode): Promise<UsedValues> 
   if (files.length === 0) {
     files = await walk(node.worktree, ['.tsx', '.jsx', '.ts', '.css']);
   }
+  // Drop fetched library files — their internal literals are not the agent's off-system choices.
+  const authoredFiles = files.filter((f) => !fetchedAbsolute.has(f));
 
-  const parts = await Promise.all(files.map(async (f) => extractUsedValues(await readSafe(f))));
-  return mergeUsedValues(parts);
+  // The component names exported by the fetched files (so the agent's imports of them aren't penalized).
+  const fetchedComponentNames = (
+    await Promise.all(
+      [...fetchedAbsolute].map(async (f) => extractExportedComponents(await readSafe(f))),
+    )
+  ).flat();
+
+  const parts = await Promise.all(
+    authoredFiles.map(async (f) => extractUsedValues(await readSafe(f))),
+  );
+  return dropComponents(mergeUsedValues(parts), fetchedComponentNames);
 }

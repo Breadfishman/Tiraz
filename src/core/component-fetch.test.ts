@@ -3,7 +3,9 @@ import {
   COMPONENT_REGISTRY,
   buildFetchCommand,
   fetchedComponentNames,
+  fetchedFiles,
   itemUrl,
+  parseShadcnInstalledFiles,
   registryFor,
   resolveFetchPlan,
 } from './component-fetch';
@@ -144,5 +146,45 @@ describe('fetchedComponentNames', () => {
       ]),
     ).toEqual(['marquee', 'shift-card']);
     expect(fetchedComponentNames([])).toEqual([]);
+  });
+});
+
+describe('fetchedFiles', () => {
+  it('flattens + dedupes the recorded file paths across provenance records (Phase 1.5)', () => {
+    expect(
+      fetchedFiles([
+        { source: 'magic-ui', item: 'marquee', url: 'u1', files: ['components/ui/marquee.tsx'] },
+        {
+          source: 'magic-ui',
+          item: 'beam',
+          url: 'u2',
+          files: ['components/ui/marquee.tsx', 'lib/x.ts'],
+        },
+        { source: 'cult-ui', item: 'shift', url: 'u3' }, // no files → contributes nothing
+      ]),
+    ).toEqual(['components/ui/marquee.tsx', 'lib/x.ts']);
+    expect(fetchedFiles([])).toEqual([]);
+  });
+});
+
+describe('parseShadcnInstalledFiles', () => {
+  it('extracts bulleted source paths from shadcn stdout, stripping ANSI', () => {
+    const stdout =
+      '[32m✔[0m Created 2 files:\n  - components/ui/card-stack.tsx\n  - src/lib/utils.ts\n';
+    expect(parseShadcnInstalledFiles(stdout)).toEqual([
+      'components/ui/card-stack.tsx',
+      'src/lib/utils.ts',
+    ]);
+  });
+
+  it('ignores dependency lines (no slash / no extension) and dedupes; tolerates ./ prefixes', () => {
+    const stdout =
+      'Installing dependencies:\n  - framer-motion\n  - ./components/ui/marquee.tsx\n  - components/ui/marquee.tsx\n';
+    expect(parseShadcnInstalledFiles(stdout)).toEqual(['components/ui/marquee.tsx']);
+  });
+
+  it('returns [] for an unrecognized format', () => {
+    expect(parseShadcnInstalledFiles('done.')).toEqual([]);
+    expect(parseShadcnInstalledFiles('')).toEqual([]);
   });
 });

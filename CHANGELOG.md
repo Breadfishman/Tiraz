@@ -7,6 +7,24 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Phase 1.5 — credit fetched components in DS-adherence** (`core/component-fetch.ts`,
+  `core/component-fetch-io.ts`, `core/twentyfirst-io.ts`, `core/ds-collect.ts`,
+  `core/ds-collect-io.ts`). Genuine fetching landed real library code into each worktree, but the
+  DS-adherence scorer then whole-walked the worktree and counted the **hardcoded values inside those
+  fetched files** (and the agent's imports of them) as off-system slop — so composing real components
+  _lowered_ a variant's score (the full-site round scored DS 35/36 with ~111 off-system values, most
+  of it library code). Now:
+  - both fetch transports record the **file paths they wrote** into `.tiraz/provenance.json`
+    (`FetchProvenance.files`; shadcn paths parsed from its stdout via the pure
+    `parseShadcnInstalledFiles`, 21st-dev paths recorded directly);
+  - `collectUsedValues` reads provenance and **excludes those fetched files** from the value scan, and
+    **drops the agent's imports of fetched components** (their exported names, via
+    `extractExportedComponents`) — so DS-adherence reflects the agent's _authored_ design choices, not
+    intentional library code it was told to compose.
+  - Best-effort + backward-safe: no provenance (a homegrown variant, or an older run) → nothing
+    excluded, today's behaviour. The pure parsing/exclusion logic is unit-tested; the file I/O stays in
+    the coverage-excluded `*-io.ts` glue.
+
 - **Gen-0 diversity dial** (`core/search.ts`, `core/genome.ts`, `core/agent.ts`, `core/gen.ts`,
   `core/config.ts`). The first generation used to vary only primary + overlay + dials (5 fixed
   profiles) while every variant got the _identical_ full source list — so a round drifted toward

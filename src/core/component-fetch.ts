@@ -293,9 +293,45 @@ export interface FetchProvenance {
   source: string;
   item: string;
   url: string;
+  /**
+   * Worktree-relative paths of the files this fetch actually wrote (SPEC §12, Phase 1.5). Recorded so
+   * DS-adherence can EXCLUDE fetched library code from the agent's authored-choices score — the
+   * literals inside a fetched component are intentional library code, not the agent's off-system slop.
+   * Optional/best-effort: absent when the transport couldn't report what it wrote.
+   */
+  files?: string[];
 }
 
 /** The item names that were fetched (for the future DS allowlist / crediting follow-up). */
 export function fetchedComponentNames(prov: readonly FetchProvenance[]): string[] {
   return prov.map((p) => p.item);
+}
+
+/** All worktree-relative file paths recorded across a provenance list (deduped). */
+export function fetchedFiles(prov: readonly FetchProvenance[]): string[] {
+  const files = new Set<string>();
+  for (const p of prov) for (const f of p.files ?? []) files.add(f);
+  return [...files];
+}
+
+// eslint-disable-next-line no-control-regex
+const ANSI = /\[[0-9;]*m/g;
+
+/**
+ * Parse the file paths a `shadcn add` run reported writing, from its stdout (Phase 1.5). shadcn prints
+ * the created/updated files as a bulleted list (`  - components/ui/marquee.tsx`). We strip ANSI colour
+ * codes and return the bulleted entries that look like source paths (contain a `/` and a file
+ * extension), so a dependency line (`- framer-motion`) is not mistaken for a file. Pure + best-effort:
+ * an unrecognized format yields `[]` (DS-adherence then simply excludes nothing for that install).
+ */
+export function parseShadcnInstalledFiles(stdout: string): string[] {
+  const files: string[] = [];
+  for (const rawLine of stdout.replace(ANSI, '').split('\n')) {
+    const match = /^\s*[-•]\s*(\S+\.\w+)\s*$/.exec(rawLine);
+    const candidate = match?.[1];
+    if (candidate?.includes('/') === true) {
+      files.push(candidate.replace(/^\.\//, ''));
+    }
+  }
+  return [...new Set(files)];
 }

@@ -103,6 +103,42 @@ export function extractUsedValues(code: string): UsedValues {
   return { values, components: dedupe(components), systemRefs };
 }
 
+const EXPORT_DECL =
+  /export\s+(?:default\s+)?(?:async\s+)?(?:function|const|class|let|var)\s+([A-Za-z_$][\w$]*)/g;
+const EXPORT_LIST = /export\s*\{([^}]*)\}/g;
+
+/**
+ * Extract the PascalCase component identifiers a file EXPORTS (Phase 1.5). Used on fetched library
+ * files so DS-adherence can drop the agent's imports of those components from its authored-choices
+ * score — composing a permitted fetched component is not off-system slop (SPEC §12).
+ */
+export function extractExportedComponents(code: string): string[] {
+  const names = new Set<string>();
+  for (const match of code.matchAll(EXPORT_DECL)) {
+    const id = match[1];
+    if (id !== undefined && /^[A-Z]/.test(id)) names.add(id);
+  }
+  for (const match of code.matchAll(EXPORT_LIST)) {
+    for (const part of (match[1] ?? '').split(',')) {
+      // `export { Inner as Marquee }` re-exports under the trailing name.
+      const id = part
+        .trim()
+        .split(/\s+as\s+/)
+        .pop()
+        ?.trim();
+      if (id !== undefined && /^[A-Z][\w$]*$/.test(id)) names.add(id);
+    }
+  }
+  return [...names];
+}
+
+/** Drop the given component names from a {@link UsedValues} (e.g. imports of fetched components). */
+export function dropComponents(used: UsedValues, names: readonly string[]): UsedValues {
+  if (names.length === 0) return used;
+  const drop = new Set(names);
+  return { ...used, components: used.components.filter((c) => !drop.has(c)) };
+}
+
 /** Merge several {@link UsedValues} (e.g. from multiple files) into one, de-duplicated by category. */
 export function mergeUsedValues(parts: UsedValues[]): UsedValues {
   const values: Record<string, string[]> = {};

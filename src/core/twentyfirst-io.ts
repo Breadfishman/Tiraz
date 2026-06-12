@@ -113,11 +113,14 @@ export async function planAndFetchTwentyFirst(
         if (seenSlugs.has(slug)) continue;
         seenSlugs.add(slug);
         await mkdir(uiDir, { recursive: true });
-        await writeFile(path.join(uiDir, `${slug}.tsx`), top.componentCode, 'utf8');
+        const relPath = path.join('components', 'ui', `${slug}.tsx`);
+        await writeFile(path.join(opts.worktreeDir, relPath), top.componentCode, 'utf8');
         collected.push({
           source: TWENTYFIRST_SOURCE_ID,
           item: slug,
           url: `${TWENTYFIRST_BASE_URL}${TWENTYFIRST_FETCH_UI_PATH}?q=${encodeURIComponent(query)}`,
+          // Record the written file (Phase 1.5) so DS-adherence excludes this fetched library code.
+          files: [relPath],
         });
       } catch {
         // One failed query must not block the rest or the variant — skip it.

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   buildDesignSystem,
   categorizeToken,
+  dropComponents,
+  extractExportedComponents,
   extractUsedValues,
   mergeUsedValues,
   parseCssCustomProperties,
@@ -101,5 +103,47 @@ describe('mergeUsedValues', () => {
     expect(merged.values.spacing).toEqual(['8px']);
     expect(merged.components).toEqual(['Button', 'Card']);
     expect(merged.systemRefs).toEqual(['var(--primary)', 'bg-accent']);
+  });
+});
+
+describe('extractExportedComponents', () => {
+  it('finds PascalCase exports from declarations and export lists (Phase 1.5)', () => {
+    const code = [
+      'export function Marquee() {}',
+      'export const BentoGrid = () => null;',
+      'export default function HeroGeometric() {}',
+      'const inner = 1; export { inner as ShiftCard };',
+      'export const helper = 2;', // lowercase → not a component
+      'export class CardStack {}',
+    ].join('\n');
+    expect(extractExportedComponents(code).sort()).toEqual([
+      'BentoGrid',
+      'CardStack',
+      'HeroGeometric',
+      'Marquee',
+      'ShiftCard',
+    ]);
+  });
+
+  it('returns [] when nothing is exported', () => {
+    expect(extractExportedComponents('const x = 1;')).toEqual([]);
+  });
+});
+
+describe('dropComponents', () => {
+  it('removes the named components (e.g. imports of fetched library code)', () => {
+    const used = {
+      values: { color: ['#fff'] },
+      components: ['Hero', 'Marquee', 'ShiftCard'],
+      systemRefs: ['var(--primary)'],
+    };
+    expect(dropComponents(used, ['Marquee', 'ShiftCard']).components).toEqual(['Hero']);
+    // Values + refs are untouched.
+    expect(dropComponents(used, ['Marquee']).values).toEqual({ color: ['#fff'] });
+  });
+
+  it('is a no-op for an empty name list', () => {
+    const used = { values: {}, components: ['Hero'], systemRefs: [] };
+    expect(dropComponents(used, [])).toBe(used);
   });
 });

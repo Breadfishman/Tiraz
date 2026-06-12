@@ -15,7 +15,7 @@ import { access, readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { CommandResult, CommandRunner } from './agent';
 import type { FetchProvenance, FetchRef } from './component-fetch';
-import { buildFetchCommand } from './component-fetch';
+import { buildFetchCommand, parseShadcnInstalledFiles } from './component-fetch';
 
 /** Hard cap on a single `shadcn add` (network-stall backstop; normal installs finish in seconds). */
 const INSTALL_TIMEOUT_MS = 120_000;
@@ -121,7 +121,14 @@ export async function fetchComponents(
         const { command, args } = buildFetchCommand(ref);
         const result = await runner(command, args, { cwd: worktreeDir });
         if (result.exitCode === 0) {
-          collected.push({ source: ref.source, item: ref.item, url: ref.url });
+          // Record the files shadcn wrote (Phase 1.5) so DS-adherence can exclude this library code.
+          const files = parseShadcnInstalledFiles(result.stdout);
+          collected.push({
+            source: ref.source,
+            item: ref.item,
+            url: ref.url,
+            ...(files.length > 0 ? { files } : {}),
+          });
         }
       } catch {
         // A single failed/thrown install must not block the rest or the variant — skip it.
