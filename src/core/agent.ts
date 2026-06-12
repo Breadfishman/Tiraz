@@ -81,6 +81,18 @@ export function composePrompt(
     lines.push('## Target', `Scope your work to: ${genome.target}`, '');
   }
 
+  // Gen-0 diversity (SPEC §4): the variant's aesthetic ethos, high in the prompt so it frames every
+  // choice. Commit-fully + anti-convergence — the point of a seed round is genuinely different options.
+  if (genome.ethos !== undefined && genome.ethos.trim() !== '') {
+    lines.push(
+      '## Aesthetic direction — commit FULLY to this',
+      genome.ethos.trim(),
+      'Commit hard to this single direction for this variant; be willing to be unconventional, even',
+      'alien. Do NOT converge on a safe, centered, generic layout — a forgettable result is a failure.',
+      '',
+    );
+  }
+
   // The shared taste bar, high in the prompt: the agent builds against the same rubric the judge
   // grades on (see taste-rubric.ts) — the main lever against output that reads as AI-slop.
   lines.push(...tasteBarSection());

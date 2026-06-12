@@ -168,6 +168,7 @@ describe('renderDashboardHtml', () => {
           fetchMode: 'install',
           fetchBudget: 6,
           twentyFirst: false,
+          diversity: 'diverse',
           sources: [
             {
               id: 'magic-ui',
@@ -211,6 +212,9 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('<option value="none" selected>'); // overlay default
     expect(html).toContain("wireSkill('cfg-primary', 'primary')");
     expect(html).toContain("wireSkill('cfg-overlay', 'overlay')");
+    // gen-0 diversity selector
+    expect(html).toContain('id="cfg-diversity"');
+    expect(html).toContain("wireSkill('cfg-diversity', 'diversity')");
     expect(html).toContain("post('/api/config', { kind, id: sel.value");
     // Integration-mode note about the forced primary.
     expect(html).toContain('redesign-existing-projects');

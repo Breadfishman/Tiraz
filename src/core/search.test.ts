@@ -111,6 +111,69 @@ describe('seedGenomes', () => {
     const profiles = genomes.map((g) => `${g.overlay}|${JSON.stringify(g.dials)}`);
     expect(new Set(profiles).size).toBe(5);
   });
+
+  it('defaults to diverse: each variant gets a distinct ethos and a varied source allocation', () => {
+    const config = TirazConfigSchema.parse({ mode: 'greenfield' }); // diversity defaults to 'diverse'
+    const genomes = seedGenomes(config, 5, {
+      brief: 'b',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      generation: 0,
+    });
+    // Every variant carries a non-empty, distinct aesthetic ethos.
+    const ethoses = genomes.map((g) => g.ethos);
+    expect(ethoses.every((e) => typeof e === 'string' && e.length > 0)).toBe(true);
+    expect(new Set(ethoses).size).toBe(5);
+    // Source allocation varies: at least one homegrown (no sources) and at least one full-source variant.
+    const homegrown = genomes.filter((g) => g.homegrown === true);
+    expect(homegrown.length).toBeGreaterThanOrEqual(1);
+    expect(homegrown.every((g) => g.sources === undefined)).toBe(true);
+    const sourceCounts = new Set(genomes.map((g) => g.sources?.length ?? 0));
+    expect(sourceCounts.size).toBeGreaterThan(1); // not all the same — some/few/single/none
+  });
+
+  it('guarantees a homegrown variant even on a small round', () => {
+    const config = TirazConfigSchema.parse({ mode: 'greenfield' });
+    const genomes = seedGenomes(config, 2, {
+      brief: 'b',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      generation: 0,
+    });
+    expect(genomes.some((g) => g.homegrown === true)).toBe(true);
+  });
+
+  it('conservative diversity reverts to uniform full-source seeding (no ethos/homegrown)', () => {
+    const config = TirazConfigSchema.parse({
+      mode: 'greenfield',
+      generation: { diversity: 'conservative' },
+    });
+    const genomes = seedGenomes(config, 5, {
+      brief: 'b',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      generation: 0,
+    });
+    expect(genomes.every((g) => g.ethos === undefined)).toBe(true);
+    expect(genomes.every((g) => g.homegrown === undefined)).toBe(true);
+    // Every variant gets the same full permitted-source list.
+    const lengths = new Set(genomes.map((g) => g.sources?.length ?? 0));
+    expect(lengths.size).toBe(1);
+  });
+
+  it('alien diversity pushes dial extremes harder than diverse', () => {
+    const diverse = seedGenomes(TirazConfigSchema.parse({ mode: 'greenfield' }), 5, {
+      brief: 'b',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      generation: 0,
+    });
+    const alien = seedGenomes(
+      TirazConfigSchema.parse({ mode: 'greenfield', generation: { diversity: 'alien' } }),
+      5,
+      { brief: 'b', createdAt: '2026-06-08T00:00:00.000Z', generation: 0 },
+    );
+    const maxVariance = (gs: ReturnType<typeof seedGenomes>): number =>
+      Math.max(...gs.map((g) => g.dials.variance));
+    expect(maxVariance(alien)).toBeGreaterThanOrEqual(maxVariance(diverse));
+    expect(alien.some((g) => g.ethos?.includes('extreme'))).toBe(true);
+  });
 });
 
 describe('generateGeneration', () => {

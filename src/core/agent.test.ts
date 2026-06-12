@@ -35,6 +35,17 @@ describe('composePrompt', () => {
     expect(prompt).not.toContain('## Target');
     expect(prompt).not.toContain('## Recombination');
     expect(prompt).not.toContain('## Apply these commands');
+    expect(prompt).not.toContain('## Aesthetic direction'); // no ethos on the base genome
+  });
+
+  it('injects the gen-0 aesthetic ethos as a commit-fully direction when present', () => {
+    const withEthos = composePrompt(
+      { ...base, ethos: 'Raw neo-brutalism — heavy type, hard edges.' },
+      ['frontend-design'],
+    );
+    expect(withEthos).toContain('## Aesthetic direction — commit FULLY to this');
+    expect(withEthos).toContain('Raw neo-brutalism — heavy type, hard edges.');
+    expect(withEthos).toContain('Do NOT converge on a safe, centered, generic layout');
   });
 
   it('includes target, commands, recombination (with axes), and sources when present', () => {

@@ -23,6 +23,7 @@ import type { ServerProcess } from '../core/playwright-renderer';
 import {
   buildResourceView,
   setDials,
+  setDiversity,
   setFetchMode,
   setTwentyFirst,
   setOverlaySkill,
@@ -76,6 +77,7 @@ const ConfigBody = z.object({
     'module',
     'primary',
     'overlay',
+    'diversity',
     'dial',
     'weight',
     'fetchmode',
@@ -498,6 +500,11 @@ async function runDashboard(
           const next = setOverlaySkill(cfg, id);
           await updateConfig(cwd, (raw) => {
             raw.overlay = next.overlay;
+          });
+        } else if (kind === 'diversity') {
+          const next = setDiversity(cfg, id);
+          await updateConfig(cwd, (raw) => {
+            raw.generation = next.generation;
           });
         } else if (kind === 'dial') {
           if (value === undefined) {

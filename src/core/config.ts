@@ -131,8 +131,16 @@ export const TirazConfigSchema = z.strictObject({
     .strictObject({
       selfCritique: z.boolean().default(true),
       concurrency: z.number().int().min(1).max(16).default(4),
+      /**
+       * Gen-0 diversity spread (SPEC §4). `diverse` (default) seeds the first generation across
+       * divergent aesthetic ethoses with varied per-variant source allocation (all / few / single /
+       * homegrown-from-scratch) so a round spans real options, not near-duplicates; `alien` pushes
+       * dial extremes + experimentation harder; `conservative` reverts to uniform full-source seeding.
+       * Field-defaulted so existing configs keep validating.
+       */
+      diversity: z.enum(['conservative', 'diverse', 'alien']).default('diverse'),
     })
-    .default({ selfCritique: true, concurrency: 4 }),
+    .default({ selfCritique: true, concurrency: 4, diversity: 'diverse' }),
 });
 
 /** Fully-resolved configuration (all fields present after parsing). */

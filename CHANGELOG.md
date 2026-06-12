@@ -7,6 +7,22 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
 
 ### Live adapters (in progress)
 
+- **Gen-0 diversity dial** (`core/search.ts`, `core/genome.ts`, `core/agent.ts`, `core/gen.ts`,
+  `core/config.ts`). The first generation used to vary only primary + overlay + dials (5 fixed
+  profiles) while every variant got the _identical_ full source list — so a round drifted toward
+  similar answers. Now `seedGenomes` spreads gen-0 across genuinely different starting points:
+  - **Per-variant aesthetic ETHOS** (`genome.ethos`) — each seed commits to a distinct direction
+    ("radical Swiss minimalism", "raw neo-brutalism", "editorial maximalism", "retro-terminal",
+    "alien/experimental", …), injected high in the prompt as an "Aesthetic direction — commit FULLY"
+    section with an anti-convergence push.
+  - **Varied source allocation** — each profile carries a source mode: `all` / `few` (a rotated
+    small set) / `single` / **`homegrown`** (`genome.homegrown` → _no_ fetching at all: bundled,
+    registry, and 21st are all skipped, so the variant is built from scratch). A homegrown variant is
+    **guaranteed every round**.
+  - **A diversity knob** — `generation.diversity: conservative | diverse | alien` (default
+    **diverse**). `alien` pushes dial extremes + experimentation harder; `conservative` reverts to the
+    prior uniform full-source seeding. Field-defaulted so existing configs keep validating.
+
 - **Three more verified component sources: Tailark, MynaUI, Skiper UI** (`core/component-fetch.ts`,
   `core/sources.ts`, `core/config.ts`, `core/resources.ts`). Each registry URL + every listed slug was
   confirmed live (verify-then-add):

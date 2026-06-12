@@ -143,8 +143,11 @@ export async function generateVariant(
   // the genome's permitted sources into the worktree so the agent composes + restyles real code.
   // Best-effort — with no `components.json` (or any failure) this returns [] and we fall through to
   // the signatures behaviour, so the variant is never blocked.
+  // Homegrown gen-0 variants (SPEC §4) are built entirely from scratch — skip ALL fetching (bundled,
+  // registry, and 21st below) so the round always includes a non-library, from-scratch option.
+  const homegrown = ctx.genome.homegrown === true;
   const fetched =
-    ctx.fetchMode === 'install'
+    !homegrown && ctx.fetchMode === 'install'
       ? await fetchComponents(
           worktreePath,
           resolveFetchPlan([...(ctx.bundledSources ?? []), ...(ctx.genome.sources ?? [])], {
@@ -158,7 +161,7 @@ export async function generateVariant(
   // search queries and the matching real components are installed into the worktree. Same hard rule —
   // best-effort, never blocks the variant (no key / failed plan / offline → fetches nothing).
   const twentyFirstFetched =
-    ctx.twentyFirst === true
+    !homegrown && ctx.twentyFirst === true
       ? await planAndFetchTwentyFirst({
           worktreeDir: worktreePath,
           genome: ctx.genome,

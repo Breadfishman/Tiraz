@@ -6,6 +6,7 @@ import {
   isSourceEnabled,
   npmUrl,
   setDials,
+  setDiversity,
   setFetchMode,
   setOverlaySkill,
   setPrimarySkill,
@@ -132,6 +133,20 @@ describe('setFetchMode', () => {
     expect(next.sources.bundled).toEqual(config.sources.bundled);
     expect(next.sources.fetch).toEqual(config.sources.fetch);
     expect(next.sources.fetchBudget).toBe(config.sources.fetchBudget);
+  });
+});
+
+describe('setDiversity', () => {
+  it('sets a valid gen-0 diversity level and ignores unknown values', () => {
+    expect(setDiversity(config, 'alien').generation.diversity).toBe('alien');
+    expect(setDiversity(config, 'conservative').generation.diversity).toBe('conservative');
+    expect(setDiversity(config, 'nonsense')).toBe(config); // unknown → unchanged
+  });
+
+  it('leaves the rest of the generation block intact', () => {
+    const next = setDiversity(config, 'alien');
+    expect(next.generation.selfCritique).toBe(config.generation.selfCritique);
+    expect(next.generation.concurrency).toBe(config.generation.concurrency);
   });
 });
 

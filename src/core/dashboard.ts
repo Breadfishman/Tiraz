@@ -103,6 +103,9 @@ function buildResourcePanel(resources: ResourceView | undefined): string {
   const overlayOptions = ['none', 'minimalist', 'brutalist', 'soft']
     .map((v) => skillOption(v, resources.skills.overlay))
     .join('');
+  const diversityOptions = ['conservative', 'diverse', 'alien']
+    .map((v) => skillOption(v, resources.diversity))
+    .join('');
 
   const dialSlider = (id: 'variance' | 'motion' | 'density', value: number): string =>
     `<label class="rrow rdial">${id}
@@ -120,7 +123,9 @@ function buildResourcePanel(resources: ResourceView | undefined): string {
           <select id="cfg-primary" class="cfgsel">${primaryOptions}</select></label>
         <label class="rrow">overlay
           <select id="cfg-overlay" class="cfgsel">${overlayOptions}</select></label>
-        <p class="rnote rdim" style="grid-column:auto">In integration mode the active primary is forced to <code>redesign-existing-projects</code>; the seed still applies to greenfield / diversity.</p>
+        <label class="rrow">gen-0 diversity
+          <select id="cfg-diversity" class="cfgsel">${diversityOptions}</select></label>
+        <p class="rnote rdim" style="grid-column:auto">In integration mode the active primary is forced to <code>redesign-existing-projects</code>; the seed still applies to greenfield / diversity. Diversity spreads the first generation across ethoses + source allocation (<code>alien</code> = widest; <code>conservative</code> = uniform).</p>
       </div>
       <div class="rsec"><h4>Design dials</h4>
         ${dialSlider('variance', resources.dials.variance)}
@@ -525,6 +530,7 @@ export function renderDashboardHtml(
       }
       wireSkill('cfg-primary', 'primary');
       wireSkill('cfg-overlay', 'overlay');
+      wireSkill('cfg-diversity', 'diversity');
       // --- design dials (write on release; live-update the readout while dragging) ---
       document.querySelectorAll('.cfg-dial').forEach((sl) => {
         const out = document.getElementById('dialval-' + sl.dataset.dial);

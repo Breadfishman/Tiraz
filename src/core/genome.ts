@@ -29,6 +29,18 @@ export const GenomeSchema = z.strictObject({
   commands: z.array(z.string()),
   /** Tier-2 component sources the agent was permitted to draw from (SPEC §12). */
   sources: z.array(z.string()).optional(),
+  /**
+   * Gen-0 diversity (SPEC §4): a short aesthetic-direction / inspiration string the agent must commit
+   * to for this variant ("radical Swiss minimalism", "raw neo-brutalism", …). Drives the
+   * "Aesthetic direction" prompt section so a round spans genuinely different ethoses, not near-dupes.
+   */
+  ethos: z.string().optional(),
+  /**
+   * Gen-0 diversity: when true this variant is built entirely from scratch — NO component fetching
+   * at all (bundled, registry, or 21st) — so a round always includes a homegrown option, not just
+   * library compositions.
+   */
+  homegrown: z.boolean().optional(),
   graft: GraftSpecSchema.optional(),
   seed: z.number().int(),
   /** The section/page brief this variant implements. */

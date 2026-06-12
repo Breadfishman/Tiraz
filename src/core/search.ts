@@ -27,48 +27,159 @@ export interface SeedContext {
   generation: number;
 }
 
-/**
- * Distinct round-0 "looks" (SPEC §4 — primary-as-diversity + the dials). Each gives a meaningfully
- * different starting point (overlay + dial profile), so a round of N variants spans real options
- * instead of near-duplicates. Cycled across the population alongside the primary span.
- */
-const SEED_PROFILES: { overlay: Genome['overlay']; dials: Genome['dials'] }[] = [
-  { overlay: 'none', dials: { variance: 5, motion: 5, density: 5 } }, // balanced
-  { overlay: 'minimalist', dials: { variance: 3, motion: 2, density: 3 } }, // calm, airy
-  { overlay: 'brutalist', dials: { variance: 8, motion: 4, density: 7 } }, // bold, dense
-  { overlay: 'soft', dials: { variance: 6, motion: 8, density: 4 } }, // expressive, kinetic
-  { overlay: 'none', dials: { variance: 9, motion: 6, density: 5 } }, // high-variance editorial
-];
+/** Per-variant Tier-2 source policy for gen-0 diversity (SPEC §4) — down to `homegrown` (none). */
+type SourceMode = 'all' | 'few' | 'single' | 'homegrown';
+
+interface SeedProfile {
+  overlay: Genome['overlay'];
+  dials: Genome['dials'];
+  /** The aesthetic direction the agent must commit to (injected into the prompt). */
+  ethos: string;
+  /** How many Tier-2 sources this variant may pull from (drives `homegrown` + the blend). */
+  sourceMode: SourceMode;
+}
 
 /**
- * Seed `count` diverse round-0 genomes (SPEC §4, §7): span the available primaries (both in
- * greenfield; the single forced primary in integration) AND cycle distinct overlay+dial profiles,
- * so a round offers genuinely different options rather than near-identical variants.
+ * Distinct round-0 "looks" (SPEC §4). Each is a genuinely different starting point — overlay + dial
+ * profile, a one-line aesthetic ETHOS the agent commits to, and a `sourceMode` controlling how much it
+ * draws from external libraries (down to `homegrown` = from scratch). Cycled across the population so a
+ * round spans real options, not near-duplicates. Profile index 1 is homegrown, so any round of ≥2
+ * already includes a from-scratch variant (further guaranteed below).
+ */
+const SEED_PROFILES: SeedProfile[] = [
+  {
+    overlay: 'none',
+    dials: { variance: 5, motion: 5, density: 5 },
+    ethos: 'Balanced and confident — a modern, polished default with strong fundamentals.',
+    sourceMode: 'all',
+  },
+  {
+    overlay: 'minimalist',
+    dials: { variance: 2, motion: 1, density: 3 },
+    ethos:
+      'Radical Swiss minimalism — extreme whitespace, one typeface, a strict grid, zero ornament.',
+    sourceMode: 'homegrown',
+  },
+  {
+    overlay: 'brutalist',
+    dials: { variance: 9, motion: 3, density: 8 },
+    ethos:
+      'Raw neo-brutalism — heavy type, hard edges, exposed structure, monospace, high contrast.',
+    sourceMode: 'few',
+  },
+  {
+    overlay: 'soft',
+    dials: { variance: 6, motion: 9, density: 4 },
+    ethos: 'Expressive and kinetic — organic shapes, motion-forward, playful, alive.',
+    sourceMode: 'all',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 10, motion: 6, density: 6 },
+    ethos: 'Editorial maximalism — art-directed, experimental, unexpected layout and scale.',
+    sourceMode: 'single',
+  },
+  {
+    overlay: 'minimalist',
+    dials: { variance: 4, motion: 2, density: 5 },
+    ethos: 'Retro-terminal — monospace, utilitarian, command-line aesthetic, restrained color.',
+    sourceMode: 'homegrown',
+  },
+  {
+    overlay: 'soft',
+    dials: { variance: 7, motion: 4, density: 4 },
+    ethos: 'Refined luxury — restrained palette, elegant type pairing, generous negative space.',
+    sourceMode: 'few',
+  },
+  {
+    overlay: 'brutalist',
+    dials: { variance: 10, motion: 8, density: 7 },
+    ethos: 'Alien and experimental — break conventions, unexpected colour and motion, be bold.',
+    sourceMode: 'all',
+  },
+];
+
+const HOMEGROWN_CLAUSE =
+  ' Build this entirely from scratch — do NOT use external component libraries.';
+
+/** Allocate which Tier-2 sources a gen-0 variant may draw from, per its profile's source mode. */
+function allocateSources(mode: SourceMode, permitted: readonly string[], index: number): string[] {
+  if (mode === 'homegrown' || permitted.length === 0) return [];
+  if (mode === 'all') return [...permitted];
+  if (mode === 'single') {
+    const pick = permitted[index % permitted.length];
+    return pick !== undefined ? [pick] : [];
+  }
+  // 'few': a rotated window of up to 3 so different variants draw from different small sets.
+  const start = (index * 2) % permitted.length;
+  return [...permitted.slice(start), ...permitted.slice(0, start)].slice(
+    0,
+    Math.min(3, permitted.length),
+  );
+}
+
+/**
+ * Seed `count` diverse round-0 genomes (SPEC §4, §7). Spans the available primaries AND cycles the
+ * {@link SEED_PROFILES}. In `diverse`/`alien` mode (the default is `diverse`) each variant also gets a
+ * distinct ETHOS and a varied source allocation (all / few / single / homegrown-from-scratch), and a
+ * homegrown variant is guaranteed per round; `alien` additionally pushes dial extremes + experimentation.
+ * `conservative` reverts to the prior uniform full-source seeding (overlay + dials only).
  */
 export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext): Genome[] {
   const primaries = seedPrimaries(config.mode);
   const permittedSources = resolveSources(config.sources).permittedIds;
-  return Array.from({ length: count }, (_unused, i) => {
+  const diversity = config.generation.diversity;
+  const wide = diversity !== 'conservative';
+
+  const genomes = Array.from({ length: count }, (_unused, i): Genome => {
     const primarySkill = primaries[i % primaries.length];
     const primary = primarySkill?.primaryKey ?? config.primary;
-    // Cycle profiles straight so a round of up to SEED_PROFILES.length variants gets every distinct
-    // profile (max gen-0 diversity). The earlier index-offset collapsed the sequence (e.g. with 2
-    // primaries it produced 0,2,2,4,4 — duplicating profiles and never using minimalist/soft).
     const profile = SEED_PROFILES[i % SEED_PROFILES.length];
+
+    let dials = profile?.dials ?? config.dials;
+    let ethos = profile?.ethos;
+    if (diversity === 'alien' && profile !== undefined) {
+      dials = {
+        variance: Math.min(10, profile.dials.variance + 1),
+        motion: Math.min(10, profile.dials.motion + 1),
+        density: profile.dials.density,
+      };
+      ethos = `${profile.ethos} Push it to an extreme — be unconventional, even alien.`;
+    }
+
+    const sourceMode: SourceMode = wide ? (profile?.sourceMode ?? 'all') : 'all';
+    const homegrown = wide && sourceMode === 'homegrown';
+    const sources = wide ? allocateSources(sourceMode, permittedSources, i) : permittedSources;
+    if (homegrown && ethos !== undefined) ethos = `${ethos}${HOMEGROWN_CLAUSE}`;
+
     return {
       id: genomeId(ctx.generation, i),
       parents: [],
       primary,
       overlay: profile?.overlay ?? config.overlay,
-      dials: profile?.dials ?? config.dials,
+      dials,
       commands: [],
       seed: i,
       brief: ctx.brief,
       createdAt: ctx.createdAt,
       ...(ctx.target !== undefined ? { target: ctx.target } : {}),
-      ...(permittedSources.length > 0 ? { sources: permittedSources } : {}),
+      ...(sources.length > 0 ? { sources } : {}),
+      ...(wide && ethos !== undefined ? { ethos } : {}),
+      ...(homegrown ? { homegrown: true } : {}),
     } satisfies Genome;
   });
+
+  // Guarantee at least one homegrown (from-scratch, no-fetch) variant per wide round (SPEC §4).
+  if (wide && count >= 2 && !genomes.some((g) => g.homegrown === true)) {
+    const last = genomes[genomes.length - 1];
+    if (last !== undefined) {
+      last.homegrown = true;
+      last.ethos = `${last.ethos ?? 'Build from scratch.'}${HOMEGROWN_CLAUSE}`;
+      delete last.sources;
+    }
+  }
+
+  return genomes;
 }
 
 /** One genome to materialize, optionally based on a parent's branch (so children refine, not restart). */

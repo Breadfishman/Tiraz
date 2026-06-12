@@ -48,6 +48,8 @@ export interface ResourceView {
   fetchBudget: number;
   /** 21st.dev semantic-search fetching (SPEC §12, Phase 2/3): whether it is opted in (needs a key). */
   twentyFirst: boolean;
+  /** Gen-0 diversity spread (SPEC §4): how wide the first generation is seeded. */
+  diversity: TirazConfig['generation']['diversity'];
   sources: ResourceSourceView[];
   capabilities: ResourceCapabilityView[];
 }
@@ -127,6 +129,7 @@ export function buildResourceView(config: TirazConfig): ResourceView {
     fetchMode: config.sources.fetchMode,
     fetchBudget: config.sources.fetchBudget,
     twentyFirst: config.sources.twentyFirst,
+    diversity: config.generation.diversity,
     sources,
     capabilities,
   };
@@ -174,6 +177,23 @@ export function setFetchMode(config: TirazConfig, enabled: boolean): TirazConfig
  */
 export function setTwentyFirst(config: TirazConfig, enabled: boolean): TirazConfig {
   return { ...config, sources: { ...config.sources, twentyFirst: enabled } };
+}
+
+/** Valid gen-0 diversity levels (SPEC §4) — exported so the dashboard can render the options. */
+export const DIVERSITY_LEVELS: readonly TirazConfig['generation']['diversity'][] = [
+  'conservative',
+  'diverse',
+  'alien',
+];
+
+/**
+ * Return a copy of `config` with the gen-0 diversity level set (SPEC §4). Unknown values are
+ * ignored (config unchanged), so a stray dashboard payload can't corrupt the config.
+ */
+export function setDiversity(config: TirazConfig, level: string): TirazConfig {
+  const next = DIVERSITY_LEVELS.find((l) => l === level);
+  if (next === undefined) return config;
+  return { ...config, generation: { ...config.generation, diversity: next } };
 }
 
 /** Return a copy of `config` with a capability module toggled on/off. */

@@ -67,7 +67,11 @@ describe('TirazConfigSchema', () => {
     expect(config.modules).toEqual({ threeD: false, remotion: false });
     // Self-critique-and-revise second pass is on by default (the headline anti-slop lever); a round
     // materializes up to `concurrency` variants in parallel.
-    expect(config.generation).toEqual({ selfCritique: true, concurrency: 4 });
+    expect(config.generation).toEqual({
+      selfCritique: true,
+      concurrency: 4,
+      diversity: 'diverse',
+    });
   });
 
   it('rejects unknown top-level keys (catches config typos)', () => {
