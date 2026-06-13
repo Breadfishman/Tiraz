@@ -68,6 +68,23 @@ Commands that drive the coding agent / a browser (`gen`, `breed`, `recombine`, `
 live adapters land where they can run. See [docs/cli.md](./docs/cli.md) for the full surface and
 per-command status.
 
+## From a bred variant to a shipped page
+
+Tiraz produces **presentation** — the layout, hero, nav, CTAs, footer. It deliberately stops at the
+repo boundary: it provides **no deployment infrastructure**, and the bred UI ships with its
+**destinations empty on purpose** (CTA/footer links render as labels with no `href`), because where
+"Docs", "Features", or the GitHub link _point_ are content/routing decisions, not taste decisions.
+Going from a promoted variant to a live page is a small pass, not a backend build-out:
+
+1. `tiraz promote <node>` → a PR (integration) or merged branch (greenfield).
+2. If the variant was authored against Storybook, move `stories/*` → `components/` and fix imports.
+3. Fill the real destinations in one place — a `config/site.ts` (`siteConfig`) with your `github` /
+   `docs` / `features` URLs — and point the bred buttons/labels at it.
+4. Merge (your CI/CD deploys it) or, greenfield, push the repo and connect it to **Vercel** or
+   **Cloudflare Pages**. Tiraz does not own this step, by design.
+
+See [docs/cli.md](./docs/cli.md#what-promote-does--and-where-tirazs-job-ends) for the full breakdown.
+
 ## License
 
 Apache-2.0. Tiraz vendors third-party design skills under their original licenses — see

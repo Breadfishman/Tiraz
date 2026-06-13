@@ -164,6 +164,33 @@ remote + the `gh` CLI authenticated).
 
 - `--base <branch>` — branch to merge into / open the PR against (default `main`).
 
+#### What promote does — and where Tiraz's job ends
+
+Tiraz is a **presentation** engine: it breeds the visual chrome — layout, hero, nav, CTAs, footer
+columns — and `promote` hands you that as a branch/PR. It deliberately stops there. The bred UI ships
+with its **destinations left empty on purpose**: CTA buttons and footer links render as labels with no
+`href`, because where "Docs", "Features", or the GitHub link _point_ are content/routing decisions,
+not taste decisions. Tiraz does not invent them, and provides **no deployment infrastructure** by
+design — deployment is owned by your repo's existing CI/CD (Vercel, Cloudflare Pages, GitHub Actions),
+which is already triggered by the merge.
+
+So "promoted variant → shipped page" is a small, bounded pass, not a backend project:
+
+1. **`tiraz promote <node>`** → a PR (integration) or a merged branch (greenfield).
+2. **De-Storybook** the diff if the variant was authored against a Storybook render surface: move
+   `stories/*` → `components/`, fix imports, drop the Storybook scaffolding. The components are plain
+   React.
+3. **Fill the destinations in one place.** Add a `config/site.ts` (`siteConfig`) holding the real
+   `github` / `docs` / `features` URLs + nav entries, and point the bred buttons/labels at it
+   (`<Button>` → `<Link href={siteConfig.docs}>`, footer label array → mapped `<Link>`s, the lone
+   `href="#"` → a real target). Most of these are not backend: GitHub is an external `href`, Features
+   is usually a `#features` anchor or a route, Docs is either an external docs host or a `/docs` route.
+   Centralizing in `siteConfig` keeps the components presentation-only and makes every "where does this
+   point" decision a one-line edit.
+4. **Merge / deploy.** With an existing codebase, merge the PR and your CI/CD deploys it. Greenfield:
+   push the repo and connect it to Vercel or Cloudflare Pages (both auto-build Next on push) — Tiraz
+   does not do this step for you, and intentionally so.
+
 ### `tiraz init [name]` ✅
 
 Scaffold a greenfield project (SPEC §10). Drives the official CLIs — Astro + Tailwind (or Next.js
