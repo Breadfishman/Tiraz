@@ -5,6 +5,9 @@ into a _bred_ population of frontend variants, then converges on the best one th
 fitness-gated beam search — **inside your real codebase and design system**. Its job is to stop
 AI-built UIs from looking AI-built, without the integration tax of generate-in-a-vacuum tools.
 
+**Live demo:** [tiraz.frf-enterprises.com](https://tiraz.frf-enterprises.com) — this landing page was
+itself bred by Tiraz from a single brief, then promoted out to a standalone site.
+
 > **Status: end-to-end working.** All build phases (0–7) plus the live adapters (Playwright renderer,
 > vision taste judge, DS-adherence collectors) are implemented and verified live — the full
 > `gen → score → select → breed → promote` loop runs against a real repo, with a live `dashboard` to
@@ -12,6 +15,31 @@ AI-built UIs from looking AI-built, without the integration tax of generate-in-a
 > **Resuming or picking up on another machine? Start with [docs/status.md](./docs/status.md)** —
 > current state, setup, the live-loop runbook, and the backlog. See [CHANGELOG](./CHANGELOG.md) for
 > per-change detail and [SPEC.md](./SPEC.md) for the design.
+
+## How it works
+
+Tiraz treats UI design as a breeding problem. You give it one brief; it converges on a striking,
+on-system result through a fitness-gated [beam search](https://en.wikipedia.org/wiki/Beam_search):
+
+1. **Seed** — the brief becomes a diverse population of _genomes_: reproducible recipes pairing a
+   design-taste skill (+ optional overlay), dials for variance / motion / density, a set of component
+   sources, and an aesthetic _ethos_. Generation 0 is deliberately varied — different ethos, different
+   sources, some entirely homegrown — so the search starts wide instead of converging on one safe look.
+2. **Materialize** — each genome is built into real code by a Claude Code agent in its own **git
+   worktree** (an isolated branch), optionally fetching real components from 10+ shadcn/registry
+   sources and 21st.dev semantic search.
+3. **Score** — every variant earns a three-term **fitness**: a lint **floor** (a hard gate),
+   **design-system adherence** (penalizes off-system colour/spacing literals; credits genuinely
+   fetched components), and a pairwise **vision taste tournament** in which Claude judges rendered
+   screenshots head-to-head.
+4. **Select & breed** — survivors advance; the strongest are bred and recombined into the next
+   generation, with the beam keeping the population focused. Lineage is a DAG in
+   `.tiraz/manifest.json`, and a live **dashboard** lets you review, compare side-by-side, heart,
+   cull, and breed variants by eye.
+5. **Promote** — the winner ships as a branch or PR into your repo (`tiraz promote`).
+
+Crucially, the whole loop runs **inside your real codebase and design system** — variants use your
+tokens and components — so the output integrates instead of needing a rewrite.
 
 ## Documentation
 
@@ -85,7 +113,15 @@ Going from a promoted variant to a live page is a small pass, not a backend buil
 
 See [docs/cli.md](./docs/cli.md#what-promote-does--and-where-tirazs-job-ends) for the full breakdown.
 
-## License
+## License & attribution
 
-Apache-2.0. Tiraz vendors third-party design skills under their original licenses — see
-[NOTICE](./NOTICE) for attribution and [docs/skills.md](./docs/skills.md) for details.
+Tiraz is open source under the [Apache License 2.0](./LICENSE) — you're free to use, modify, fork,
+and build commercial or hosted products on it. In return, the license requires you to **retain the
+copyright notice and reproduce the [`NOTICE`](./NOTICE)** in any redistribution (Apache-2.0 §4), so
+credit travels with the code.
+
+**If you fork, build on, or ship anything derived from Tiraz, keep the attribution to Faris
+([@Breadfishman](https://github.com/Breadfishman)).** That isn't just courtesy — it's the license.
+
+Tiraz also vendors third-party design _skills_ under their own licenses (Apache-2.0 / MIT); see
+[`NOTICE`](./NOTICE) and [docs/skills.md](./docs/skills.md) for per-skill attribution.
