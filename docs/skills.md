@@ -1,6 +1,6 @@
 # Skills
 
-Tiraz's taste layer is a registry of design **skills** — `SKILL.md` files (some with supporting
+Tiraz's taste layer is a registry of design **skills**: `SKILL.md` files (some with supporting
 `reference/` material) that guide the coding agent. The registry is defined as typed data in
 `src/core/skills-registry.ts`; the vendored content lives in `skills/`.
 
@@ -8,7 +8,7 @@ Tiraz's taste layer is a registry of design **skills** — `SKILL.md` files (som
 
 | Role                | Skills                                                               | Active when                                             |
 | ------------------- | -------------------------------------------------------------------- | ------------------------------------------------------- |
-| **base**            | `frontend-design`                                                    | Always — in every resolved variant                      |
+| **base**            | `frontend-design`                                                    | Always, in every resolved variant                       |
 | **primary**         | `impeccable`, `design-taste-frontend`                                | Exactly one per variant (mutually exclusive)            |
 | integration primary | `redesign-existing-projects`                                         | Forced as the primary whenever `mode = integration`     |
 | **overlay**         | `minimalist-ui`, `industrial-brutalist-ui`, `high-end-visual-design` | 0 or 1, composes with the primary                       |
@@ -29,10 +29,10 @@ user's own skills in place.
 ## Component sourcing (two tiers, SPEC §12)
 
 Diversity of component sources is an anti-slop mechanism. The license of each source dictates its
-tier — this is not a free choice.
+tier. This is not a free choice.
 
-- **Tier 1 — bundled** (vendored, MIT/Apache): e.g. Magic UI. Shipped with Tiraz.
-- **Tier 2 — fetch-on-demand** (restrictive or use-only licenses): React Bits, the 21st.dev
+- **Tier 1: bundled** (vendored, MIT/Apache): e.g. Magic UI. Shipped with Tiraz.
+- **Tier 2: fetch-on-demand** (restrictive or use-only licenses): React Bits, the 21st.dev
   registry. The agent pulls these into _your_ repo on demand; Tiraz never redistributes them.
 - **Aceternity** is off by default and gated behind a ToS warning (fine for personal use, risky for
   commercial). See [docs/configuration.md](./configuration.md).
@@ -49,7 +49,7 @@ hand-edited. The combined work is Apache-2.0; full attribution is in [NOTICE](..
 | `impeccable` (SKILL.md + `reference/` only)                                                                                                                                   | pbakaus/impeccable   | Apache-2.0 |
 | `design-taste-frontend`, `redesign-existing-projects`, the 3 overlays, `full-output-enforcement`, `image-to-code`, `stitch-design-taste`, `imagegen-frontend-web`, `brandkit` | Leonxlnx/taste-skill | MIT        |
 
-- **impeccable's detector** (its `scripts/`) is intentionally **not** vendored — Tiraz consumes it
+- **impeccable's detector** (its `scripts/`) is intentionally **not** vendored. Tiraz consumes it
   via `npx impeccable detect` in Phase 2 (SPEC §9). Vendoring the skill keeps only the design
   guidance.
 - **Emil Kowalski's skill** has no stated license, so it is **never vendored**. It is installed on

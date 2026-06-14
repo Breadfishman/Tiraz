@@ -1,7 +1,7 @@
 # Changelog
 
 All notable changes to Tiraz are documented here. Progress is tracked against the build phases in
-[SPEC.md §16](./SPEC.md). The format loosely follows [Keep a Changelog](https://keepachangelog.com).
+SPEC §16. The format loosely follows [Keep a Changelog](https://keepachangelog.com).
 
 ## [Unreleased]
 
@@ -131,8 +131,7 @@ All notable changes to Tiraz are documented here. Progress is tracked against th
     with no `components.json`, or any per-source error silently falls back to today's signatures
     behavior. A GUI toggle in the cockpit Config panel (`kind: 'fetchmode'`) turns it off.
   - **Not yet wired:** fetched components aren't yet credited in DS-adherence scoring (Phase 1.5) —
-    provenance is recorded for it, but the scoring pipeline was left untouched on purpose. See
-    [docs/plans/component-fetch.md](./docs/plans/component-fetch.md).
+    provenance is recorded for it, but the scoring pipeline was left untouched on purpose.
 
 - **Taste quality (iteration 2)** (`core/taste-rubric.ts`, `core/agent.ts`, `core/gen.ts`,
   `core/search.ts`, `core/vision-judge.ts`, `core/taste-judge.ts`, `core/config.ts`). Three levers to

@@ -36,7 +36,7 @@ Useful sub-commands: `npm test`, `npm run test:watch`, `npm run typecheck`, `npm
   no `// eslint-disable` to dodge a real warning, no `.skip` to hide a failing test, no swallowed
   errors. If the proper fix is large, do the proper fix.
 - **Strict typing.** The tsconfig is strict on purpose. Prefer precise types and zod schemas over
-  `any`/casts. Index access is checked — handle `undefined`.
+  `any`/casts. Index access is checked. Handle `undefined`.
 - **Validate at the boundary.** Anything read from disk or the outside world (config, manifest,
   package.json) is validated with a zod schema; invalid input fails loudly with a readable message.
 - **Decouple from external processes.** Things that spawn processes or drive browsers (the agent,
