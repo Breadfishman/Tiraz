@@ -1,9 +1,17 @@
 # Tiraz
 
-A design-taste engine for AI coding agents. Tiraz sits on top of Claude Code and turns one brief
-into a _bred_ population of frontend variants, then converges on the best one through a
-fitness-gated beam search, **inside your real codebase and design system**. Its job is to stop
-AI-built UIs from looking AI-built, without the integration tax of generate-in-a-vacuum tools.
+**A design-taste engine for AI coding agents.** Tiraz sits on top of Claude Code and treats UI
+design as evolution: from one brief it breeds a whole population of frontend variants, then
+converges on the most striking one through a fitness-gated beam search, all **inside your real
+codebase and design system**.
+
+It exists to solve two failures at once. AI-built UIs look AI-built: they collapse toward the same
+safe, centered, generic layout. And the tools bold enough to escape that generate in a vacuum,
+handing you something you then pay an integration tax to graft back into your stack. Tiraz refuses
+both. Variants are written against your own tokens and components, scored on a three-term fitness (a
+lint floor, design-system adherence, and a pairwise vision taste tournament judged by Claude), and
+steered by you from a live dashboard. What survives is UI with real taste that drops into your
+project instead of fighting it.
 
 **Live demo:** [tiraz.frf-enterprises.com](https://tiraz.frf-enterprises.com). This landing page was
 itself bred by Tiraz from a single brief, then promoted out to a standalone site.
