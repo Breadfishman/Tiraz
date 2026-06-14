@@ -17,7 +17,8 @@ All examples assume the alias `alias tiraz="node /absolute/path/to/Tiraz/dist/cl
 - **Playwright browsers:** `npx playwright install chromium`.
 - **Your target repo's dependencies installed** (`npm install` in that repo): variants render by
   reusing its `node_modules` and booting its harness.
-- **A render surface** in the target repo: a Storybook/Ladle/Histoire story, or a Next.js app route.
+- **A render surface** in the target repo: a Storybook (recommended), Ladle, or Histoire story. The
+  `app` and `scratch` harnesses are detected but not yet wired to render (v2), so use a real playground.
   Without one, `gen` has nothing to render and cannot score (the most common first-run blocker). The
   story id you target is the lowercased `title--export`, for example a `title: "Hero"` /
   `export const Default` story is `hero--default`.
@@ -43,7 +44,7 @@ cd your-existing-repo
 npm install                  # variants reuse these node_modules
 git checkout -b redesign-tiraz
 tiraz adopt                  # detects stack + harness, prints what it found, writes integration config
-#   add a Storybook story (or use --harness app); if you add it AFTER adopt, pass --harness to gen
+#   add a Storybook story; if you add it AFTER adopt, pass --harness storybook to gen (or re-run adopt)
 git add -A && git commit -m "tiraz setup"
 ```
 
@@ -120,7 +121,7 @@ Per-command flags and status live in [../cli.md](../cli.md). The high-frequency 
 ## When something stalls
 
 - **`gen` renders nothing:** no render surface, or the target repo's `node_modules` are not installed.
-  Add a story (or `--harness app` against a route) and run `npm install` in your repo.
+  Add a Storybook story and run `npm install` in your repo.
 - **A restricted source's fetch hangs:** `tiraz sources disable aceternity` (only `aceternity` and
   `skiper-ui` are toggleable; others live in the `sources.fetch` list / dashboard Config panel).
 - **Scores look off:** review by eye in the dashboard. The fitness function is a pre-filter, not the

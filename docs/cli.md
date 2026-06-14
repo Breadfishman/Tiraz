@@ -239,10 +239,12 @@ fetch fails.
 
 - `-b, --brief <text>` (required) · `-c, --count <n>` (default 3) · `-t, --target <scope>` ·
   `--harness <kind>` (`storybook` | `ladle` | `histoire` | `app` | `scratch`).
+- **Render surfaces wired today:** `storybook` (recommended), `ladle`, `histoire`. `app` and `scratch`
+  are accepted kinds but have no serve/build wired yet, so they cannot render variants (v2-stretch,
+  SPEC §11). `adopt` reports `harness: scratch` when it finds no playground.
 - **`--target` format:** for a story harness, `story:<story-id>`, where the id is the lowercased
   Storybook title plus export joined by `--` (title `Hero` + export `Default` is `story:hero--default`,
-  visible in the story's URL). For `--harness app`, a route path, for example `route:/` or
-  `route:/pricing`.
+  visible in the story's URL).
 
 ### `tiraz score` ✅ (live)
 

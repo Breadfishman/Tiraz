@@ -130,8 +130,10 @@ export const Default = {};
 export, joined by `--`: title `Hero` + export `Default` becomes **`hero--default`**. You can also read
 any story's id straight from its URL in Storybook (`?path=/story/hero--default`).
 
-Prefer to redesign a whole page instead of a section? Skip Storybook and use the **app harness**:
-target a real route and pass `--harness app --target route:/` (or your path) in Step 6.
+Want to redesign a whole page, not just a section? Put the page (or a stand-in composition of it) in a
+single story and target that. **Storybook, Ladle, and Histoire are the render surfaces that work
+today**; the `app` and `scratch` harnesses are detected but not yet wired to render (v2), so do not
+rely on them.
 
 ### 4. Tokenize your brand colors
 
@@ -245,9 +247,9 @@ prerequisites) against your base branch. A PR is just a proposed change you revi
 
 A promoted variant is presentation, not a deployed site. Finishing the job (wiring real link
 destinations, deploying) is a short, separate pass documented in the README under
-[From a bred variant to a shipped page](../../README.md#from-a-bred-variant-to-a-shipped-page). (If you
-used `--harness app` rather than Storybook, skip the `stories/ -> components/` move in that section; it
-only applies to Storybook-authored variants.)
+[From a bred variant to a shipped page](../../README.md#from-a-bred-variant-to-a-shipped-page). The
+`stories/ -> components/` move in that section applies to Storybook-authored variants (which is the
+supported path today).
 
 ## Tips and best practices
 
@@ -261,8 +263,11 @@ only applies to Storybook-authored variants.)
 ## Troubleshooting
 
 - **`gen` produces nothing / cannot render:** either no render surface (Step 3), or your repo's
-  dependencies are not installed (`npm install` in your repo, Step 1). Confirm the harness with
-  `--harness storybook` (or `app`).
+  dependencies are not installed (`npm install` in your repo, Step 1). Confirm `gen` is using
+  `--harness storybook` (Storybook/Ladle/Histoire are the surfaces that render today).
+- **`adopt` reports `harness: scratch`:** that means no render surface was detected. Add Storybook
+  (Step 3) and re-run `adopt`, or pass `--harness storybook` to `gen`. The `scratch` and `app`
+  harnesses are not yet wired to render (v2).
 - **Variants ignore your brand colors:** your colors are not tokens yet (Step 4). Consolidate them
   into CSS variables / the Tailwind theme.
 - **A restricted source's fetch hangs:** only the restricted sources can be toggled off, by name, for
