@@ -33,3 +33,8 @@ tiraz.config.json
 
 # Local scratch (e.g. the original input spec)
 /misc/
+
+# Internal working docs — kept locally, intentionally not published in the public repo
+/SPEC.md
+/docs/status.md
+/docs/plans/
