@@ -53,13 +53,15 @@ Inspect and toggle the component-source menu (SPEC §12) and view the capability
   and the capability libraries (animation/scroll always available; 3D / video gated behind their
   `--3d` / `--remotion` modules; the Remotion commercial license flagged).
 - `tiraz sources enable <id>` / `disable <id>`: toggle a **restricted** Tier-2 source (currently
-  `aceternity`) and persist it to `tiraz.config.json`. Enabling prints the source's ToS warning.
-  Non-restricted sources are configured via the `sources.fetch` list, not this toggle.
+  `aceternity` and `skiper-ui`) and persist it to `tiraz.config.json`. Enabling prints the source's ToS
+  warning. Non-restricted sources are configured via the `sources.fetch` list, not this toggle (passing
+  one to `disable` exits non-zero).
 
 ### `tiraz tree` / `tiraz status` ✅
 
-Render the variant DAG (lineage, scores, status) and a per-status summary of the current run.
-Manifest-only. Runnable today.
+Two distinct read-only commands (not aliases). `tree` renders the variant DAG (lineage, scores, status
+per variant); `status` prints a per-status summary of the run (counts by generation). Manifest-only.
+Runnable today.
 
 ### `tiraz select <nodes...>` ✅
 
@@ -236,7 +238,11 @@ this is best-effort and silently falls back to signatures if the repo has no `co
 fetch fails.
 
 - `-b, --brief <text>` (required) · `-c, --count <n>` (default 3) · `-t, --target <scope>` ·
-  `--harness <kind>`.
+  `--harness <kind>` (`storybook` | `ladle` | `histoire` | `app` | `scratch`).
+- **`--target` format:** for a story harness, `story:<story-id>`, where the id is the lowercased
+  Storybook title plus export joined by `--` (title `Hero` + export `Default` is `story:hero--default`,
+  visible in the story's URL). For `--harness app`, a route path, for example `route:/` or
+  `route:/pricing`.
 
 ### `tiraz score` ✅ (live)
 

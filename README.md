@@ -16,16 +16,18 @@ project instead of fighting it.
 **Live demo:** [tiraz.frf-enterprises.com](https://tiraz.frf-enterprises.com). This landing page was
 itself bred by Tiraz from a single brief, then promoted out to a standalone site.
 
-> **Status: end-to-end working.** All build phases (0–7) plus the live adapters (Playwright renderer,
+> **Status: end-to-end working.** All build phases (0-7) plus the live adapters (Playwright renderer,
 > vision taste judge, DS-adherence collectors) are implemented and verified live. The full
-> `gen → score → select → breed → promote` loop runs against a real repo, with a live `dashboard` to
+> `gen -> score -> select -> breed -> promote` loop runs against a real repo, with a live `dashboard` to
 > review variants. Output is "getting there but still lacking" (quality is the active focus). See the
 > [CHANGELOG](./CHANGELOG.md) for per-change detail.
 
 ## How it works
 
-Tiraz treats UI design as a breeding problem. You give it one brief; it converges on a striking,
-on-system result through a fitness-gated [beam search](https://en.wikipedia.org/wiki/Beam_search):
+In plain terms: Tiraz generates several versions of your UI, automatically grades them on look and
+on-brand-ness, and lets you pick and refine the best, all inside your own repo. Under the hood it
+treats UI design as a breeding problem and converges on a striking, on-system result through a
+fitness-gated [beam search](https://en.wikipedia.org/wiki/Beam_search):
 
 1. **Seed**: the brief becomes a diverse population of _genomes_: reproducible recipes pairing a
    design-taste skill (+ optional overlay), dials for variance / motion / density, a set of component
@@ -47,7 +49,14 @@ on-system result through a fitness-gated [beam search](https://en.wikipedia.org/
 Crucially, the whole loop runs **inside your real codebase and design system** (variants use your
 tokens and components), so the output integrates instead of needing a rewrite.
 
-## Documentation
+## Guides (start here to use it)
+
+| Guide                                                                   | What it walks you through                                                     |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [Redesign an existing site](./docs/guides/redesign-an-existing-site.md) | The most common task: keep your brand, rebreed the design, ship a PR          |
+| [Running the loop](./docs/guides/running-the-loop.md)                   | The full `gen -> score -> select -> breed -> promote` cheat sheet, both modes |
+
+## Reference docs
 
 | Doc                                              | What it covers                                          |
 | ------------------------------------------------ | ------------------------------------------------------- |
@@ -67,8 +76,12 @@ The `docs/` describe what is actually implemented today.
 
 ## Quickstart (what runs today)
 
+> Install with `npm ci` (exact, tested versions). You will see audit warnings about dev build tooling
+> (`esbuild`/`tsup`, Storybook); they are transitive dev dependencies, are not part of the CLI, and
+> are safe to ignore. Do **not** run `npm audit fix --force`, which forces breaking upgrades.
+
 ```bash
-npm install
+npm ci
 npm run build
 
 # Attach to an existing repo (detect stack + harness, write integration config):
@@ -99,6 +112,10 @@ Commands that drive the coding agent / a browser (`gen`, `breed`, `recombine`, `
 live adapters land where they can run. See [docs/cli.md](./docs/cli.md) for the full surface and
 per-command status.
 
+**New here?** The [Guides](#guides-start-here-to-use-it) walk the whole thing end to end. Start with
+**Redesign an existing site** for the common task, or **Running the loop** for the command-by-command
+reference.
+
 ## From a bred variant to a shipped page
 
 Tiraz produces **presentation**: the layout, hero, nav, CTAs, footer. It deliberately stops at the
@@ -107,14 +124,14 @@ repo boundary: it provides **no deployment infrastructure**, and the bred UI shi
 "Docs", "Features", or the GitHub link _point_ are content/routing decisions, not taste decisions.
 Going from a promoted variant to a live page is a small pass, not a backend build-out:
 
-1. `tiraz promote <node>` → a PR (integration) or merged branch (greenfield).
-2. If the variant was authored against Storybook, move `stories/*` → `components/` and fix imports.
+1. `tiraz promote <node>` -> a PR (integration) or merged branch (greenfield).
+2. If the variant was authored against Storybook, move `stories/*` -> `components/` and fix imports.
 3. Fill the real destinations in one place: a `config/site.ts` (`siteConfig`) with your `github` /
    `docs` / `features` URLs, and point the bred buttons/labels at it.
 4. Merge (your CI/CD deploys it) or, greenfield, push the repo and connect it to **Vercel** or
    **Cloudflare Pages**. Tiraz does not own this step, by design.
 
-See [docs/cli.md](./docs/cli.md#what-promote-does--and-where-tirazs-job-ends) for the full breakdown.
+See [docs/cli.md](./docs/cli.md#what-promote-does-and-where-tirazs-job-ends) for the full breakdown.
 
 ## License & attribution
 
