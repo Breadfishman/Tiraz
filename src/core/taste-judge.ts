@@ -3,6 +3,12 @@ import type { TasteResult } from './fitness';
 export interface JudgeCandidate {
   id: string;
   screenshotPath: string;
+  /**
+   * This variant's own aesthetic intent (its `excellence` line, falling back to its ethos), so the
+   * judge grades how well each option realises ITS OWN direction rather than conformity to one house
+   * style (SPEC §9, the anti-homogenisation lever). Absent for variants with no stated direction.
+   */
+  intent?: string;
 }
 
 export interface PairwiseVerdict {

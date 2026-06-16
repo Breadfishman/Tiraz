@@ -73,7 +73,14 @@ export async function runScore(
   const candidates: JudgeCandidate[] = [];
   for (const node of nodes) {
     if (node.screenshot !== undefined) {
-      candidates.push({ id: node.genome.id, screenshotPath: node.screenshot });
+      // Judge each option against its OWN stated direction (SPEC §9): prefer the per-variant
+      // `excellence` line, falling back to its ethos. Absent for variants with no stated direction.
+      const intent = node.genome.excellence ?? node.genome.ethos;
+      candidates.push({
+        id: node.genome.id,
+        screenshotPath: node.screenshot,
+        ...(intent !== undefined ? { intent } : {}),
+      });
     }
   }
   const brief = nodes[0]?.genome.brief ?? '';

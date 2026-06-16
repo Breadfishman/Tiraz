@@ -41,6 +41,23 @@ export const GenomeSchema = z.strictObject({
    * library compositions.
    */
   homegrown: z.boolean().optional(),
+  /**
+   * Gen-0 diversity (the anti-homogenisation lever, SPEC §4): how much prescriptive taste doctrine
+   * governs this variant. `full` = the base anti-slop skill + an opinionated primary taste skill
+   * (+ overlay); `light` = drop the primary so its single "good taste" house style stops dominating
+   * (base + overlay only); `feral` = NO installed taste skill at all — the agent invents its own
+   * direction from the ethos + the universal floor. Lighter priors are how a round escapes the
+   * monoculture of one taste skill. Absent → `full` (back-compat). Greenfield only; integration
+   * always resolves to `full` so brand keeping is never weakened.
+   */
+  prior: z.enum(['full', 'light', 'feral']).optional(),
+  /**
+   * Gen-0 diversity: what "excellent" means for THIS variant's aesthetic direction (e.g. for Y2K
+   * maximalism, "joyful excess with control"). Layered on top of the universal floor so the variant
+   * is built and judged against its own intent rather than one prescribed house style. Surfaced to
+   * the agent (the ethos section) and to the vision judge (each option's intent).
+   */
+  excellence: z.string().optional(),
   graft: GraftSpecSchema.optional(),
   seed: z.number().int(),
   /** The section/page brief this variant implements. */
@@ -52,6 +69,17 @@ export const GenomeSchema = z.strictObject({
 });
 
 export type Genome = z.infer<typeof GenomeSchema>;
+
+/** How much prescriptive taste doctrine governs a variant (SPEC §4). See {@link GenomeSchema.prior}. */
+export type PriorWeight = 'full' | 'light' | 'feral';
+
+/**
+ * Loosen a prior one step toward `feral` (used by `alien` diversity to push more variants off the
+ * house-style rails): `full` → `light` → `feral` (and `feral` stays `feral`).
+ */
+export function loosenPrior(prior: PriorWeight): PriorWeight {
+  return prior === 'full' ? 'light' : 'feral';
+}
 
 /** Build a canonical genome id from a generation and node index, e.g. `genomeId(2, 3)` → "g2-n3". */
 export function genomeId(generation: number, node: number): string {

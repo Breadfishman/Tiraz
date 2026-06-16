@@ -7,6 +7,34 @@ SPEC §16. The format loosely follows [Keep a Changelog](https://keepachangelog.
 
 ### Live adapters (in progress)
 
+- **Anti-monoculture: per-variant prior weight + intent-relative judging** (`core/genome.ts`,
+  `core/skills-registry.ts`, `core/search.ts`, `core/agent.ts`, `core/gen.ts`, `core/taste-rubric.ts`,
+  `core/vision-judge.ts`, `core/taste-judge.ts`, `core/score.ts`). Output was converging on one
+  "tasteful" look because a single opinionated taste skill plus a prescriptive slop rubric were
+  force-applied to **every** variant on both the generation and the judging side — a fixed fitness
+  peak that the mutation operator (the prompt) and the selection operator (the judge) both pointed at.
+  Three coupled fixes:
+  - **Prior weight** (genome `prior`: `full` / `light` / `feral`). `full` keeps the base anti-slop
+    skill + the opinionated primary (+ overlay); `light` drops the primary so its house style stops
+    dominating; `feral` installs **no taste skill at all** and the agent invents its own language from
+    the ethos + the universal floor. `resolveActiveSkills` now returns a nullable base/primary and the
+    prompt tells a feral variant to invent rather than default. Spread across the seed profiles
+    (~3 full / ~9 light / ~8 feral) and tied to the `diversity` knob: `conservative` pins all `full`,
+    `diverse` uses each profile's prior, `alien` loosens one step toward feral. Greenfield only —
+    integration always resolves to `full` so brand keeping is never weakened.
+  - **Split taste rubric** (`taste-rubric.ts`). The single catalog prescribed one aesthetic (restraint,
+    one accent, negative space) as universal "excellence", so it fought the maximalist / brutalist /
+    organic seed profiles. Split into a style-neutral **universal floor** (`UNIVERSAL_SLOP_TELLS`
+    /`UNIVERSAL_CRAFT_MARKERS` — templated laziness + craft that hold in any aesthetic) and a
+    **per-variant `excellence`** line carried on the genome ("excellent" is defined by each variant's
+    own direction, not one house style).
+  - **Intent-relative judge** (`vision-judge.ts`, `taste-judge.ts`, `score.ts`). `JudgeCandidate`
+    carries the variant's `intent`; `buildJudgePrompt` tells the critic the two options pursue
+    different directions and to judge craft / commitment / memorability relative to each option's own
+    intent (never favouring one aesthetic). Lens rubrics neutralised — no more "prefer sparse over
+    dense" or "restrained over saturated"; palette judges cohesion + intent, not amount of colour. So
+    selection stops culling diversity each generation.
+
 - **Dashboard: collapsible info stack + side-by-side compare** (`core/dashboard.ts`). The whole info
   stack above the preview (the variant line (`g0-n2 …`), the per-lens judge rationale
   (typography / layout / generic-feel …), and the Config & resources panel) now collapses into one

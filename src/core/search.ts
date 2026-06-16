@@ -3,8 +3,8 @@ import type { TirazConfig } from './config';
 import { loadConfig } from './config';
 import type { HarnessKind } from './detect';
 import { detectHarness } from './detect';
-import type { Genome, GraftSpec } from './genome';
-import { genomeId, mutateGenome, recombineGenome } from './genome';
+import type { Genome, GraftSpec, PriorWeight } from './genome';
+import { genomeId, loosenPrior, mutateGenome, recombineGenome } from './genome';
 import type { GenDeps } from './gen';
 import { generateVariant, usedPorts } from './gen';
 import type { Manifest, VariantNode } from './manifest';
@@ -37,6 +37,15 @@ interface SeedProfile {
   ethos: string;
   /** How many Tier-2 sources this variant may pull from (drives `homegrown` + the blend). */
   sourceMode: SourceMode;
+  /**
+   * How much prescriptive taste doctrine governs this profile (SPEC §4, the anti-homogenisation
+   * lever). Conventional looks stay `full` (base + opinionated primary); bold/experimental looks go
+   * `light` (no primary) or `feral` (no taste skill — the agent invents). Spread across the catalog
+   * so any round mixes governed and unGoverned variants instead of all running one house style.
+   */
+  prior: PriorWeight;
+  /** What "excellent" means in THIS direction — held to its own intent, not one house style. */
+  excellence: string;
 }
 
 /**
@@ -52,6 +61,9 @@ const SEED_PROFILES: SeedProfile[] = [
     dials: { variance: 5, motion: 5, density: 5 },
     ethos: 'Balanced and confident — a modern, polished default with strong fundamentals.',
     sourceMode: 'all',
+    prior: 'full',
+    excellence:
+      'decisive hierarchy and a cohesive, confident palette — polished without playing it safe.',
   },
   {
     overlay: 'minimalist',
@@ -59,6 +71,9 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Radical Swiss minimalism — extreme whitespace, one typeface, a strict grid, zero ornament.',
     sourceMode: 'homegrown',
+    prior: 'light',
+    excellence:
+      'restraint as the statement: vast negative space, one assertive accent, type doing all the work.',
   },
   {
     overlay: 'brutalist',
@@ -66,36 +81,53 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Raw neo-brutalism — heavy type, hard edges, exposed structure, monospace, high contrast.',
     sourceMode: 'few',
+    prior: 'light',
+    excellence:
+      'raw confidence: heavy type and exposed structure that read as deliberate, not broken.',
   },
   {
     overlay: 'soft',
     dials: { variance: 6, motion: 9, density: 4 },
     ethos: 'Expressive and kinetic — organic shapes, motion-forward, playful, alive.',
     sourceMode: 'all',
+    prior: 'feral',
+    excellence: 'motion and organic form as the identity: choreographed, alive, never gratuitous.',
   },
   {
     overlay: 'none',
     dials: { variance: 10, motion: 6, density: 6 },
     ethos: 'Editorial maximalism — art-directed, experimental, unexpected layout and scale.',
     sourceMode: 'single',
+    prior: 'feral',
+    excellence:
+      'art-directed density: dramatic scale jumps and layered composition held by a strong grid.',
   },
   {
     overlay: 'minimalist',
     dials: { variance: 4, motion: 2, density: 5 },
     ethos: 'Retro-terminal — monospace, utilitarian, command-line aesthetic, restrained color.',
     sourceMode: 'homegrown',
+    prior: 'light',
+    excellence:
+      'utilitarian beauty: monospace rhythm and restrained colour, the command line done with precision.',
   },
   {
     overlay: 'soft',
     dials: { variance: 7, motion: 4, density: 4 },
     ethos: 'Refined luxury — restrained palette, elegant type pairing, generous negative space.',
     sourceMode: 'few',
+    prior: 'full',
+    excellence:
+      'quiet expense: an impeccable type pairing, generous space, a restrained palette used with intent.',
   },
   {
     overlay: 'brutalist',
     dials: { variance: 10, motion: 8, density: 7 },
     ethos: 'Alien and experimental — break conventions, unexpected colour and motion, be bold.',
     sourceMode: 'all',
+    prior: 'feral',
+    excellence:
+      'genuine novelty: a visual language you have not seen, coherent enough to feel intentional.',
   },
   {
     overlay: 'none',
@@ -103,18 +135,27 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Y2K maximalism — chrome gradients, glossy bubble buttons, early-web nostalgia, loud and dense.',
     sourceMode: 'few',
+    prior: 'feral',
+    excellence:
+      'joyful excess with control: chrome, gloss and density arranged with rhythm so it reads as designed.',
   },
   {
     overlay: 'soft',
     dials: { variance: 7, motion: 6, density: 3 },
     ethos: 'Organic biomorphism — blobby gradient-mesh forms, nothing rectilinear, soft and alive.',
     sourceMode: 'all',
+    prior: 'feral',
+    excellence:
+      'everything flows: blobby forms, soft gradients and curves composed with intent, nothing rectilinear.',
   },
   {
     overlay: 'none',
     dials: { variance: 6, motion: 3, density: 6 },
     ethos: 'Art-deco geometry — symmetrical gold-line ornament, tall elegant type, 1920s grandeur.',
     sourceMode: 'homegrown',
+    prior: 'light',
+    excellence:
+      'symmetrical grandeur: gold-line ornament, tall elegant type, 1920s precision and luxury.',
   },
   {
     overlay: 'brutalist',
@@ -122,6 +163,9 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Cyberpunk HUD — neon on black, scanlines, glitch, dense technical overlays and readouts.',
     sourceMode: 'all',
+    prior: 'feral',
+    excellence:
+      'dense technical drama: neon-on-black readouts and overlays that feel like a real interface.',
   },
   {
     overlay: 'soft',
@@ -129,6 +173,9 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Frosted glassmorphism — translucent layered panels, blur, depth, soft light through glass.',
     sourceMode: 'few',
+    prior: 'light',
+    excellence:
+      'real depth: layered translucency and light handled with craft, hierarchy legible through the blur.',
   },
   {
     overlay: 'brutalist',
@@ -136,6 +183,9 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Bauhaus geometry — primary colours, circles and triangles on a strict grid, functional and bold.',
     sourceMode: 'single',
+    prior: 'light',
+    excellence:
+      'form follows function: primary colour and pure shapes on a strict grid, bold and rational.',
   },
   {
     overlay: 'none',
@@ -143,6 +193,9 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Print broadsheet — multi-column newspaper grid, serif headlines, hairline rules, dense text.',
     sourceMode: 'homegrown',
+    prior: 'light',
+    excellence:
+      'editorial authority: a true multi-column grid, serif headlines, hairline rules, text set with care.',
   },
   {
     overlay: 'soft',
@@ -150,12 +203,18 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Vaporwave — pastel sunset gradients, retro-futurist chrome, dreamy 80s and 90s nostalgia.',
     sourceMode: 'single',
+    prior: 'feral',
+    excellence:
+      'dreamy and deliberate: pastel-sunset gradients and chrome composed with nostalgia, not cliche.',
   },
   {
     overlay: 'soft',
     dials: { variance: 6, motion: 6, density: 4 },
     ethos: 'Claymorphism — soft puffy 3D shapes, rounded depth, friendly and tactile playfulness.',
     sourceMode: 'few',
+    prior: 'light',
+    excellence:
+      'tactile and friendly: soft 3D depth and rounded forms with consistent light and a playful system.',
   },
   {
     overlay: 'none',
@@ -163,6 +222,9 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Memphis postmodernism — clashing 80s shapes, squiggles and confetti, irreverent and loud.',
     sourceMode: 'few',
+    prior: 'feral',
+    excellence:
+      'irreverent and composed: clashing shapes and confetti arranged with real compositional control.',
   },
   {
     overlay: 'minimalist',
@@ -170,6 +232,8 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Technical dark-mode SaaS — precise dev-tool UI, monospace accents, data-dense and crisp.',
     sourceMode: 'all',
+    prior: 'full',
+    excellence: 'precision UI: data-dense, crisp, monospace accents, every pixel functional.',
   },
   {
     overlay: 'soft',
@@ -177,6 +241,9 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos:
       'Botanical handcraft — paper texture, ink illustration, warm earthy palette, hand-made calm.',
     sourceMode: 'homegrown',
+    prior: 'light',
+    excellence:
+      'warm and made-by-hand: paper texture, ink illustration, an earthy palette that feels crafted.',
   },
 ];
 
@@ -211,6 +278,9 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
   const permittedSources = resolveSources(config.sources).permittedIds;
   const diversity = config.generation.diversity;
   const wide = diversity !== 'conservative';
+  // Lighter priors (drop the primary / all taste skills) are a greenfield-only diversity lever —
+  // integration must keep the full, brand-respecting stack (SPEC §3/§4).
+  const allowLowPrior = config.mode !== 'integration';
 
   const genomes = Array.from({ length: count }, (_unused, i): Genome => {
     const primarySkill = primaries[i % primaries.length];
@@ -233,6 +303,14 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
     const sources = wide ? allocateSources(sourceMode, permittedSources, i) : permittedSources;
     if (homegrown && ethos !== undefined) ethos = `${ethos}${HOMEGROWN_CLAUSE}`;
 
+    // Prior weight (the anti-homogenisation lever, SPEC §4): conservative pins everything to `full`
+    // (the old uniform behaviour); diverse uses each profile's own prior; alien loosens it one step
+    // toward feral so more variants run off the house-style rails. Integration is always `full`.
+    const basePrior: PriorWeight = profile?.prior ?? 'full';
+    const prior: PriorWeight =
+      !wide || !allowLowPrior ? 'full' : diversity === 'alien' ? loosenPrior(basePrior) : basePrior;
+    const excellence = wide ? profile?.excellence : undefined;
+
     return {
       id: genomeId(ctx.generation, i),
       parents: [],
@@ -240,12 +318,14 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
       overlay: profile?.overlay ?? config.overlay,
       dials,
       commands: [],
+      prior,
       seed: i,
       brief: ctx.brief,
       createdAt: ctx.createdAt,
       ...(ctx.target !== undefined ? { target: ctx.target } : {}),
       ...(sources.length > 0 ? { sources } : {}),
       ...(wide && ethos !== undefined ? { ethos } : {}),
+      ...(excellence !== undefined ? { excellence } : {}),
       ...(homegrown ? { homegrown: true } : {}),
     } satisfies Genome;
   });

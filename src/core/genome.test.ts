@@ -26,15 +26,21 @@ describe('GenomeSchema', () => {
     expect(GenomeSchema.safeParse(base).success).toBe(true);
   });
 
-  it('accepts optional fields (sources, target, graft)', () => {
+  it('accepts optional fields (sources, target, graft, prior, excellence)', () => {
     const full: Genome = {
       ...base,
       parents: ['g0-n0', 'g0-n1'],
       sources: ['react-bits'],
       target: 'component:src/Button.tsx',
       graft: { parents: ['g0-n0', 'g0-n1'], instructions: "A's type + B's motion" },
+      prior: 'feral',
+      excellence: 'joyful excess with control',
     };
     expect(GenomeSchema.safeParse(full).success).toBe(true);
+  });
+
+  it('rejects a prior outside the enum', () => {
+    expect(GenomeSchema.safeParse({ ...base, prior: 'wild' }).success).toBe(false);
   });
 
   it('rejects unknown keys', () => {

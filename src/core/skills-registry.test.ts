@@ -57,8 +57,8 @@ describe('resolveActiveSkills', () => {
       primary: 'impeccable',
       overlay: 'none',
     });
-    expect(resolved.base.id).toBe('frontend-design');
-    expect(resolved.primary.id).toBe('impeccable');
+    expect(resolved.base?.id).toBe('frontend-design');
+    expect(resolved.primary?.id).toBe('impeccable');
     expect(resolved.overlay).toBeNull();
     expect(resolved.all.map((s) => s.id)).toEqual(['frontend-design', 'impeccable']);
   });
@@ -93,7 +93,7 @@ describe('resolveActiveSkills', () => {
       primary: 'impeccable',
       overlay: 'none',
     });
-    expect(resolved.primary.id).toBe('redesign-existing-projects');
+    expect(resolved.primary?.id).toBe('redesign-existing-projects');
   });
 
   it('always yields exactly one primary (single-primary invariant)', () => {
@@ -104,6 +104,52 @@ describe('resolveActiveSkills', () => {
     });
     expect(resolved.all.filter((s) => s === resolved.primary)).toHaveLength(1);
     expect(resolved.base).not.toBe(resolved.primary);
+  });
+
+  it('light prior drops the opinionated primary but keeps base + overlay', () => {
+    const resolved = resolveActiveSkills({
+      mode: 'greenfield',
+      primary: 'impeccable',
+      overlay: 'brutalist',
+      prior: 'light',
+    });
+    expect(resolved.base?.id).toBe('frontend-design');
+    expect(resolved.primary).toBeNull();
+    expect(resolved.overlay?.id).toBe('industrial-brutalist-ui');
+    expect(resolved.all.map((s) => s.id)).toEqual(['frontend-design', 'industrial-brutalist-ui']);
+  });
+
+  it('feral prior installs no taste skill at all (overlay none → empty set)', () => {
+    const resolved = resolveActiveSkills({
+      mode: 'greenfield',
+      primary: 'impeccable',
+      overlay: 'none',
+      prior: 'feral',
+    });
+    expect(resolved.base).toBeNull();
+    expect(resolved.primary).toBeNull();
+    expect(resolved.all).toEqual([]);
+  });
+
+  it('feral prior keeps a chosen overlay (it reinforces the ethos, not a house style)', () => {
+    const resolved = resolveActiveSkills({
+      mode: 'greenfield',
+      primary: 'impeccable',
+      overlay: 'soft',
+      prior: 'feral',
+    });
+    expect(resolved.all.map((s) => s.id)).toEqual(['high-end-visual-design']);
+  });
+
+  it('integration mode pins to full even when a lighter prior is requested (brand keeping)', () => {
+    const resolved = resolveActiveSkills({
+      mode: 'integration',
+      primary: 'impeccable',
+      overlay: 'none',
+      prior: 'feral',
+    });
+    expect(resolved.base?.id).toBe('frontend-design');
+    expect(resolved.primary?.id).toBe('redesign-existing-projects');
   });
 
   it('throws if asked for a primary the registry does not define', () => {

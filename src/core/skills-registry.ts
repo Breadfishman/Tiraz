@@ -1,4 +1,5 @@
 import type { TirazConfig } from './config';
+import type { PriorWeight } from './genome';
 
 /** The functional role a skill plays in the registry (SPEC §4). */
 export type SkillRole =
@@ -173,35 +174,56 @@ function requireSkill(pred: (skill: Skill) => boolean, what: string): Skill {
   return skill;
 }
 
-/** The always-on skills resolved for a single variant: exactly one primary, at most one overlay. */
+/**
+ * The taste skills resolved for a single variant. The `prior` weight (SPEC §4) governs how many are
+ * applied: `full` = base + primary (+ overlay); `light` drops the opinionated primary (base +
+ * overlay); `feral` drops the base too (overlay only, often none) so the agent invents freely. Hence
+ * `base` and `primary` are nullable.
+ */
 export interface ResolvedSkillSet {
-  base: Skill;
-  primary: Skill;
+  base: Skill | null;
+  primary: Skill | null;
   overlay: Skill | null;
-  /** Ordered set to install: `[base, primary, overlay?]`. */
+  /** Ordered set to install: `[base?, primary?, overlay?]` (may be empty under a feral prior). */
   all: Skill[];
 }
 
-/** The slice of config that determines the active skill set. */
-export type ResolveInput = Pick<TirazConfig, 'mode' | 'primary' | 'overlay'>;
+/** The slice of config that determines the active skill set, plus the per-variant prior weight. */
+export type ResolveInput = Pick<TirazConfig, 'mode' | 'primary' | 'overlay'> & {
+  /** Anti-homogenisation lever (SPEC §4); absent → `full`. Integration always resolves to `full`. */
+  prior?: PriorWeight;
+};
 
 /**
- * Resolve the always-on skill set for a variant (SPEC §4). Enforces the single-primary
- * invariant structurally — exactly one primary is ever selected. In integration mode the
- * primary is forced to `redesign-existing-projects`; otherwise it follows `config.primary`.
- * Single-purpose / interop / imagegen / QA skills are invoked per-command, never always-on.
+ * Resolve the taste skill set for a variant (SPEC §4). The single-primary invariant is enforced
+ * structurally — at most one primary is ever selected. In integration mode the primary is forced to
+ * `redesign-existing-projects` and the prior is pinned to `full` so brand keeping is never weakened;
+ * otherwise the prior weight controls how much prescriptive taste doctrine applies (see
+ * {@link ResolvedSkillSet}). Single-purpose / interop / imagegen / QA skills are invoked per-command.
  */
 export function resolveActiveSkills(config: ResolveInput): ResolvedSkillSet {
-  const base = requireSkill((s) => s.alwaysOn === true, 'missing always-on base skill');
+  // Integration mode keeps the full, brand-respecting stack regardless of any requested prior.
+  const prior: PriorWeight = config.mode === 'integration' ? 'full' : (config.prior ?? 'full');
 
+  // `feral` installs no anti-slop base; `light`/`full` keep it.
+  const base =
+    prior === 'feral'
+      ? null
+      : requireSkill((s) => s.alwaysOn === true, 'missing always-on base skill');
+
+  // Only `full` installs the opinionated primary taste skill (the main source of one-house-style pull).
   const primary =
-    config.mode === 'integration'
-      ? requireSkill((s) => s.integrationPrimary === true, 'missing integration primary')
-      : requireSkill(
-          (s) => s.primaryKey === config.primary,
-          `no primary skill for "${config.primary}"`,
-        );
+    prior !== 'full'
+      ? null
+      : config.mode === 'integration'
+        ? requireSkill((s) => s.integrationPrimary === true, 'missing integration primary')
+        : requireSkill(
+            (s) => s.primaryKey === config.primary,
+            `no primary skill for "${config.primary}"`,
+          );
 
+  // The overlay (the variant's chosen aesthetic lane) is kept under every prior — it reinforces the
+  // ethos rather than imposing a generic house style.
   const overlay =
     config.overlay === 'none'
       ? null
@@ -210,7 +232,7 @@ export function resolveActiveSkills(config: ResolveInput): ResolvedSkillSet {
           `no overlay skill for "${config.overlay}"`,
         );
 
-  const all = overlay === null ? [base, primary] : [base, primary, overlay];
+  const all = [base, primary, overlay].filter((s): s is Skill => s !== null);
   return { base, primary, overlay, all };
 }
 

@@ -111,6 +111,7 @@ export async function generateVariant(
     mode: ctx.mode,
     primary: ctx.genome.primary,
     overlay: ctx.genome.overlay,
+    ...(ctx.genome.prior !== undefined ? { prior: ctx.genome.prior } : {}),
   });
   const activeSkillIds = resolved.all.map((skill) => skill.id);
 
@@ -285,7 +286,7 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
   const genome: Genome = {
     id,
     parents: [],
-    primary: resolved.primary.primaryKey ?? config.primary,
+    primary: resolved.primary?.primaryKey ?? config.primary,
     overlay: config.overlay,
     dials: config.dials,
     commands: [],

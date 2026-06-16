@@ -25,7 +25,8 @@ export function registerSkillsCommand(program: Command): void {
       }
 
       const overlayNote = active.overlay ? `, overlay=${active.overlay.id}` : '';
-      console.log(`\nActive: primary=${active.primary.id}${overlayNote} (mode=${config.mode})`);
+      const primaryNote = active.primary ? active.primary.id : '(none)';
+      console.log(`\nActive: primary=${primaryNote}${overlayNote} (mode=${config.mode})`);
     });
 
   skills

@@ -84,9 +84,11 @@ export function composePrompt(
   // Gen-0 diversity (SPEC §4): the variant's aesthetic ethos, high in the prompt so it frames every
   // choice. Commit-fully + anti-convergence — the point of a seed round is genuinely different options.
   if (genome.ethos !== undefined && genome.ethos.trim() !== '') {
+    lines.push('## Aesthetic direction — commit FULLY to this', genome.ethos.trim());
+    if (genome.excellence !== undefined && genome.excellence.trim() !== '') {
+      lines.push(`What excellent looks like in THIS direction: ${genome.excellence.trim()}`);
+    }
     lines.push(
-      '## Aesthetic direction — commit FULLY to this',
-      genome.ethos.trim(),
       'Commit hard to this single direction for this variant; be willing to be unconventional, even',
       'alien. Do NOT converge on a safe, centered, generic layout — a forgettable result is a failure.',
       '',
@@ -120,11 +122,26 @@ export function composePrompt(
 
   lines.push(...designSystemSection(designSystem));
 
+  // The taste-skill layer. Under a `feral` prior no taste skill is installed by design (SPEC §4) —
+  // tell the agent so it invents its own language rather than reaching for a safe default.
+  if (activeSkillIds.length > 0) {
+    lines.push(
+      '## Active design skills',
+      'These skills are installed under .claude/skills and MUST guide your work:',
+      ...activeSkillIds.map((id) => `- ${id}`),
+      '',
+    );
+  } else {
+    lines.push(
+      '## No prescriptive design skill — invent your own',
+      'By design, NO house-style taste skill is installed for this variant. Do not fall back to a',
+      'safe, generic default. Invent your own visual language, layout system, and motion from the',
+      'aesthetic direction above, clearing only the universal taste floor below.',
+      '',
+    );
+  }
+
   lines.push(
-    '## Active design skills',
-    'These skills are installed under .claude/skills and MUST guide your work:',
-    ...activeSkillIds.map((id) => `- ${id}`),
-    '',
     '## Design parameters (dials, 1–10)',
     `- variance (distance from conventional): ${String(genome.dials.variance)}`,
     `- motion (animation intensity): ${String(genome.dials.motion)}`,
@@ -214,6 +231,18 @@ export function composeCritiquePrompt(genome: Genome, screenshotPath?: string): 
     genome.brief,
     '',
   ];
+
+  // Critique against THIS variant's own direction, not a generic house style (SPEC §9).
+  if (genome.ethos !== undefined && genome.ethos.trim() !== '') {
+    lines.push('## Your aesthetic direction', genome.ethos.trim());
+    if (genome.excellence !== undefined && genome.excellence.trim() !== '') {
+      lines.push(`Excellent here means: ${genome.excellence.trim()}`);
+    }
+    lines.push(
+      'Keep faith with this direction; do not regress it toward a safer, generic look.',
+      '',
+    );
+  }
 
   if (screenshotPath !== undefined && screenshotPath.trim() !== '') {
     lines.push(

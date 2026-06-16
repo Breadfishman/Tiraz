@@ -31,7 +31,7 @@ describe('composePrompt', () => {
     expect(prompt).toContain('Variation seed: 42');
     // The shared taste bar is always present (built against the same rubric the judge grades on).
     expect(prompt).toContain('## Taste bar — clear it (this is graded)');
-    expect(prompt).toContain('Avoid these slop tells');
+    expect(prompt).toContain('universal floor');
     expect(prompt).not.toContain('## Target');
     expect(prompt).not.toContain('## Recombination');
     expect(prompt).not.toContain('## Apply these commands');
@@ -46,6 +46,32 @@ describe('composePrompt', () => {
     expect(withEthos).toContain('## Aesthetic direction — commit FULLY to this');
     expect(withEthos).toContain('Raw neo-brutalism — heavy type, hard edges.');
     expect(withEthos).toContain('Do NOT converge on a safe, centered, generic layout');
+  });
+
+  it('surfaces a per-direction excellence line alongside the ethos when present', () => {
+    const prompt = composePrompt(
+      {
+        ...base,
+        ethos: 'Y2K maximalism — loud and dense.',
+        excellence: 'joyful excess with control',
+      },
+      ['frontend-design'],
+    );
+    expect(prompt).toContain(
+      'What excellent looks like in THIS direction: joyful excess with control',
+    );
+    // No excellence → no such line.
+    expect(composePrompt({ ...base, ethos: 'Y2K maximalism.' }, ['frontend-design'])).not.toContain(
+      'What excellent looks like in THIS direction',
+    );
+  });
+
+  it('tells a feral variant (no installed skills) to invent its own language', () => {
+    const feral = composePrompt({ ...base, ethos: 'Alien and experimental.' }, []);
+    expect(feral).toContain('## No prescriptive design skill — invent your own');
+    expect(feral).not.toContain('## Active design skills');
+    // Dials still follow the skills block.
+    expect(feral).toContain('## Design parameters (dials, 1–10)');
   });
 
   it('includes target, commands, recombination (with axes), and sources when present', () => {
@@ -188,7 +214,7 @@ describe('composeCritiquePrompt', () => {
     expect(prompt).toContain('A hero section for a coffee roaster.'); // the brief
     // The same shared rubric the judge grades on (taste-rubric.ts).
     expect(prompt).toContain('## Taste bar — clear it (this is graded)');
-    expect(prompt).toContain('Avoid these slop tells');
+    expect(prompt).toContain('universal floor');
     expect(prompt).toContain('2-3 WORST');
     expect(prompt).toContain('preserving the overall direction');
     expect(prompt).toContain('Variation seed: 42');

@@ -12,21 +12,27 @@ import { z } from 'zod';
 import type { JudgeCandidate, JudgeContext, PairwiseJudge, PairwiseVerdict } from './taste-judge';
 import { antiSlopRubric, calibrationAnchors, paletteRubric } from './taste-rubric';
 
-/** Lens-specific rubrics, mirroring `frontend-design`'s taste criteria (SPEC §9). */
+// Lens rubrics judge CRAFT for the option's own intent, not conformity to one house style (SPEC §9).
+// They reward control and deliberateness in any aesthetic and never prefer sparse-over-dense or
+// restrained-over-bold for its own sake — that bias is exactly what used to collapse diversity.
 const LENS_RUBRICS: Record<string, string> = {
   typography:
-    'type craft only: hierarchy, scale, line-length and leading, font choice and pairing, ' +
-    'tracking. Reward confident, non-generic type; penalise default system stacks and timid scale.',
+    "type craft only: is the type system deliberate and well-executed for THIS design's intent — " +
+    'hierarchy, scale and weight contrast, pairing, line-length, leading, tracking? Reward confident, ' +
+    'intentional type (loud or quiet); penalise timid system-stack defaults and flat hierarchy.',
   layout:
-    'composition only: spatial rhythm, whitespace, alignment, grid, intentional asymmetry. Reward ' +
-    'balance with tension; penalise cramped or boringly symmetric "three equal cards" layouts.',
+    'composition craft only: spatial control, rhythm, focal hierarchy, and intentional use of space ' +
+    "(dense or sparse) for THIS design's intent. Reward deliberate, controlled composition; penalise " +
+    'templated, defaulted layout. Do NOT prefer sparse over dense or symmetric over asymmetric — ' +
+    'judge control and intent, not style.',
   motion:
     'implied motion and interaction polish: easing, choreography, micro-interaction cues visible in ' +
-    'the still. Reward restraint and intent; penalise generic or absent motion affordances.',
-  // Dedicated palette/colour lens — palette confidence is a major slop differentiator (taste-rubric.ts).
+    'the still. Reward motion that is intentional and choreographed for this design; penalise generic ' +
+    'or defaulted motion. Absence of motion is fine when the design does not call for it.',
+  // Dedicated palette/colour lens — judges colour craft (cohesion + intent), not amount of colour.
   palette: paletteRubric(),
-  // The anti-slop lens draws on the shared taste rubric so the judge grades on the same concrete
-  // catalog of slop tells / excellence markers the agent builds against (taste-rubric.ts).
+  // The anti-slop lens draws on the universal floor so the judge grades on the same style-neutral
+  // catalog the agent builds against (taste-rubric.ts) — commitment + craft, not a preferred look.
   'generic-feel': antiSlopRubric(),
 };
 
@@ -47,21 +53,49 @@ export interface JudgePrompt {
   prompt: string;
 }
 
+/** Each option's own aesthetic direction, so the judge grades execution-of-intent, not house style. */
+export interface JudgeIntents {
+  a?: string;
+  b?: string;
+}
+
 /** Build the (pure) system + user prompt for a lens comparison. The caller supplies the images. */
-export function buildJudgePrompt(brief: string, lens: string): JudgePrompt {
+export function buildJudgePrompt(
+  brief: string,
+  lens: string,
+  intents: JudgeIntents = {},
+): JudgePrompt {
   const rubric = LENS_RUBRICS[lens] ?? DEFAULT_RUBRIC;
-  const prompt = [
+  const lines = [
     'Two UI screenshots implement the same brief. The first image is option A; the second is option B.',
     '',
     `Brief: ${brief.trim() === '' ? '(no brief supplied)' : brief.trim()}`,
+  ];
+
+  // When each option states its own aesthetic direction, judge how well it realises THAT — the two
+  // may pursue very different looks, and neither aesthetic is "more correct" (SPEC §9).
+  const aIntent = intents.a?.trim() ?? '';
+  const bIntent = intents.b?.trim() ?? '';
+  if (aIntent !== '' || bIntent !== '') {
+    lines.push(
+      '',
+      'Each option commits to its OWN aesthetic direction — they may be very different (minimal,',
+      'maximal, brutalist, playful). Do NOT favour one aesthetic over another; judge which option',
+      'realises its own direction with more craft, commitment, and memorability on the dimension below.',
+    );
+    if (aIntent !== '') lines.push(`Option A's direction: ${aIntent}`);
+    if (bIntent !== '') lines.push(`Option B's direction: ${bIntent}`);
+  }
+
+  lines.push(
     '',
     `Judge ONLY this dimension — ${lens}: ${rubric}`,
     'Ignore all other dimensions. Pick the single better option.',
     '',
     'Respond with strict JSON and nothing else:',
     '{"winner": "A" | "B", "rationale": "<one or two sentences, specific to the dimension>"}',
-  ].join('\n');
-  return { system: JUDGE_SYSTEM, prompt };
+  );
+  return { system: JUDGE_SYSTEM, prompt: lines.join('\n') };
 }
 
 const VerdictSchema = z.object({
@@ -139,7 +173,10 @@ export class VisionPairwiseJudge implements PairwiseJudge {
   }
 
   async compare(a: JudgeCandidate, b: JudgeCandidate, ctx: JudgeContext): Promise<PairwiseVerdict> {
-    const { system, prompt } = buildJudgePrompt(ctx.brief, ctx.lens);
+    const { system, prompt } = buildJudgePrompt(ctx.brief, ctx.lens, {
+      ...(a.intent !== undefined ? { a: a.intent } : {}),
+      ...(b.intent !== undefined ? { b: b.intent } : {}),
+    });
     const text = await this.complete({
       model: ctx.model,
       system,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { JudgeCandidate } from './taste-judge';
 import { DEFAULT_LENSES, runTasteTournament } from './taste-judge';
-import { EXCELLENCE_MARKERS, SLOP_TELLS } from './taste-rubric';
+import { UNIVERSAL_CRAFT_MARKERS, UNIVERSAL_SLOP_TELLS } from './taste-rubric';
 import {
   VisionPairwiseJudge,
   type VisionComplete,
@@ -26,29 +26,47 @@ describe('buildJudgePrompt', () => {
     expect(prompt).toContain('overall design quality');
   });
 
-  it('grades the anti-slop lens against the shared concrete rubric', () => {
+  it('grades the anti-slop lens against the universal floor (commitment, not a preferred look)', () => {
     const { prompt } = buildJudgePrompt('A landing page', 'generic-feel');
     expect(prompt).toContain('originality');
-    expect(prompt).toContain('Penalise slop tells');
+    expect(prompt).toContain('not which aesthetic you');
     expect(prompt).toContain('emoji used as iconography');
   });
 
-  it('grades the dedicated palette lens on colour confidence and the stock-gradient tell', () => {
+  it('grades the dedicated palette lens on colour craft, not amount of colour', () => {
     const { prompt } = buildJudgePrompt('A landing page', 'palette');
     expect(prompt).toContain('palette');
-    expect(prompt).toContain('committed, restrained palette');
+    expect(prompt).toContain('restrained or bold');
+    expect(prompt).toContain('Do NOT prefer restrained over saturated');
     expect(prompt).toContain('purple/blue gradient');
     expect(prompt).toContain('contrast');
   });
 
-  it('anchors the critic with calibration exemplars drawn from the shared rubric', () => {
+  it('anchors the critic on any-aesthetic taste, drawn from the universal catalog (no drift)', () => {
     const { system } = buildJudgePrompt('A landing page', 'typography');
-    expect(system).toContain('Calibration anchors');
-    expect(system).toContain('SLOP:');
-    expect(system).toContain('TASTE:');
-    // Drawn from the shared catalog, not duplicated strings.
-    expect(system).toContain(SLOP_TELLS[0] ?? '');
-    expect(system).toContain(EXCELLENCE_MARKERS[0] ?? '');
+    expect(system).toContain('Calibration');
+    expect(system).toContain('ANY aesthetic');
+    expect(system).toContain('SLOP');
+    expect(system).toContain('CRAFT');
+    // Drawn from the universal catalog, not duplicated strings.
+    expect(system).toContain(UNIVERSAL_SLOP_TELLS[0] ?? '');
+    expect(system).toContain(UNIVERSAL_CRAFT_MARKERS[2] ?? '');
+  });
+
+  it('judges each option against its own stated direction when intents are supplied', () => {
+    const { prompt } = buildJudgePrompt('A hero', 'layout', {
+      a: 'Radical Swiss minimalism',
+      b: 'Y2K maximalism with control',
+    });
+    expect(prompt).toContain('Do NOT favour one aesthetic over another');
+    expect(prompt).toContain("Option A's direction: Radical Swiss minimalism");
+    expect(prompt).toContain("Option B's direction: Y2K maximalism with control");
+  });
+
+  it('omits the intent block entirely when neither option states a direction', () => {
+    const { prompt } = buildJudgePrompt('A hero', 'layout');
+    expect(prompt).not.toContain('commits to its OWN aesthetic direction');
+    expect(prompt).not.toContain("Option A's direction");
   });
 });
 
@@ -98,6 +116,22 @@ describe('VisionPairwiseJudge', () => {
     expect(captured?.model).toBe('claude-opus-4-8');
     expect(captured?.imagePaths).toEqual(['/shots/a.png', '/shots/b.png']);
     expect(captured?.prompt).toContain('typography');
+  });
+
+  it('threads each candidate intent into the judge prompt', async () => {
+    let captured: Parameters<VisionComplete>[0] | undefined;
+    const complete: VisionComplete = (req) => {
+      captured = req;
+      return Promise.resolve('{"winner":"A","rationale":"r"}');
+    };
+    const judge = new VisionPairwiseJudge(complete);
+    await judge.compare(
+      { id: 'g0-n0', screenshotPath: '/a.png', intent: 'Radical Swiss minimalism' },
+      { id: 'g0-n1', screenshotPath: '/b.png', intent: 'Cyberpunk HUD' },
+      { brief: 'A hero', lens: 'layout', model: 'claude-opus-4-8' },
+    );
+    expect(captured?.prompt).toContain("Option A's direction: Radical Swiss minimalism");
+    expect(captured?.prompt).toContain("Option B's direction: Cyberpunk HUD");
   });
 
   it('drives a full pairwise tournament deterministically', async () => {

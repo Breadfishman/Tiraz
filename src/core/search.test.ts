@@ -131,6 +131,51 @@ describe('seedGenomes', () => {
     expect(sourceCounts.size).toBeGreaterThan(1); // not all the same — some/few/single/none
   });
 
+  it('spreads the prior weight + per-direction excellence across a diverse round', () => {
+    const config = TirazConfigSchema.parse({ mode: 'greenfield' }); // diverse
+    const genomes = seedGenomes(config, 10, {
+      brief: 'b',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      generation: 0,
+    });
+    // Not every variant runs the full taste stack — the round mixes governed and unGoverned looks.
+    const priors = new Set(genomes.map((g) => g.prior));
+    expect(priors.size).toBeGreaterThan(1);
+    expect(genomes.some((g) => g.prior === 'feral')).toBe(true);
+    // Each carries a distinct per-direction excellence definition (judged against its own intent).
+    const excellences = genomes.map((g) => g.excellence);
+    expect(excellences.every((e) => typeof e === 'string' && e.length > 0)).toBe(true);
+  });
+
+  it('alien diversity loosens the prior toward feral vs diverse', () => {
+    const seed = { brief: 'b', createdAt: '2026-06-08T00:00:00.000Z', generation: 0 };
+    const diverse = seedGenomes(TirazConfigSchema.parse({ mode: 'greenfield' }), 8, seed);
+    const alien = seedGenomes(
+      TirazConfigSchema.parse({ mode: 'greenfield', generation: { diversity: 'alien' } }),
+      8,
+      seed,
+    );
+    const feralCount = (gs: ReturnType<typeof seedGenomes>): number =>
+      gs.filter((g) => g.prior === 'feral').length;
+    expect(feralCount(alien)).toBeGreaterThanOrEqual(feralCount(diverse));
+    // A profile that was `full` under diverse is loosened to `light` (not full) under alien.
+    expect(alien.every((g) => g.prior !== undefined)).toBe(true);
+  });
+
+  it('conservative pins every variant to the full taste stack (no excellence/prior spread)', () => {
+    const config = TirazConfigSchema.parse({
+      mode: 'greenfield',
+      generation: { diversity: 'conservative' },
+    });
+    const genomes = seedGenomes(config, 6, {
+      brief: 'b',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      generation: 0,
+    });
+    expect(genomes.every((g) => g.prior === 'full')).toBe(true);
+    expect(genomes.every((g) => g.excellence === undefined)).toBe(true);
+  });
+
   it('guarantees a homegrown variant even on a small round', () => {
     const config = TirazConfigSchema.parse({ mode: 'greenfield' });
     const genomes = seedGenomes(config, 2, {
