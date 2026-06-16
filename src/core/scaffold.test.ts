@@ -1,4 +1,4 @@
-import { mkdtemp, rm } from 'node:fs/promises';
+import { access, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -53,6 +53,24 @@ describe('scaffoldProject (astro)', () => {
     const install = calls.find((c) => c.command === 'npm' && c.args[0] === 'install');
     expect(install?.args).toEqual(['install', 'gsap', 'motion', 'lenis']);
 
+    // Render surface: a React-Vite Storybook (Astro has no adapter) + a seeded story.
+    const sb = calls.find((c) => c.args.includes('storybook@latest'));
+    expect(sb?.args).toEqual(
+      expect.arrayContaining([
+        'init',
+        '--yes',
+        '--no-dev',
+        '--no-agent',
+        '--type',
+        'react',
+        '--builder',
+        'vite',
+      ]),
+    );
+    expect(result.storyId).toBe('hero--default');
+    await expect(access(path.join(cwd, 'stories', 'Hero.stories.tsx'))).resolves.toBeUndefined();
+    await expect(access(path.join(cwd, 'stories', 'Hero.tsx'))).resolves.toBeUndefined();
+
     expect(result.framework).toBe('astro');
     expect(result.installed).toEqual(['gsap', 'motion', 'lenis']);
     expect(result.warnings).toEqual([]);
@@ -98,8 +116,35 @@ describe('scaffoldProject (next)', () => {
     expect(joined.some((c) => c.includes('astro add tailwind'))).toBe(false);
     expect(result.framework).toBe('next');
 
+    // Render surface uses the Next adapter (no separate Vite builder).
+    const sb = calls.find((c) => c.args.includes('storybook@latest'));
+    expect(sb?.args).toEqual(
+      expect.arrayContaining(['init', '--no-dev', '--no-agent', '--type', 'nextjs']),
+    );
+    expect(sb?.args).not.toContain('--builder');
+    expect(result.storyId).toBe('hero--default');
+
     const { config } = await loadConfig(cwd);
     expect(config.framework).toBe('next');
+  });
+
+  it('skips the render surface (no Storybook, no story) when renderSurface is false', async () => {
+    const cwd = await tempDir();
+    const { runner, calls } = recordingRunner();
+
+    const result = await scaffoldProject(
+      {
+        cwd,
+        framework: 'next',
+        modules: { threeD: false, remotion: false },
+        renderSurface: false,
+      },
+      { runner },
+    );
+
+    expect(calls.some((c) => c.args.includes('storybook@latest'))).toBe(false);
+    expect(result.storyId).toBeNull();
+    await expect(access(path.join(cwd, 'stories', 'Hero.stories.tsx'))).rejects.toThrow();
   });
 });
 

@@ -87,8 +87,8 @@ npm run build
 # Attach to an existing repo (detect stack + harness, write integration config):
 node dist/cli.js adopt
 
-# …or scaffold a greenfield project (Astro + Tailwind + shadcn; add modules):
-node dist/cli.js init my-app --3d
+# …or scaffold a greenfield project (Astro + Tailwind + shadcn + a Storybook render surface):
+node dist/cli.js init my-app --3d   # ready to `gen` against story:hero--default (--no-storybook to skip)
 
 # Inspect the skill registry, the component-source menu, and the capability stack:
 node dist/cli.js skills list

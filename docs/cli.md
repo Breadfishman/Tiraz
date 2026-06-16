@@ -197,12 +197,16 @@ So "promoted variant → shipped page" is a small, bounded pass, not a backend p
 
 Scaffold a greenfield project (SPEC §10). Drives the official CLIs, Astro + Tailwind (or Next.js
 with Tailwind built in via `--next`), then shadcn/ui, installs the pinned capability stack for the
-chosen modules, and writes a `tiraz.config.json` (`mode: greenfield`). With no `name`, scaffolds into
-the current directory; otherwise into `<name>/`. Runs real `npm` / `npx`: needs network.
+chosen modules, sets up a **Storybook render surface with a starter `hero--default` story**, and
+writes a `tiraz.config.json` (`mode: greenfield`). The render surface means a fresh project can `gen`
+immediately, no manual playground wiring. With no `name`, scaffolds into the current directory;
+otherwise into `<name>/`. Runs real `npm` / `npx`: needs network.
 
-- `--next`: use Next.js instead of Astro (also makes v0 output paste-compatible).
+- `--next`: use Next.js instead of Astro (also makes v0 output paste-compatible). Storybook uses the
+  `nextjs` adapter for Next, or a React-Vite Storybook for Astro's React islands.
 - `--3d`: add the 3D module (Three.js + React Three Fiber + drei).
 - `--remotion`: add the Remotion video module (prints its non-OSI license warning).
+- `--no-storybook`: skip the render surface (for repos that bring their own playground).
 
 ### `tiraz export --target stitch|v0|claude-design` ✅
 

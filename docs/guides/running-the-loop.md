@@ -21,7 +21,8 @@ All examples assume the alias `alias tiraz="node /absolute/path/to/Tiraz/dist/cl
   `app` and `scratch` harnesses are detected but not yet wired to render (v2), so use a real playground.
   Without one, `gen` has nothing to render and cannot score (the most common first-run blocker). The
   story id you target is the lowercased `title--export`, for example a `title: "Hero"` /
-  `export const Default` story is `hero--default`.
+  `export const Default` story is `hero--default`. **Greenfield `tiraz init` scaffolds this for you**
+  (a Storybook plus a `hero--default` starter story); in integration mode you add one yourself.
 - **For `promote` only:** the `gh` CLI authenticated (`gh auth login`) and a git remote.
 
 ## Pick a mode for setup
@@ -29,13 +30,16 @@ All examples assume the alias `alias tiraz="node /absolute/path/to/Tiraz/dist/cl
 ### Greenfield: a brand-new site
 
 ```bash
-# init scaffolds Astro+Tailwind+shadcn by default; add --next for Next.js (the React examples assume Next).
+# init scaffolds Astro+Tailwind+shadcn AND a Storybook render surface with a starter Hero story
+# (id: hero--default). Add --next for Next.js (the React examples assume Next).
 tiraz init my-site --next
 cd my-site
-npx storybook@latest init --yes
-#   add a component + story, e.g. stories/Hero.tsx + Hero.stories.tsx with title "Hero" (id: hero--default)
-git add -A && git commit -m "baseline"   # variants branch from HEAD
+git add -A && git commit -m "baseline"   # variants branch from HEAD; gen can run immediately
 ```
+
+> `init` wires the render surface for you (pass `--no-storybook` to bring your own). Edit
+> `stories/Hero.tsx` to taste, or just point your brief at `story:hero--default` and let the search
+> redesign it.
 
 ### Integration: an existing repo
 
