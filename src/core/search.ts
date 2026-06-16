@@ -97,6 +97,87 @@ const SEED_PROFILES: SeedProfile[] = [
     ethos: 'Alien and experimental — break conventions, unexpected colour and motion, be bold.',
     sourceMode: 'all',
   },
+  {
+    overlay: 'none',
+    dials: { variance: 8, motion: 7, density: 7 },
+    ethos:
+      'Y2K maximalism — chrome gradients, glossy bubble buttons, early-web nostalgia, loud and dense.',
+    sourceMode: 'few',
+  },
+  {
+    overlay: 'soft',
+    dials: { variance: 7, motion: 6, density: 3 },
+    ethos: 'Organic biomorphism — blobby gradient-mesh forms, nothing rectilinear, soft and alive.',
+    sourceMode: 'all',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 6, motion: 3, density: 6 },
+    ethos: 'Art-deco geometry — symmetrical gold-line ornament, tall elegant type, 1920s grandeur.',
+    sourceMode: 'homegrown',
+  },
+  {
+    overlay: 'brutalist',
+    dials: { variance: 8, motion: 9, density: 9 },
+    ethos:
+      'Cyberpunk HUD — neon on black, scanlines, glitch, dense technical overlays and readouts.',
+    sourceMode: 'all',
+  },
+  {
+    overlay: 'soft',
+    dials: { variance: 5, motion: 5, density: 4 },
+    ethos:
+      'Frosted glassmorphism — translucent layered panels, blur, depth, soft light through glass.',
+    sourceMode: 'few',
+  },
+  {
+    overlay: 'brutalist',
+    dials: { variance: 7, motion: 4, density: 5 },
+    ethos:
+      'Bauhaus geometry — primary colours, circles and triangles on a strict grid, functional and bold.',
+    sourceMode: 'single',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 3, motion: 1, density: 9 },
+    ethos:
+      'Print broadsheet — multi-column newspaper grid, serif headlines, hairline rules, dense text.',
+    sourceMode: 'homegrown',
+  },
+  {
+    overlay: 'soft',
+    dials: { variance: 9, motion: 7, density: 6 },
+    ethos:
+      'Vaporwave — pastel sunset gradients, retro-futurist chrome, dreamy 80s and 90s nostalgia.',
+    sourceMode: 'single',
+  },
+  {
+    overlay: 'soft',
+    dials: { variance: 6, motion: 6, density: 4 },
+    ethos: 'Claymorphism — soft puffy 3D shapes, rounded depth, friendly and tactile playfulness.',
+    sourceMode: 'few',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 10, motion: 5, density: 7 },
+    ethos:
+      'Memphis postmodernism — clashing 80s shapes, squiggles and confetti, irreverent and loud.',
+    sourceMode: 'few',
+  },
+  {
+    overlay: 'minimalist',
+    dials: { variance: 4, motion: 3, density: 6 },
+    ethos:
+      'Technical dark-mode SaaS — precise dev-tool UI, monospace accents, data-dense and crisp.',
+    sourceMode: 'all',
+  },
+  {
+    overlay: 'soft',
+    dials: { variance: 6, motion: 2, density: 4 },
+    ethos:
+      'Botanical handcraft — paper texture, ink illustration, warm earthy palette, hand-made calm.',
+    sourceMode: 'homegrown',
+  },
 ];
 
 const HOMEGROWN_CLAUSE =
