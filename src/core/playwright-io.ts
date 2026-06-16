@@ -54,6 +54,20 @@ export const playwrightScreenshot: Screenshotter = async (url, screenshotPath, o
     });
     const page = await context.newPage();
     await page.goto(url, { waitUntil: 'networkidle', timeout: opts.timeoutMs });
+    // Storybook shows a loading spinner until the story finishes preparing; `networkidle` can fire
+    // before the story actually paints, so a naive screenshot captures a blank/spinner frame. Wait
+    // for the story root to hold real content, then give fonts + entry animations a beat to settle
+    // before capturing. Best-effort: a genuinely broken story still yields a (blank) frame after the
+    // timeout, so this only fixes false-blanks — it never masks real breakage. The predicate runs in
+    // the browser, so it is passed as a string (not typechecked against Node's libs / no DOM lib).
+    await page
+      .waitForFunction(
+        "(() => { const r = document.querySelector('#storybook-root') || document.querySelector('#root'); return !!r && r.children.length > 0 && r.getBoundingClientRect().height > 120; })()",
+        undefined,
+        { timeout: 15_000 },
+      )
+      .catch(() => undefined);
+    await page.waitForTimeout(3_500);
     await page.screenshot({ path: screenshotPath });
   } finally {
     await browser.close();
