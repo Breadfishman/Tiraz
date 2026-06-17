@@ -570,6 +570,30 @@ async function runDashboard(
     });
   }
 
+  function servePublic(res: ServerResponse, url: string): void {
+    // Variants reference the project's assets by absolute path (e.g. `/logos/x.png`), which is
+    // correct for the deployed site (served at root) but resolves to the dashboard origin root —
+    // not the per-variant `/v/<id>/` mount. Serve the shared `public/` here so those paths resolve.
+    const relPath = decodeURIComponent((url.split('?')[0] ?? url).replace(/^\/+/, ''));
+    const file = relPath === '' ? null : safeJoin(path.join(cwd, 'public'), relPath);
+    if (file === null) {
+      res.writeHead(404);
+      res.end('not found');
+      return;
+    }
+    const stream = createReadStream(file);
+    stream.on('open', () => {
+      res.writeHead(200, { 'content-type': contentTypeFor(file) });
+      stream.pipe(res);
+    });
+    stream.on('error', () => {
+      if (!res.headersSent) {
+        res.writeHead(404);
+        res.end('not found');
+      }
+    });
+  }
+
   async function serveIndex(res: ServerResponse): Promise<void> {
     // Re-read manifest + snapshots + config each load so actions and config toggles show on refresh.
     const current = (await loadManifest(cwd)) ?? baseManifest;
@@ -592,6 +616,9 @@ async function runDashboard(
         if (method === 'GET' && (url === '/' || url.startsWith('/?'))) await serveIndex(res);
         else if (method === 'GET' && url.startsWith('/v/')) serveAsset(res, url);
         else if (url.startsWith('/api/')) await handleApi(req, res, url.split('?')[0] ?? url);
+        // Shared public/ assets at root: variants use absolute paths (`/logos/x.png`) that resolve
+        // to the origin root, not their `/v/<id>/` mount — serve the project's public/ here.
+        else if (method === 'GET') servePublic(res, url);
         else {
           res.writeHead(404);
           res.end('not found');
