@@ -153,6 +153,7 @@ export async function generateVariant(
           worktreePath,
           resolveFetchPlan([...(ctx.bundledSources ?? []), ...(ctx.genome.sources ?? [])], {
             budget: ctx.fetchBudget ?? 6,
+            seed: ctx.genome.seed,
           }),
           deps.runner !== undefined ? { runner: deps.runner } : {},
         )

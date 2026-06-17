@@ -35,7 +35,8 @@ describe('COMPONENT_REGISTRY', () => {
 describe('registryFor', () => {
   it('looks up by id', () => {
     expect(registryFor('magic-ui')?.urlTemplate).toBe('https://magicui.design/r/{name}.json');
-    expect(registryFor('cult-ui')?.items).toEqual(['shift-card']);
+    expect(registryFor('cult-ui')?.items[0]).toBe('shift-card');
+    expect(registryFor('cult-ui')?.items.length).toBeGreaterThan(1);
   });
 
   it('returns undefined for an unknown / signatures-only source', () => {
@@ -72,15 +73,15 @@ describe('resolveFetchPlan', () => {
     expect(plan.map((r) => r.item)).toEqual(['marquee', 'shift-card', 'card-stack']);
   });
 
-  it('continues to the next column once short lanes are exhausted', () => {
-    const plan = resolveFetchPlan(['magic-ui', 'cult-ui'], { budget: 10 });
-    // magic-ui has 3 items, cult-ui has 1: m0, c0, m1, m2.
-    expect(plan.map((r) => `${r.source}/${r.item}`)).toEqual([
-      'magic-ui/marquee',
-      'cult-ui/shift-card',
-      'magic-ui/bento-grid',
-      'magic-ui/border-beam',
-    ]);
+  it('round-robins across sources and caps at the total available', () => {
+    const ids = ['magic-ui', 'cult-ui'];
+    const plan = resolveFetchPlan(ids, { budget: 4 });
+    // First column takes one item from each source before either source's second item.
+    expect(plan.slice(0, 2).map((r) => r.source)).toEqual(['magic-ui', 'cult-ui']);
+    expect(plan.length).toBe(4);
+    // A budget beyond everything available caps at the combined catalog size.
+    const total = ids.reduce((n, id) => n + (registryFor(id)?.items.length ?? 0), 0);
+    expect(resolveFetchPlan(ids, { budget: total + 50 }).length).toBe(total);
   });
 
   it('is deterministic and stable across calls', () => {
@@ -89,15 +90,34 @@ describe('resolveFetchPlan', () => {
     expect(a).toEqual(b);
   });
 
+  it('rotates each lane by the seed so different variants draw a different slice', () => {
+    // seed 0 (default) is the original order; a non-zero seed rotates the source's items, so the
+    // population stops fetching the same components (SPEC §12 anti-monoculture).
+    const items = registryFor('magic-ui')!.items;
+    const unseeded = resolveFetchPlan(['magic-ui'], { budget: 3, seed: 0 }).map((r) => r.item);
+    const seeded = resolveFetchPlan(['magic-ui'], { budget: 3, seed: 1 }).map((r) => r.item);
+    expect(unseeded).toEqual(items.slice(0, 3));
+    expect(seeded).toEqual([items[1], items[2], items[3]]);
+    expect(seeded).not.toEqual(unseeded);
+    // seed wraps modulo the lane length.
+    expect(
+      resolveFetchPlan(['magic-ui'], { budget: 3, seed: items.length }).map((r) => r.item),
+    ).toEqual(unseeded);
+  });
+
   it('skips permitted sources without a verified registry entry', () => {
     const plan = resolveFetchPlan(['motion-primitives', 'magic-ui', 'unknown'], { budget: 5 });
+    // Only magic-ui has a verified registry; the other two contribute no lane.
     expect(plan.every((r) => r.source === 'magic-ui')).toBe(true);
-    expect(plan.length).toBe(3);
+    expect(plan.length).toBe(5);
   });
 
   it('dedupes a source listed more than once (e.g. bundled + fetch) into one lane', () => {
     const plan = resolveFetchPlan(['magic-ui', 'magic-ui'], { budget: 5 });
-    expect(plan.map((r) => r.item)).toEqual(['marquee', 'bento-grid', 'border-beam']);
+    // One lane, not two: every result is magic-ui and no item repeats.
+    expect(plan.every((r) => r.source === 'magic-ui')).toBe(true);
+    expect(new Set(plan.map((r) => r.item)).size).toBe(plan.length);
+    expect(plan.length).toBe(5);
   });
 
   it('returns [] for an empty budget, zero, or negative budget', () => {
