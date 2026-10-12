@@ -74,17 +74,19 @@ export const playwrightScreenshot: Screenshotter = async (url, screenshotPath, o
     // the browser, so it is passed as a string (not typechecked against Node's libs / no DOM lib).
     await page
       .waitForFunction(
-        "(() => { const r = document.querySelector('#storybook-root') || document.querySelector('#root'); return !!r && r.children.length > 0 && r.getBoundingClientRect().height > 120; })()",
+        "(() => { const r = document.querySelector('#storybook-root') || document.querySelector('#root') || document.body; return !!r && r.children.length > 0 && r.getBoundingClientRect().height > 120; })()",
         undefined,
-        { timeout: 15_000 },
+        { timeout: 10_000 },
       )
       .catch(() => undefined);
     if (opts.fullPage) {
       // Scroll through the page so lazy images and scroll-triggered reveals (whileInView, IO-based
       // fade-ins) paint before a full-page capture, then return to the top. Runs in the browser.
+      // Smooth scrolling is forced off first: with `scroll-behavior: smooth` each step becomes a slow
+      // animation and most sections are never reached.
       await page
         .evaluate(
-          `(async () => { const step = window.innerHeight * 0.8; const limit = ${String(opts.maxHeight)}; for (let y = 0; y < Math.min(document.documentElement.scrollHeight, limit); y += step) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)); } window.scrollTo(0, 0); })()`,
+          `(async () => { document.documentElement.style.scrollBehavior = 'auto'; document.body.style.scrollBehavior = 'auto'; const step = Math.round(window.innerHeight * 0.6); const limit = ${String(opts.maxHeight)}; for (let y = 0; y <= Math.min(document.documentElement.scrollHeight, limit); y += step) { window.scrollTo({ top: y, behavior: 'instant' }); await new Promise((r) => setTimeout(r, 250)); } window.scrollTo({ top: 0, behavior: 'instant' }); })()`,
         )
         .catch(() => undefined);
     }

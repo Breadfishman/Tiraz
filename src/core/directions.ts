@@ -99,9 +99,9 @@ export function composeDirectionsPrompt(req: DirectionsRequest): string {
   if (req.mode === 'integration') {
     lines.push(
       '',
-      'This is a REDESIGN of an existing product. Every direction must keep the brand — logo, name,',
-      'voice, brand colours and type — and explore composition, hierarchy, rhythm, imagery, and motion',
-      'within it. No costume aesthetics (Y2K, vaporwave, cyberpunk…) unless the brief asks for them.',
+      'This is a REDESIGN of an existing company. Every direction keeps its identity — name, logo, brand',
+      'colours — and anything BRAND.md says to keep; everything else (layout, type, imagery, structure)',
+      'is open. No costume aesthetics (Y2K, vaporwave, cyberpunk…) unless the brief asks for them.',
     );
   } else {
     lines.push(

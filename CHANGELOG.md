@@ -5,6 +5,19 @@ SPEC §16. The format loosely follows [Keep a Changelog](https://keepachangelog.
 
 ## [Unreleased]
 
+### Ground-up redesigns + capture fixes
+
+- **BRAND.md decides what a redesign keeps.** Integration mode used to tell every agent to keep the
+  site's voice and typefaces, which preserves exactly what a ground-up redesign wants gone. It now
+  keeps the identity (name, logo, brand colours) plus whatever BRAND.md says; type comes from
+  BRAND.md's "Brand type" or the curated library. Owner-added BRAND.md sections (e.g.
+  "Constraints") are passed through to agents.
+- **Scroll-triggered sections rendered blank.** On sites with `scroll-behavior: smooth` (common), the
+  capture's scroll-through turned into slow animations and never reached most sections, so fade-in
+  content was missing from screenshots and the judge saw empty pages. Smooth scrolling is now forced
+  off during capture. The readiness wait also no longer waits out a Storybook-only selector on
+  ordinary apps (captures went from ~31s to ~9s).
+
 ### Brand uniqueness (escaping the AI house style)
 
 A live run showed two "different" directions converging on the same second-order default: a serif

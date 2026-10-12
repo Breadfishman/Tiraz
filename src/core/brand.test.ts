@@ -60,6 +60,7 @@ describe('brandTemplate / parseBrand', () => {
     for (const section of BRAND_SECTIONS) expect(template).toContain(`## ${section.title}`);
     const parsed = parseBrand(template);
     expect(isEmptyBrand(parsed)).toBe(true);
+    expect(parsed.extra).toEqual([]);
     expect(missingSections(parsed)).toHaveLength(BRAND_SECTIONS.length);
   });
 
@@ -93,7 +94,9 @@ describe('brandPromptSection / brandBrief', () => {
     const lines = brandPromptSection(parseBrand(filled)).join('\n');
     expect(lines).toContain('## The brand (BRAND.md) — build FROM this');
     expect(lines).toContain('### The one thing only we can say');
-    expect(lines).not.toContain('Ignored heading');
+    // Owner-added sections are kept and passed through.
+    expect(lines).toContain('### Something custom');
+    expect(lines).toContain('Ignored heading.');
     expect(brandPromptSection(parseBrand(filled), 40).join('\n')).toContain('…(truncated)');
   });
 

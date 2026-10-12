@@ -220,10 +220,10 @@ describe('composePrompt — headless, brand, multi-page, and self-check sections
   it('adds the keep-the-brand section only in integration mode', () => {
     expect(
       composePrompt(base, [], [], undefined, undefined, undefined, { mode: 'integration' }),
-    ).toContain('## Keep the brand');
+    ).toContain('## Keep the identity, redesign the rest');
     expect(
       composePrompt(base, [], [], undefined, undefined, undefined, { mode: 'greenfield' }),
-    ).not.toContain('## Keep the brand');
+    ).not.toContain('## Keep the identity, redesign the rest');
   });
 
   it('frames a multi-page variant as extending the established design', () => {
@@ -286,7 +286,8 @@ describe('composePrompt — brand uniqueness sections', () => {
     expect(composePrompt({ ...base, typography: 'Söhne + Tiempos' }, [])).toContain(
       'Use: Söhne + Tiempos.',
     );
-    expect(extras({ mode: 'integration' })).toContain("Keep the site's existing brand typefaces");
+    // A redesign without brand type picks fresh faces too (BRAND.md is the source of truth).
+    expect(extras({ mode: 'integration' })).toContain('## Typography — choose deliberately');
     const library = composePrompt(base, []);
     expect(library).toContain('## Typography — choose deliberately');
     expect(library).toContain('Avoid: ');

@@ -100,6 +100,8 @@ export const BRAND_SECTIONS: readonly BrandSectionSpec[] = [
 export interface Brand {
   raw: string;
   sections: Partial<Record<BrandKey, string>>;
+  /** Owner-added sections with other headings (e.g. "Constraints"), kept verbatim, in order. */
+  extra: { title: string; body: string }[];
 }
 
 /** The starter BRAND.md written by `tiraz brand init`. */
@@ -137,12 +139,16 @@ export function parseBrand(text: string): Brand {
   const clean = stripComments(text);
   const parts = clean.split(/^##[ \t]+(.+)$/m);
   // parts = [preamble, heading1, body1, heading2, body2, ...]
+  const extra: { title: string; body: string }[] = [];
   for (let i = 1; i < parts.length; i += 2) {
-    const key = sectionKeyFor(parts[i] ?? '');
+    const title = (parts[i] ?? '').trim();
+    const key = sectionKeyFor(title);
     const body = (parts[i + 1] ?? '').trim();
-    if (key !== undefined && body !== '' && sections[key] === undefined) sections[key] = body;
+    if (body === '') continue;
+    if (key === undefined) extra.push({ title, body });
+    else sections[key] ??= body;
   }
-  return { raw: text, sections };
+  return { raw: text, sections, extra };
 }
 
 /** Section keys that are still empty. */
@@ -152,7 +158,7 @@ export function missingSections(brand: Brand): BrandKey[] {
 
 /** True when nothing useful has been filled in yet. */
 export function isEmptyBrand(brand: Brand): boolean {
-  return Object.keys(brand.sections).length === 0;
+  return Object.keys(brand.sections).length === 0 && brand.extra.length === 0;
 }
 
 const GENERIC_FAMILIES = new Set(['serif', 'sans-serif', 'monospace', 'system-ui', 'cursive']);
@@ -200,10 +206,13 @@ function cap(text: string, maxChars: number): string {
  */
 export function brandPromptSection(brand: Brand | null, maxChars = 6000): string[] {
   if (brand === null || isEmptyBrand(brand)) return [];
-  const body = BRAND_SECTIONS.flatMap((s) => {
-    const text = brand.sections[s.key];
-    return text === undefined ? [] : [`### ${s.title}`, text, ''];
-  }).join('\n');
+  const body = [
+    ...BRAND_SECTIONS.flatMap((s) => {
+      const text = brand.sections[s.key];
+      return text === undefined ? [] : [`### ${s.title}`, text, ''];
+    }),
+    ...brand.extra.flatMap((e) => [`### ${e.title}`, e.body, '']),
+  ].join('\n');
   return [
     '## The brand (BRAND.md) — build FROM this, not from your defaults',
     'This is what makes this site belong to this company. Use the real voice, proof, and assets below;',

@@ -127,12 +127,11 @@ function backboneSection(genome: Genome): string[] {
   ];
 }
 
-/** Typeface guidance: the brand's own type, the direction's chosen faces, or a curated sample. */
-function typographySection(
-  genome: Genome,
-  brandFonts: readonly string[],
-  mode?: PromptExtras['mode'],
-): string[] {
+/**
+ * Typeface guidance: the brand's own type (BRAND.md), the direction's chosen faces, or a curated
+ * sample. A redesign keeps its old typefaces only when BRAND.md lists them as brand type.
+ */
+function typographySection(genome: Genome, brandFonts: readonly string[]): string[] {
   if (brandFonts.length > 0) {
     return [
       '## Typography',
@@ -143,13 +142,6 @@ function typographySection(
   }
   if (genome.typography !== undefined && genome.typography.trim() !== '') {
     return ['## Typography', `Use: ${genome.typography.trim()}.`, ''];
-  }
-  if (mode === 'integration') {
-    return [
-      '## Typography',
-      "Keep the site's existing brand typefaces; make them work harder (scale, weight, rhythm).",
-      '',
-    ];
   }
   return [
     '## Typography — choose deliberately',
@@ -194,10 +186,11 @@ export function composePrompt(
 
   if (extras.mode === 'integration') {
     lines.push(
-      '## Keep the brand',
-      'This is a redesign of an existing product. Keep its brand: logo, name, voice, and brand colours',
-      'and type (via the design system below). Rethink composition, hierarchy, rhythm, and detail — not',
-      'who the company is.',
+      '## Keep the identity, redesign the rest',
+      'This is a redesign of an existing company. Keep its identity — name, logo, and brand colours (via',
+      'the design system below) — plus anything BRAND.md says to keep. Everything else (layout, type,',
+      'imagery, components, copy structure) is open for a ground-up rethink unless BRAND.md says',
+      'otherwise. Do not carry over the old design just because it exists.',
       '',
     );
   }
@@ -242,10 +235,7 @@ export function composePrompt(
     );
   }
 
-  lines.push(
-    ...backboneSection(genome),
-    ...typographySection(genome, extras.brandFonts ?? [], extras.mode),
-  );
+  lines.push(...backboneSection(genome), ...typographySection(genome, extras.brandFonts ?? []));
 
   // The signature element: one ownable thing the design is built around (from the brand / product).
   if (genome.signature !== undefined && genome.signature.trim() !== '') {

@@ -456,7 +456,7 @@ describe('runGen', () => {
     expect(prompt).toContain('--harness storybook --target story:hero--default --port 41000');
     expect(prompt).toContain(path.join(repo, '.tiraz', 'screenshots', 'g0-n0-check.png'));
     // Integration mode (the default) keeps the brand.
-    expect(prompt).toContain('## Keep the brand');
+    expect(prompt).toContain('## Keep the identity, redesign the rest');
     expect(runs[0]?.additionalDirectories).toEqual([path.join(repo, '.tiraz', 'screenshots')]);
   });
 

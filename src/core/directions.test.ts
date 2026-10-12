@@ -32,10 +32,10 @@ describe('composeDirectionsPrompt', () => {
     expect(prompt).toContain('"directions"');
   });
 
-  it('keeps every direction inside the brand in integration mode', () => {
+  it('keeps the identity (and what BRAND.md says) in integration mode', () => {
     const prompt = composeDirectionsPrompt({ brief: 'b', count: 3, mode: 'integration' });
-    expect(prompt).toContain('REDESIGN of an existing product');
-    expect(prompt).toContain('keep the brand');
+    expect(prompt).toContain('REDESIGN of an existing company');
+    expect(prompt).toContain('keeps its identity');
     expect(prompt).not.toContain('Existing design system');
   });
 });
