@@ -40,6 +40,8 @@ describe.skipIf(process.env.TIRAZ_E2E !== '1')('playwrightScreenshot (live)', ()
       height: 600,
       deviceScaleFactor: 1,
       timeoutMs: 15_000,
+      fullPage: true,
+      maxHeight: 1800,
     });
     expect((await stat(out)).size).toBeGreaterThan(0);
     const header = (await readFile(out)).subarray(0, 8).toString('hex');

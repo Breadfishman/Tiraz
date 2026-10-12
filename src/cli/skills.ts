@@ -16,7 +16,7 @@ export function registerSkillsCommand(program: Command): void {
     .description('Show the registry and which skills are active for the current config.')
     .action(async () => {
       const { config } = await loadConfig();
-      const active = resolveActiveSkills(config);
+      const active = resolveActiveSkills({ ...config, skills: config.generation.skills });
       const activeIds = new Set(active.all.map((s) => s.id));
 
       for (const skill of SKILLS) {
@@ -26,7 +26,9 @@ export function registerSkillsCommand(program: Command): void {
 
       const overlayNote = active.overlay ? `, overlay=${active.overlay.id}` : '';
       const primaryNote = active.primary ? active.primary.id : '(none)';
-      console.log(`\nActive: primary=${primaryNote}${overlayNote} (mode=${config.mode})`);
+      console.log(
+        `\nActive: primary=${primaryNote}${overlayNote} (mode=${config.mode}, skills=${config.generation.skills})`,
+      );
     });
 
   skills
@@ -72,7 +74,7 @@ export function registerSkillsCommand(program: Command): void {
       const cwd = process.cwd();
       const target = worktree === undefined ? cwd : path.resolve(cwd, worktree);
       const { config } = await loadConfig(cwd);
-      const active = resolveActiveSkills(config);
+      const active = resolveActiveSkills({ ...config, skills: config.generation.skills });
 
       const installed = await installResolvedSkills(active.all, {
         sourceDir: bundledSkillsDir(),

@@ -59,6 +59,12 @@ export const GenomeSchema = z.strictObject({
    */
   excellence: z.string().optional(),
   graft: GraftSpecSchema.optional(),
+  /**
+   * Multi-page work: the node id whose approved design this variant extends to a new page. Its
+   * worktree is based on that node's branch and the agent is told to reuse its system (tokens,
+   * type, nav, footer) rather than invent a new one.
+   */
+  extends: z.string().optional(),
   seed: z.number().int(),
   /** The section/page brief this variant implements. */
   brief: z.string(),

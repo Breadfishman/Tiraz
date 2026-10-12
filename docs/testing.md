@@ -10,7 +10,7 @@ npm run check
 ```
 
 `format:check → lint → typecheck → test:cov → build → bin smoke`. Every external boundary (the coding
-`Agent`, the `Renderer`, the `PairwiseJudge`, the `CommandRunner`, the DS collectors) is behind an
+`Agent`, the `Renderer`, the `RankingJudge`, the `CommandRunner`, the DS collectors) is behind an
 interface, so the **logic** is unit-tested with injected fakes: no browser, no network, no API key.
 Coverage thresholds: lines 90 / branches 85 / functions 90 / statements 90.
 
@@ -44,7 +44,7 @@ The real Playwright path (`playwrightScreenshot`) has a committed e2e test, skip
 gate. To run it:
 
 ```bash
-npx playwright install chromium
+npx playwright install chromium        # or: export TIRAZ_CHROMIUM_PATH=/path/to/chromium
 TIRAZ_E2E=1 npx vitest run src/core/playwright-io.e2e.test.ts
 ```
 
@@ -54,17 +54,19 @@ valid PNG is written.
 ## Tier 4: Full live loop (browser + API key + `claude` + a playground)
 
 The agent-driven commands (`gen`, `breed`, `recombine`, `score`, `review`, `promote`) need the full
-stack. To exercise the whole loop against a real repo that has a **Storybook**:
+stack. To exercise the whole loop against a real repo (a site with a `dev` script renders via the
+`app` harness; a Storybook works too):
 
 ```bash
-export ANTHROPIC_API_KEY=sk-...        # the vision taste judge
+export ANTHROPIC_API_KEY=sk-...        # optional: the judge otherwise uses one `claude -p` session
 npx playwright install chromium        # the renderer
 # `claude` on PATH (the coding agent) and `npx impeccable` (the lint floor)
 
-cd your-repo-with-storybook
+cd your-repo
 tiraz adopt
-tiraz gen --brief "A pricing section" --target story:pricing--default --count 3
-tiraz score                            # lint floor + DS-adherence + vision judge: composites
+tiraz gen --brief "A pricing page" --target route:/pricing --count 3
+tiraz score                            # one judge call + local lint/DS checks: composites
+tiraz gen --from g0-n0 --target route:/about --count 2 --brief "About page"   # multi-page
 tiraz tree                             # inspect the ranked generation
 tiraz select g0-n0                     # keep the winner, prune the rest
 tiraz breed g0-n0 --factor 3           # mutate it into the next generation

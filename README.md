@@ -9,7 +9,7 @@ It exists to solve two failures at once. AI-built UIs look AI-built: they collap
 safe, centered, generic layout. And the tools bold enough to escape that generate in a vacuum,
 handing you something you then pay an integration tax to graft back into your stack. Tiraz refuses
 both. Variants are written against your own tokens and components, scored on a three-term fitness (a
-lint floor, design-system adherence, and a pairwise vision taste tournament judged by Claude), and
+free local lint pass, design-system adherence, and a single-call vision ranking judged by Claude), and
 steered by you from a live dashboard. What survives is UI with real taste that drops into your
 project instead of fighting it.
 
@@ -29,22 +29,23 @@ on-brand-ness, and lets you pick and refine the best, all inside your own repo. 
 treats UI design as a breeding problem and converges on a striking, on-system result through a
 fitness-gated [beam search](https://en.wikipedia.org/wiki/Beam_search):
 
-1. **Seed**: the brief becomes a diverse population of _genomes_: reproducible recipes pairing a
-   design-taste skill (+ optional overlay), dials for variance / motion / density, a set of component
-   sources, and an aesthetic _ethos_. Generation 0 is deliberately varied (different ethos, different
-   sources, some entirely homegrown) so the search starts wide instead of converging on one safe look.
-2. **Materialize**: each genome is built into real code by a Claude Code agent in its own **git
-   worktree** (an isolated branch), optionally fetching real components from 10+ shadcn/registry
-   sources and 21st.dev semantic search.
-3. **Score**: every variant earns a three-term **fitness**: a lint **floor** (a hard gate),
-   **design-system adherence** (penalizes off-system colour/spacing literals; credits genuinely
-   fetched components), and a pairwise **vision taste tournament** in which Claude judges rendered
-   screenshots head-to-head.
+1. **Seed**: one short planning call turns the brief into a set of genuinely different design
+   directions tailored to your design system (kept inside your brand when redesigning). Each becomes
+   a reproducible _genome_: the direction, what "excellent" means for it, and dials for variance /
+   motion / density.
+2. **Materialize**: each genome is built into real code by one Claude Code session in its own **git
+   worktree** (an isolated branch). The agent runs your build and screenshots its own render
+   (`tiraz shot`) to fix what it sees before finishing. Component libraries (10+ shadcn registries,
+   21st.dev) are opt-in.
+3. **Score**: one vision call ranks every variant's full-page screenshot, with a critique each.
+   Two free local checks back it up: **design-system adherence** (off-system colour/spacing literals)
+   and impeccable's **lint** over the files each variant changed.
 4. **Select & breed**: survivors advance; the strongest are bred and recombined into the next
    generation, with the beam keeping the population focused. Lineage is a DAG in
    `.tiraz/manifest.json`, and a live **dashboard** lets you review, compare side-by-side, heart,
    cull, and breed variants by eye.
-5. **Promote**: the winner ships as a branch or PR into your repo (`tiraz promote`).
+5. **Extend & promote**: carry the winning design to the site's other pages (`tiraz gen --from`),
+   then ship each as a branch or PR into your repo (`tiraz promote`).
 
 Crucially, the whole loop runs **inside your real codebase and design system** (variants use your
 tokens and components), so the output integrates instead of needing a rewrite.
@@ -108,9 +109,10 @@ node dist/cli.js export --target stitch --brief "A pricing page"
 ```
 
 Commands that drive the coding agent / a browser (`gen`, `breed`, `recombine`, `score`, `review`,
-`promote`) need a live agent + render environment; their controllers are built and tested, and the
-live adapters land where they can run. See [docs/cli.md](./docs/cli.md) for the full surface and
-per-command status.
+`shot`) need the `claude` CLI and a Playwright browser. Render your real site with the `app` harness
+(your own dev server, routes as targets) or a Storybook/Ladle/Histoire story. Models, turn caps, and
+what each round costs are in [docs/configuration.md](./docs/configuration.md). See
+[docs/cli.md](./docs/cli.md) for the full surface.
 
 **New here?** The [Guides](#guides-start-here-to-use-it) walk the whole thing end to end. Start with
 **Redesign an existing site** for the common task, or **Running the loop** for the command-by-command

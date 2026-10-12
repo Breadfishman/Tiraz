@@ -38,12 +38,20 @@ export interface ServeCommand {
   args: string[];
 }
 
+/** Default `app` harness command: the project's own dev script, with the port appended. */
+export const DEFAULT_APP_COMMAND = 'npm run dev -- --port {port}';
+
 /**
- * The command that boots a harness dev server on `port` (run in the variant's worktree). Returns
- * `null` for harnesses with no managed server (`scratch` is a v2-stretch fallback; `app` boots the
- * host's own dev server, which is project-specific and out of scope here).
+ * The command that boots a harness dev server on `port` (run in the variant's worktree). `app` runs
+ * the host project's own dev server from `appCommand` (whitespace-separated, `{port}` substituted;
+ * defaults to {@link DEFAULT_APP_COMMAND}) so a real site can be rendered route by route without a
+ * component playground. Returns `null` for `scratch` (no managed server).
  */
-export function harnessServeCommand(harness: HarnessKind, port: number): ServeCommand | null {
+export function harnessServeCommand(
+  harness: HarnessKind,
+  port: number,
+  appCommand: string = DEFAULT_APP_COMMAND,
+): ServeCommand | null {
   const p = String(port);
   switch (harness) {
     case 'storybook':
@@ -52,8 +60,14 @@ export function harnessServeCommand(harness: HarnessKind, port: number): ServeCo
       return { command: 'npx', args: ['ladle', 'serve', '--port', p] };
     case 'histoire':
       return { command: 'npx', args: ['histoire', 'dev', '--port', p] };
+    case 'app': {
+      const [command, ...args] = appCommand
+        .trim()
+        .split(/\s+/)
+        .map((part) => part.replaceAll('{port}', p));
+      return command === undefined || command === '' ? null : { command, args };
+    }
     case 'scratch':
-    case 'app':
       return null;
   }
 }

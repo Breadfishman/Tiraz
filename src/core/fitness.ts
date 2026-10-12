@@ -4,8 +4,8 @@ import type { Fitness, TirazConfig } from './manifest';
 
 /**
  * Output of the taste judge (SPEC §9): a pairwise-tournament ranking within a generation plus a
- * derived 0–100 score and the per-lens panel verdicts. Produced by the VLM judge (next slice);
- * consumed here so the composite can be assembled.
+ * derived 0–100 score and the judge's critique (one `overall` panel entry). Produced by
+ * `runTasteRanking`; consumed here so the composite can be assembled.
  */
 export interface TasteResult {
   rank: number;
@@ -14,19 +14,22 @@ export interface TasteResult {
 }
 
 /**
- * Assemble the three-term {@link Fitness} for a variant (SPEC §9). The lint floor is a gate, not a
- * ranker: a variant that fails it gets a composite of 0 (it is dropped). Otherwise the composite is
- * the configured weighted blend of design-system adherence and taste.
+ * Assemble the three-term {@link Fitness} for a variant (SPEC §9). With `lintGate` on, the lint floor
+ * is a gate, not a ranker: a variant that fails it gets a composite of 0 (it is dropped). With it off
+ * (the config default) violations are still recorded but advisory. The composite is otherwise the
+ * configured weighted blend of design-system adherence and taste.
  */
 export function composeFitness(
   lint: LintResult,
   ds: DsAdherenceResult,
   taste: TasteResult,
   weights: TirazConfig['fitness']['weights'],
+  lintGate = true,
 ): Fitness {
-  const composite = lint.passed
-    ? weights.dsAdherence * ds.score + weights.taste * taste.derivedScore
-    : 0;
+  const composite =
+    lint.passed || !lintGate
+      ? weights.dsAdherence * ds.score + weights.taste * taste.derivedScore
+      : 0;
 
   return {
     lintFloor: { passed: lint.passed, violations: lint.violations },

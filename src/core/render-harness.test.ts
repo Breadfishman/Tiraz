@@ -49,9 +49,20 @@ describe('harnessServeCommand', () => {
     ]);
   });
 
-  it('returns null for harnesses with no managed server', () => {
+  it('returns null for scratch (no managed server)', () => {
     expect(harnessServeCommand('scratch', 41000)).toBeNull();
-    expect(harnessServeCommand('app', 41000)).toBeNull();
+  });
+
+  it("boots the project's own dev server for app, with the port substituted", () => {
+    expect(harnessServeCommand('app', 41000)).toEqual({
+      command: 'npm',
+      args: ['run', 'dev', '--', '--port', '41000'],
+    });
+    expect(harnessServeCommand('app', 41001, '  npx next dev --webpack -p {port} ')).toEqual({
+      command: 'npx',
+      args: ['next', 'dev', '--webpack', '-p', '41001'],
+    });
+    expect(harnessServeCommand('app', 41000, '   ')).toBeNull();
   });
 });
 

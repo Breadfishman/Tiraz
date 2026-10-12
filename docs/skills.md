@@ -17,14 +17,19 @@ Tiraz's taste layer is a registry of design **skills**: `SKILL.md` files (some w
 | imagegen            | `imagegen-frontend-web`, `brandkit`                                  | Per-command                                             |
 | QA (on-demand)      | `emilkowalski-skill`                                                 | Only via `tiraz review`; **never vendored** (see below) |
 
-**Single-primary invariant.** `resolveActiveSkills` always selects exactly one primary. `primary`
-in config is the default _seed_; in integration mode the active primary is forced to
-`redesign-existing-projects`. Round-0 generation spans both togglable primaries for diversity
-(`seedPrimaries`).
+**Single-primary invariant.** `resolveActiveSkills` selects at most one primary. `primary` in config
+is the default _seed_; in integration mode the active primary is forced to
+`redesign-existing-projects`.
 
-The resolved active set for a variant is `[base, primary, overlay?]`. `tiraz skills sync` writes it
-into `<worktree>/.claude/skills/`, removing previously-installed registry skills while leaving the
-user's own skills in place.
+**Lean by default.** With `generation.skills: "lean"` (the default) the large greenfield primaries
+(`impeccable`, `design-taste-frontend`) are **not** installed: current models don't need tens of KB of
+doctrine per run, and the shared taste bar is already in every prompt. The resolved set is then
+`[base, overlay?]` in greenfield and `[base, redesign-existing-projects]` in integration. Set
+`"skills": "full"` for `[base, primary, overlay?]`, with round-0 spanning both primaries.
+
+`tiraz skills sync` writes the resolved set into `<worktree>/.claude/skills/`, removing
+previously-installed registry skills while leaving the user's own skills in place. Installed skills
+are never committed onto variant branches.
 
 ## Component sourcing (two tiers, SPEC §12)
 

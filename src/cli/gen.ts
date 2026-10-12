@@ -1,10 +1,8 @@
 import type { Command } from 'commander';
-import { ClaudeCodeAgent } from '../core/agent';
 import { describeError } from '../core/config';
 import type { HarnessKind } from '../core/detect';
-import { createPlaywrightRenderer } from '../core/playwright-io';
 import { generateGeneration } from '../core/search';
-import { bundledSkillsDir } from './bundled';
+import { liveDeps } from './live';
 
 const HARNESSES: readonly HarnessKind[] = ['storybook', 'ladle', 'histoire', 'scratch', 'app'];
 
@@ -13,6 +11,7 @@ interface GenCliOptions {
   count: string;
   target?: string;
   harness?: string;
+  from?: string;
 }
 
 /** Register the `gen` command (SPEC §5/§7): produce a generation of variants (live agent + renderer). */
@@ -29,6 +28,10 @@ export function registerGenCommand(program: Command): void {
     .option(
       '--harness <kind>',
       `Render surface (${HARNESSES.join(' | ')}); auto-detected otherwise`,
+    )
+    .option(
+      '--from <node>',
+      "Multi-page: extend this node's approved design to a new page (--target), based on its branch",
     )
     .action(async (options: GenCliOptions) => {
       const cwd = process.cwd();
@@ -52,12 +55,9 @@ export function registerGenCommand(program: Command): void {
             count,
             ...(options.target !== undefined ? { target: options.target } : {}),
             ...(options.harness !== undefined ? { harness: options.harness as HarnessKind } : {}),
+            ...(options.from !== undefined ? { from: options.from } : {}),
           },
-          {
-            agent: new ClaudeCodeAgent(),
-            renderer: createPlaywrightRenderer(),
-            skillsSourceDir: bundledSkillsDir(),
-          },
+          await liveDeps(cwd),
         );
         console.log(`Generated ${String(nodes.length)} variant(s):`);
         for (const node of nodes) {

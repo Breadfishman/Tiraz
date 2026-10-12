@@ -105,35 +105,30 @@ with `--harness` (Step 6) or re-run `adopt` after Step 3.
 
 ### 3. Give Tiraz something to render
 
-A **render surface** is a tiny preview page Tiraz can build and screenshot. Storybook is the easiest.
+A **render surface** is something Tiraz can boot and screenshot. For a website, the simplest one is
+**your site itself**: the `app` harness runs your own dev server in each variant's worktree and
+renders a route. `adopt` picks it automatically when there's no component playground and your
+`package.json` has a `dev` script.
 
-```bash
-npx storybook@latest init --yes     # if you do not already have it
-```
-
-> Note: `storybook init` only scaffolds example `Button` / `Header` / `Page` stories. It does **not**
-> create a story for your hero. Add one for the section you want to redesign:
-
-```tsx
-// stories/Hero.tsx  (a placeholder is fine; Tiraz will redesign it)
-export function Hero() {
-  return <section>hero</section>;
+```jsonc
+// tiraz.config.json (written by adopt; adjust appCommand if your dev script takes the port differently)
+{
+  "mode": "integration",
+  "harness": "app",
+  "appCommand": "npm run dev -- --port {port}",
 }
-
-// stories/Hero.stories.tsx
-import { Hero } from './Hero';
-export default { title: 'Hero', component: Hero };
-export const Default = {};
 ```
 
-**The story id is the `--target` you pass to `gen`.** It is the lowercased title plus the lowercased
-export, joined by `--`: title `Hero` + export `Default` becomes **`hero--default`**. You can also read
-any story's id straight from its URL in Storybook (`?path=/story/hero--default`).
+Targets for `app` are routes: `--target route:/` for the homepage, `route:/about` for another page.
 
-Want to redesign a whole page, not just a section? Put the page (or a stand-in composition of it) in a
-single story and target that. **Storybook, Ladle, and Histoire are the render surfaces that work
-today**; the `app` and `scratch` harnesses are detected but not yet wired to render (v2), so do not
-rely on them.
+> **Next.js with Turbopack:** variant worktrees symlink your `node_modules`, which Turbopack refuses
+> when the link points outside the project root. Use webpack for Tiraz renders:
+> `"appCommand": "npx next dev --webpack -p {port}"`.
+
+**Prefer to work section by section?** A component playground works too (Storybook, Ladle,
+Histoire). Add a story for the section and target it as `story:<id>`, where the id is the lowercased
+title plus the lowercased export joined by `--` (title `Hero` + export `Default` becomes
+`hero--default`, also visible in the story's URL).
 
 ### 4. Tokenize your brand colors
 
@@ -162,11 +157,11 @@ in the brief, by their repo-relative path (`public/logos/...`).
 
 ### 6. Commit, then write the brief and generate
 
-Commit your render-surface and token changes first, because **variants branch from your current
-`HEAD`**, so uncommitted setup is invisible to them:
+Commit your config and token changes first, because **variants branch from your current `HEAD`**,
+so uncommitted setup is invisible to them:
 
 ```bash
-git add -A && git commit -m "tiraz setup: hero story + brand tokens"
+git add -A && git commit -m "tiraz setup: config + brand tokens"
 ```
 
 The brief is your main steering wheel. Be specific:
@@ -174,8 +169,7 @@ The brief is your main steering wheel. Be specific:
 ```bash
 tiraz gen \
   --brief "Redesign the numu landing page. Keep the brand palette (it is in the design tokens) and use the real partner logos in public/logos for the partners strip. Replace the existing layout and components entirely; do not reuse them. Sections: hero, partner logos, three feature blocks, CTA. Tone: confident, modern, lots of whitespace." \
-  --target story:hero--default \
-  --harness storybook \
+  --target route:/ \
   --count 4
 ```
 
@@ -186,9 +180,12 @@ Brief tips:
 - **Point at the real assets** by repo-relative path.
 - Describe a **vibe/ethos**, not just a structure. Tiraz rewards committing to a look.
 
-**What to expect:** `gen` runs the Claude Code agent in a fresh worktree per variant and renders each
-one, so a round of 4 takes several minutes and consumes API credits (or your Claude-CLI quota). When
-it finishes, the next step should list `g0-n0` through `g0-n3`.
+**What to expect:** one short call plans 4 distinct directions for your brief (all inside your brand),
+then each variant gets one Claude Code session in its own worktree. The agent runs your build and
+screenshots its own page (`tiraz shot`) to fix what it sees before finishing. A round of 4 takes
+several minutes and costs 1 planning call + 4 build sessions. Set `agent.model` / `agent.maxTurns` in
+`tiraz.config.json` to trade quality against usage. When it finishes, the next step should list
+`g0-n0` through `g0-n3`.
 
 ### 7. Score, then review with your own eyes
 
@@ -207,12 +204,13 @@ generation 0
   g0-n0  score 71  ★
   g0-n1  score 58
   g0-n2  score 64
-  g0-n3  score 40  (lint floor failed)
+  g0-n3  score 40
 ```
 
-`tiraz score` runs a hard **lint floor**, **design-system adherence**, and a **taste tournament**.
-The lint floor can zero a rough variant; pass `--no-lint` while iterating so early drafts still get a
-taste/DS read. The fitness score is a **pre-filter, not the judge**. The dashboard (a local server at
+`tiraz score` makes **one** vision call that ranks every variant's full-page screenshot with a
+one-line critique each, plus two free local checks: **design-system adherence** (off-palette literals)
+and impeccable's **lint** over the files each variant changed (advisory by default). The fitness score
+is a **pre-filter, not the judge**. The dashboard (a local server at
 `http://localhost:4317`, `Ctrl-C` to quit, visit the URL manually if `--open` does not launch a
 browser) is where you actually decide: flip through variants live, use **Compare** side-by-side,
 **heart** the keepers, **cull** the duds.
@@ -221,8 +219,11 @@ browser) is where you actually decide: flip through variants live, use **Compare
 
 ```bash
 tiraz select g0-n2            # keep one survivor, prune the rest of its generation
-tiraz breed g0-n2 --factor 2  # refine it into the next generation (runs the paid agent again)
+tiraz breed g0-n2 --factor 2 -m "bigger product photography, calmer nav"   # say what to improve
 ```
+
+The `-m` note is the strongest steering you have; without it a child only gets a small automatic
+nudge.
 
 To **blend two** variants instead, do not `select` first (that prunes siblings). Heart both, then:
 
@@ -232,6 +233,22 @@ tiraz recombine g0-n1 g0-n2 -g "take n2's hero, n1's color use"
 
 Repeat score / review / breed until you have a champion; two or three generations is typical. Snapshot
 before anything risky: `tiraz snapshot save "liked these"`.
+
+### 8b. Extend the winning design to the rest of the site
+
+Once the homepage is right, carry its system to the other pages instead of starting each one from
+scratch. `--from` bases every variant on the winner's branch and tells the agent to reuse its tokens,
+type, navigation, and footer:
+
+```bash
+tiraz gen --from g2-n0 --target route:/about --count 2 --brief "About page: our story, team, roastery photos"
+tiraz score
+tiraz gen --from g2-n0 --target route:/pricing --count 2 --brief "Pricing: three plans, FAQ"
+```
+
+Each page round is cheap (no planning call) and comes out consistent with the homepage. Promote each
+page's winner: every page branch already contains the homepage commits it was built on, so the PRs
+merge one after another.
 
 ### 9. Promote it
 
@@ -248,8 +265,8 @@ prerequisites) against your base branch. A PR is just a proposed change you revi
 A promoted variant is presentation, not a deployed site. Finishing the job (wiring real link
 destinations, deploying) is a short, separate pass documented in the README under
 [From a bred variant to a shipped page](../../README.md#from-a-bred-variant-to-a-shipped-page). The
-`stories/ -> components/` move in that section applies to Storybook-authored variants (which is the
-supported path today).
+`stories/ -> components/` move in that section applies only to Storybook-authored variants; `app`
+variants are already edits to your real pages.
 
 ## Tips and best practices
 
@@ -263,11 +280,12 @@ supported path today).
 ## Troubleshooting
 
 - **`gen` produces nothing / cannot render:** either no render surface (Step 3), or your repo's
-  dependencies are not installed (`npm install` in your repo, Step 1). Confirm `gen` is using
-  `--harness storybook` (Storybook/Ladle/Histoire are the surfaces that render today).
-- **`adopt` reports `harness: scratch`:** that means no render surface was detected. Add Storybook
-  (Step 3) and re-run `adopt`, or pass `--harness storybook` to `gen`. The `scratch` and `app`
-  harnesses are not yet wired to render (v2).
+  dependencies are not installed (`npm install` in your repo, Step 1). Try the render by hand:
+  `tiraz shot --worktree . --harness app --target route:/ --port 41500 --out /tmp/check.png`.
+- **`adopt` reports `harness: scratch`:** no playground and no `dev` script were found. Set
+  `"harness": "app"` with an `appCommand` that boots your site, or add Storybook.
+- **The render is blank below the fold:** scroll-triggered animations are scrolled through before the
+  capture, but content that only appears after user input won't show. Make the default state visible.
 - **Variants ignore your brand colors:** your colors are not tokens yet (Step 4). Consolidate them
   into CSS variables / the Tailwind theme.
 - **A restricted source's fetch hangs:** only the restricted sources can be toggled off, by name, for

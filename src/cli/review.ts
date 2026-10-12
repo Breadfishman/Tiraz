@@ -1,6 +1,6 @@
 import type { Command } from 'commander';
-import { ClaudeCodeAgent } from '../core/agent';
-import { describeError } from '../core/config';
+import { describeError, loadConfig } from '../core/config';
+import { createBuildAgent } from './live';
 import { reviewVariant } from '../core/review';
 
 /** Register the `review` command (SPEC §5/§9): Emil's motion/polish review of a variant. */
@@ -12,9 +12,10 @@ export function registerReviewCommand(program: Command): void {
     )
     .action(async (node: string | undefined) => {
       try {
+        const { config } = await loadConfig();
         const result = await reviewVariant(
           { cwd: process.cwd(), ...(node !== undefined ? { nodeId: node } : {}) },
-          { agent: new ClaudeCodeAgent() },
+          { agent: createBuildAgent(config) },
         );
         console.log(`Review of ${result.nodeId}:\n`);
         console.log(result.review);

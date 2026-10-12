@@ -11,120 +11,83 @@ export interface JudgeCandidate {
   intent?: string;
 }
 
-export interface PairwiseVerdict {
-  /** The id of the better candidate (must be one of the pair). */
-  winner: string;
-  rationale: string;
-}
-
-export interface LensConfig {
-  lens: string;
-  /** Model id used for this lens (mixed-model panel de-correlates errors, SPEC §9). */
-  model: string;
+/** A listwise verdict: every candidate id, best first, plus a one-line critique per id. */
+export interface RankingVerdict {
+  order: string[];
+  critiques: Record<string, string>;
 }
 
 export interface JudgeContext {
   brief: string;
-  lens: string;
+  /** Vision model id used for the ranking call. */
   model: string;
 }
 
 /**
- * Compares two rendered variants for a given lens. The live implementation is a vision model
- * (Anthropic API) reading both screenshots; the tournament below depends only on this interface,
- * so it is fully testable with a deterministic fake.
+ * Ranks a whole generation of rendered variants in ONE call (SPEC §9). The live implementation is a
+ * vision model reading every screenshot at once; the ranking logic below depends only on this
+ * interface, so it is fully testable with a deterministic fake.
  */
-export interface PairwiseJudge {
-  compare(a: JudgeCandidate, b: JudgeCandidate, ctx: JudgeContext): Promise<PairwiseVerdict>;
+export interface RankingJudge {
+  rank(candidates: JudgeCandidate[], ctx: JudgeContext): Promise<RankingVerdict>;
 }
 
-/** Default mixed-model 4-lens panel (SPEC §9): one Sonnet panelist de-correlates the Opus judges. */
-export const DEFAULT_LENSES: readonly LensConfig[] = [
-  { lens: 'typography', model: 'claude-opus-4-8' },
-  { lens: 'layout', model: 'claude-opus-4-8' },
-  { lens: 'palette', model: 'claude-opus-4-8' },
-  { lens: 'generic-feel', model: 'claude-sonnet-4-6' },
-];
+/** Default judge model — a strong, cheaper vision model; override with `agent.judgeModel`. */
+export const DEFAULT_JUDGE_MODEL = 'claude-sonnet-5-5';
 
-export interface TasteTournamentOptions {
+/** The single panel "lens" recorded per variant now that one listwise call judges every dimension. */
+export const OVERALL_LENS = 'overall';
+
+export interface TasteRankingOptions {
   brief: string;
-  judge: PairwiseJudge;
-  lenses?: readonly LensConfig[];
+  judge: RankingJudge;
+  model?: string;
 }
-
-const NO_VERDICT = 'no winning verdict for this lens';
 
 /**
- * Run a pairwise tournament over a generation's variants (SPEC §9): every unordered pair is judged
- * by every lens in both orders (to cancel position bias). Wins are tallied into a ranking and a
- * derived 0–100 score (win share). Returns a `TasteResult` per candidate keyed by id.
+ * Rank a generation's variants with one listwise judge call (SPEC §9). Replaces the old pairwise
+ * tournament (every pair x every lens x both orders — quadratic in the number of variants) with a
+ * single call that sees every screenshot side by side, which current vision models handle well.
  *
- * Absolute scores are deliberately avoided — LLM judges are far better at relative comparisons.
+ * The verdict is normalised defensively: unknown or duplicate ids are dropped and any candidate the
+ * judge omitted is appended in input order, so every candidate always gets a rank. The derived 0-100
+ * score is linear in rank (best = 100, worst = 0). A lone candidate needs no call.
  */
-export async function runTasteTournament(
+export async function runTasteRanking(
   candidates: JudgeCandidate[],
-  opts: TasteTournamentOptions,
+  opts: TasteRankingOptions,
 ): Promise<Record<string, TasteResult>> {
-  const lenses = opts.lenses ?? DEFAULT_LENSES;
-  const wins = new Map<string, number>();
-  const comparisons = new Map<string, number>();
-  const panels = new Map<string, Map<string, string>>();
+  const model = opts.model ?? DEFAULT_JUDGE_MODEL;
+  if (candidates.length === 0) return {};
 
-  const bump = (map: Map<string, number>, key: string): void => {
-    map.set(key, (map.get(key) ?? 0) + 1);
-  };
-  const recordPanel = (id: string, lens: string, rationale: string): void => {
-    const lensMap = panels.get(id) ?? new Map<string, string>();
-    lensMap.set(lens, rationale);
-    panels.set(id, lensMap);
-  };
+  const ids = candidates.map((c) => c.id);
+  const verdict: RankingVerdict =
+    candidates.length === 1
+      ? { order: ids, critiques: {} }
+      : await opts.judge.rank(candidates, { brief: opts.brief, model });
 
-  for (let i = 0; i < candidates.length; i += 1) {
-    for (let j = i + 1; j < candidates.length; j += 1) {
-      const a = candidates[i];
-      const b = candidates[j];
-      if (a === undefined || b === undefined) {
-        continue;
-      }
-      for (const { lens, model } of lenses) {
-        for (const [x, y] of [
-          [a, b],
-          [b, a],
-        ] as const) {
-          const verdict = await opts.judge.compare(x, y, { brief: opts.brief, lens, model });
-          const winner = verdict.winner === x.id || verdict.winner === y.id ? verdict.winner : x.id;
-          bump(wins, winner);
-          bump(comparisons, x.id);
-          bump(comparisons, y.id);
-          recordPanel(winner, lens, verdict.rationale);
-        }
-      }
-    }
+  const known = new Set(ids);
+  const order: string[] = [];
+  for (const id of verdict.order) {
+    if (known.has(id) && !order.includes(id)) order.push(id);
+  }
+  for (const id of ids) {
+    if (!order.includes(id)) order.push(id);
   }
 
-  const ranked = candidates
-    .map((candidate) => {
-      const won = wins.get(candidate.id) ?? 0;
-      const total = comparisons.get(candidate.id) ?? 0;
-      return {
-        id: candidate.id,
-        won,
-        derivedScore: total === 0 ? 100 : Math.round((won / total) * 100),
-      };
-    })
-    .sort((p, q) => q.won - p.won || p.id.localeCompare(q.id));
-
+  const n = order.length;
   const result: Record<string, TasteResult> = {};
-  ranked.forEach((entry, index) => {
-    const lensMap = panels.get(entry.id) ?? new Map<string, string>();
-    result[entry.id] = {
+  order.forEach((id, index) => {
+    result[id] = {
       rank: index + 1,
-      derivedScore: entry.derivedScore,
-      panel: lenses.map(({ lens, model }) => ({
-        lens,
-        model,
-        rationale: lensMap.get(lens) ?? NO_VERDICT,
-      })),
+      derivedScore: n === 1 ? 100 : Math.round(((n - 1 - index) / (n - 1)) * 100),
+      panel: [
+        {
+          lens: OVERALL_LENS,
+          model,
+          rationale: verdict.critiques[id] ?? (n === 1 ? 'only variant' : 'no critique returned'),
+        },
+      ],
     };
   });
   return result;

@@ -1,11 +1,9 @@
 import type { Command } from 'commander';
-import { ClaudeCodeAgent } from '../core/agent';
 import { describeError } from '../core/config';
 import type { HarnessKind } from '../core/detect';
 import type { GraftSpec } from '../core/genome';
-import { createPlaywrightRenderer } from '../core/playwright-io';
 import { recombineVariant } from '../core/search';
-import { bundledSkillsDir } from './bundled';
+import { liveDeps } from './live';
 
 const HARNESSES: readonly HarnessKind[] = ['storybook', 'ladle', 'histoire', 'scratch', 'app'];
 const AXES: readonly NonNullable<GraftSpec['axes']>[number][] = [
@@ -66,11 +64,7 @@ export function registerRecombineCommand(program: Command): void {
             ...(axes !== undefined ? { axes } : {}),
             ...(options.harness !== undefined ? { harness: options.harness as HarnessKind } : {}),
           },
-          {
-            agent: new ClaudeCodeAgent(),
-            renderer: createPlaywrightRenderer(),
-            skillsSourceDir: bundledSkillsDir(),
-          },
+          await liveDeps(cwd),
         );
         console.log(`Recombined ${node.genome.id} ← ${parentA} + ${parentB}`);
         console.log(`  graft: ${node.genome.graft?.instructions ?? ''}`);

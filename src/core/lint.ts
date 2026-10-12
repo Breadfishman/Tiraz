@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { spawnRunner } from './agent';
 import type { CommandRunner } from './agent';
 import { describeError } from './config';
-import type { Violation } from './manifest';
+import type { VariantNode, Violation } from './manifest';
 
 /**
  * A subset of an `impeccable detect --json` finding (the tool emits a flat array of these).
@@ -43,6 +43,8 @@ export interface LintResult {
   /** 0–100 lint score derived from weighted violations (human-facing only). */
   score: number;
   violations: Violation[];
+  /** True when the detector could not run (offline, not installed) — treated as a pass. */
+  skipped?: boolean;
 }
 
 export function severityWeight(severity: string | undefined): number {
@@ -95,29 +97,28 @@ export function parseDetectOutput(stdout: string): Violation[] {
 }
 
 export interface LintOptions {
-  /** Path or URL the detector scans (a variant's renderUrl in URL mode). */
-  target: string;
+  /** Files / directories the detector scans (typically the files a variant changed). */
+  targets: string[];
   /** Minimum score to clear the floor (`config.lintThreshold`). */
   threshold: number;
-  /** Use the regex-only fast path (`--fast`). */
-  fast?: boolean;
   cwd?: string;
   runner?: CommandRunner;
   /** Binary to invoke; defaults to `npx` (runs `npx impeccable detect`, SPEC §9/§14). */
   binary?: string;
 }
 
-/** Run impeccable's deterministic detector against a target and map it to the lint floor result. */
+/**
+ * Run impeccable's deterministic detector (no model calls) against source targets and map it to the
+ * lint floor result. No targets → a clean pass. The detector exits 2 when it finds issues, so the
+ * exit code is not treated as failure; only missing/invalid JSON is.
+ */
 export async function lint(opts: LintOptions): Promise<LintResult> {
+  if (opts.targets.length === 0) {
+    return { passed: true, score: 100, violations: [] };
+  }
   const runner = opts.runner ?? spawnRunner;
   const binary = opts.binary ?? 'npx';
-  const args = [
-    'impeccable',
-    'detect',
-    ...(opts.fast === true ? ['--fast'] : []),
-    '--json',
-    opts.target,
-  ];
+  const args = ['--yes', 'impeccable', 'detect', '--json', ...opts.targets];
 
   const result = await runner(binary, args, { cwd: opts.cwd ?? process.cwd() });
   if (result.stdout.trim() === '') {
@@ -129,4 +130,69 @@ export async function lint(opts: LintOptions): Promise<LintResult> {
   const violations = parseDetectOutput(result.stdout);
   const score = scoreViolations(violations);
   return { passed: score >= opts.threshold, score, violations };
+}
+
+/** Source extensions impeccable's detector understands. */
+const LINTABLE = /\.(html?|css|scss|jsx|tsx|vue|svelte)$/i;
+
+/**
+ * The UI source files a variant added or modified since `baseCommit` (absolute paths). When the node
+ * predates `baseCommit` tracking, falls back to the merge-base with `fallbackRef` (the repo's HEAD).
+ */
+export async function changedUiFiles(
+  node: Pick<VariantNode, 'worktree' | 'baseCommit'>,
+  runner: CommandRunner,
+  fallbackRef?: string,
+): Promise<string[]> {
+  let base = node.baseCommit;
+  if (base === undefined && fallbackRef !== undefined) {
+    const mb = await runner('git', ['merge-base', 'HEAD', fallbackRef], { cwd: node.worktree });
+    if (mb.exitCode === 0 && mb.stdout.trim() !== '') base = mb.stdout.trim();
+  }
+  if (base === undefined) return [];
+  const diff = await runner('git', ['diff', '--name-only', '--diff-filter=AM', base, 'HEAD'], {
+    cwd: node.worktree,
+  });
+  if (diff.exitCode !== 0) return [];
+  return diff.stdout
+    .split('\n')
+    .map((line) => line.trim())
+    .filter((file) => file !== '' && LINTABLE.test(file) && !file.startsWith('.claude/'))
+    .map((file) => `${node.worktree}/${file}`);
+}
+
+export interface VariantLinterOptions {
+  /** The target project root (its HEAD is the fallback diff base). */
+  cwd: string;
+  threshold: number;
+  runner?: CommandRunner;
+  /** Called with a message when the detector can't run and the floor is skipped for a node. */
+  onSkip?: (nodeId: string, message: string) => void;
+}
+
+/**
+ * Build the per-node lint function `runScore` consumes: scan only the files the variant changed.
+ * Best-effort — if the detector is unavailable or errors, the node gets a skipped (passing) result
+ * instead of aborting the whole score.
+ */
+export function createVariantLinter(
+  opts: VariantLinterOptions,
+): (node: VariantNode) => Promise<LintResult> {
+  const runner = opts.runner ?? spawnRunner;
+  let headRef: Promise<string | undefined> | undefined;
+  const repoHead = (): Promise<string | undefined> => {
+    headRef ??= runner('git', ['rev-parse', 'HEAD'], { cwd: opts.cwd }).then((r) =>
+      r.exitCode === 0 && r.stdout.trim() !== '' ? r.stdout.trim() : undefined,
+    );
+    return headRef;
+  };
+  return async (node) => {
+    try {
+      const targets = await changedUiFiles(node, runner, await repoHead());
+      return await lint({ targets, threshold: opts.threshold, cwd: opts.cwd, runner });
+    } catch (err) {
+      opts.onSkip?.(node.genome.id, describeError(err));
+      return { passed: true, score: 100, violations: [], skipped: true };
+    }
+  };
 }

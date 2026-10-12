@@ -120,7 +120,7 @@ It's the cockpit for human-steered evolution; the top action bar calls back into
   human-directed graft (`tiraz recombine`), run as a polled background job.
 - **⬆ Promote**: greenfield merges to base; integration opens a PR (`tiraz promote`). Confirmed first.
 
-Selecting a variant also shows the taste judge's **per-lens rationale** (why it ranked where it did)
+Selecting a variant also shows the taste judge's **critique** (why it ranked where it did)
 in a detail strip. A collapsible **⚙ Config & resources** panel surfaces the run's component sources
 and capability libraries (each **hyperlinked** to its docs) and is the GUI home for the toggles that
 otherwise live in `tiraz skills` / `tiraz sources`. Each control writes `tiraz.config.json` (via the
@@ -230,45 +230,54 @@ environment with `claude` + network.
 
 ### `tiraz gen` ✅ (live)
 
-Generate a round of variants (SPEC §7): seeds diverse genomes, then for each one creates a git
-worktree, links the repo's `node_modules`, runs the coding agent (`claude`), and renders + screenshots
-the target with the live Playwright renderer (boots the detected Storybook/Ladle/Histoire server,
-captures, tears it down). Wired and runnable; needs a live environment: the `claude` binary, a
-component playground in the target repo, and Playwright browsers (`npx playwright install chromium`).
-
-When `sources.fetchMode` is `install` (the default), each worktree first has real components installed
-from its permitted sources (shadcn registry CLI) so the agent composes them rather than reimplementing;
-this is best-effort and silently falls back to signatures if the repo has no `components.json` or a
-fetch fails.
+Generate a round of variants (SPEC §7). One short, read-only planning call writes `--count` directions
+tailored to the brief and your design system (inside your brand in integration mode; the built-in
+catalog is the fallback). Then each variant gets its own git worktree with the repo's `node_modules`
+linked, and one Claude Code session builds it. The agent can run your build/typecheck and
+`tiraz shot` to screenshot its own render and fix what it sees before finishing. Tiraz then commits
+the work (never the `node_modules` link or the installed skills) and captures a full-page screenshot.
+Needs the `claude` binary, a render surface, and a Playwright browser (`npx playwright install
+chromium`, or `TIRAZ_CHROMIUM_PATH`).
 
 - `-b, --brief <text>` (required) · `-c, --count <n>` (default 3) · `-t, --target <scope>` ·
   `--harness <kind>` (`storybook` | `ladle` | `histoire` | `app` | `scratch`).
-- **Render surfaces wired today:** `storybook` (recommended), `ladle`, `histoire`. `app` and `scratch`
-  are accepted kinds but have no serve/build wired yet, so they cannot render variants (v2-stretch,
-  SPEC §11). `adopt` reports `harness: scratch` when it finds no playground.
-- **`--target` format:** for a story harness, `story:<story-id>`, where the id is the lowercased
-  Storybook title plus export joined by `--` (title `Hero` + export `Default` is `story:hero--default`,
-  visible in the story's URL).
+- `--from <node>`: **multi-page.** Extend that node's approved design to a new page (`--target`). Each
+  variant starts from the node's branch, inherits its direction, and is told to reuse its tokens,
+  type, navigation, and footer. No directions are planned.
+- **Render surfaces:** `app` (your project's own dev server via `appCommand`, default
+  `npm run dev -- --port {port}`, auto-detected when there's no playground but a `dev` script),
+  `storybook`, `ladle`, `histoire`. `scratch` has no server.
+- **`--target` format:** for `app`, `route:/` / `route:/about`. For a story harness,
+  `story:<story-id>`, where the id is the lowercased Storybook title plus export joined by `--` (title
+  `Hero` + export `Default` is `story:hero--default`).
+- Component sourcing is off by default; with `sources.fetchMode: install` each worktree first gets
+  real components installed from its permitted sources (best-effort).
+
+### `tiraz shot` ✅
+
+Boot a worktree's render surface, capture a full-page screenshot of a target, and shut down. Build
+agents call it mid-session to check their own work; you can run it by hand too:
+`tiraz shot --worktree <dir> --harness <kind> --target <t> --port <n> --out <png>`.
 
 ### `tiraz score` ✅ (live)
 
-Score a generation with the full three-term fitness (SPEC §9): the **lint floor** (`impeccable
-detect`, a gate), **DS-adherence** (the variant's used colour/spacing literals + components vs the
-repo's CSS-variable tokens, Tier-2 sources whitelisted), and the **vision taste judge** (the
-mixed-model pairwise tournament). Writes each node's composite to the manifest. Wired and runnable;
-needs a vision judge (see `--judge`) and, unless `--no-lint`, `npx impeccable` for the lint floor.
+Score a generation (SPEC §9): the **lint floor** (impeccable's local detector over the files each
+variant changed; advisory unless `fitness.lintFloorRequired`), **DS-adherence** (the variant's used
+colour/spacing literals + components vs the repo's CSS-variable tokens), and the **vision taste
+judge**: ONE call that sees every variant's screenshot and ranks them, with a one-line critique each
+(`agent.judgeModel`, default Sonnet). Writes each node's composite to the manifest.
 
 - `-g, --generation <n>`: generation to score (default: the latest).
 - `-j, --judge <kind>`: taste-judge backend: `api` (Anthropic, needs `ANTHROPIC_API_KEY`) or
-  `claude-cli` (reuses the logged-in `claude` binary, no key). Default: auto (api if a key is set,
-  else claude-cli).
-- `--no-lint`: skip the lint floor and score DS-adherence + taste only.
+  `claude-cli` (one `claude -p` session, no key). Default: auto (api if a key is set, else claude-cli).
+- `--no-lint`: skip the lint pass entirely.
 
 ### `tiraz breed <survivors...>` ✅ (live)
 
 Breed the next generation by mutating each survivor (SPEC §7): drives the agent + renderer like
 `gen`. `-f, --factor <n>` sets children per survivor (default `config.beam.factor`); `--harness`
-overrides detection.
+overrides detection. Pass `-m, --note "<what to improve>"`: a specific human direction is by far the
+strongest signal for a child (the automatic mutations are small dial nudges).
 
 ### `tiraz recombine <parentA> <parentB>` ✅ (live)
 

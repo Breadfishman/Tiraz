@@ -6,6 +6,10 @@ import {
   MagicAgent,
   composeCritiquePrompt,
   composePrompt,
+  defaultAllowedTools,
+  parseClaudeJson,
+  shellQuote,
+  shotCommand,
   spawnRunner,
 } from './agent';
 
@@ -205,11 +209,46 @@ describe('composePrompt', () => {
   });
 });
 
+describe('composePrompt — headless, brand, multi-page, and self-check sections', () => {
+  it('always tells the agent it is headless (no questions, skip missing setup scripts)', () => {
+    const prompt = composePrompt(base, []);
+    expect(prompt).toContain('You are running headless');
+    expect(prompt).toContain('runs a script that is not present');
+  });
+
+  it('adds the keep-the-brand section only in integration mode', () => {
+    expect(
+      composePrompt(base, [], [], undefined, undefined, undefined, { mode: 'integration' }),
+    ).toContain('## Keep the brand');
+    expect(
+      composePrompt(base, [], [], undefined, undefined, undefined, { mode: 'greenfield' }),
+    ).not.toContain('## Keep the brand');
+  });
+
+  it('frames a multi-page variant as extending the established design', () => {
+    const prompt = composePrompt({ ...base, extends: 'g1-n2' }, []);
+    expect(prompt).toContain('## Extend the established design');
+    expect(prompt).toContain('from g1-n2');
+    expect(composePrompt(base, [])).not.toContain('## Extend the established design');
+  });
+
+  it('always asks for a build check, and adds the screenshot loop when a shot command is given', () => {
+    const plain = composePrompt(base, []);
+    expect(plain).toContain('## Check your work before finishing');
+    expect(plain).not.toContain('Render and screenshot your target');
+    const withShot = composePrompt(base, [], [], undefined, undefined, undefined, {
+      check: { command: 'node cli.js shot --out /s/x.png', screenshotPath: '/s/x.png' },
+    });
+    expect(withShot).toContain('`node cli.js shot --out /s/x.png`');
+    expect(withShot).toContain('full-page PNG to /s/x.png');
+  });
+});
+
 describe('composeCritiquePrompt', () => {
   it('instructs a focused self-review against the shared taste bar without rebuilding', () => {
     const prompt = composeCritiquePrompt(base);
     expect(prompt).toContain('# Tiraz self-critique pass');
-    expect(prompt).toContain('ALREADY built this component');
+    expect(prompt).toContain('ALREADY built this');
     expect(prompt).toContain('do NOT restart from scratch');
     expect(prompt).toContain('A hero section for a coffee roaster.'); // the brief
     // The same shared rubric the judge grades on (taste-rubric.ts).
@@ -242,10 +281,124 @@ describe('ClaudeCodeAgent', () => {
     });
     expect(agent.buildArgs({ cwd: '/x', prompt: 'hello', skills: [] })).toEqual([
       '-p',
+      '--output-format',
+      'json',
       '--permission-mode',
       'acceptEdits',
       'hello',
     ]);
+  });
+
+  it('adds model, turn cap, permissions (as one --settings JSON) and resume, prompt last', () => {
+    const agent = new ClaudeCodeAgent({
+      runner: fakeRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      model: 'claude-opus-5-5',
+      maxTurns: 40,
+      allowedTools: ['Bash(npm run build:*)'],
+    });
+    const args = agent.buildArgs({
+      cwd: '/x',
+      prompt: 'build it',
+      skills: [],
+      additionalDirectories: ['/repo/.tiraz/screenshots'],
+      resumeSessionId: 'sess-1',
+    });
+    expect(args).toEqual([
+      '-p',
+      '--output-format',
+      'json',
+      '--permission-mode',
+      'acceptEdits',
+      '--model',
+      'claude-opus-5-5',
+      '--max-turns',
+      '40',
+      '--settings',
+      JSON.stringify({
+        permissions: {
+          allow: ['Bash(npm run build:*)'],
+          additionalDirectories: ['/repo/.tiraz/screenshots'],
+        },
+      }),
+      '--resume',
+      'sess-1',
+      'build it',
+    ]);
+  });
+
+  it('lets a run override model + turns and go read-only (deny edits/shell, no allow-list)', () => {
+    const agent = new ClaudeCodeAgent({
+      runner: fakeRunner({ exitCode: 0, stdout: '', stderr: '' }),
+      model: 'claude-opus-5-5',
+      maxTurns: 40,
+      allowedTools: ['Bash(npm run build:*)'],
+    });
+    const args = agent.buildArgs({
+      cwd: '/x',
+      prompt: 'plan',
+      skills: [],
+      model: 'claude-sonnet-5-5',
+      maxTurns: 2,
+      readOnly: true,
+    });
+    expect(args).toContain('claude-sonnet-5-5');
+    expect(args).not.toContain('claude-opus-5-5');
+    expect(args[args.indexOf('--max-turns') + 1]).toBe('2');
+    const settings = JSON.parse(args[args.indexOf('--settings') + 1] ?? '{}') as {
+      permissions: { allow?: string[]; deny?: string[] };
+    };
+    expect(settings.permissions.allow).toBeUndefined();
+    expect(settings.permissions.deny).toEqual(expect.arrayContaining(['Edit', 'Write', 'Bash']));
+  });
+
+  it('parses JSON output: result text, session id, and cost', async () => {
+    const agent = new ClaudeCodeAgent({
+      runner: fakeRunner({
+        exitCode: 0,
+        stdout: JSON.stringify({
+          type: 'result',
+          subtype: 'success',
+          is_error: false,
+          result: 'all done',
+          session_id: 'sess-9',
+          total_cost_usd: 0.42,
+        }),
+        stderr: '',
+      }),
+    });
+    expect(await agent.run({ cwd: '/x', prompt: 'p', skills: [] })).toEqual({
+      ok: true,
+      exitCode: 0,
+      output: 'all done',
+      sessionId: 'sess-9',
+      costUsd: 0.42,
+    });
+  });
+
+  it('treats a max-turns stop as usable work, and is_error as failure', async () => {
+    const capped = new ClaudeCodeAgent({
+      runner: fakeRunner({
+        exitCode: 1,
+        stdout: JSON.stringify({ subtype: 'error_max_turns', is_error: true, session_id: 's' }),
+        stderr: '',
+      }),
+    });
+    const cappedResult = await capped.run({ cwd: '/x', prompt: 'p', skills: [] });
+    expect(cappedResult.ok).toBe(true);
+    expect(cappedResult.output).toContain('max-turns');
+
+    const errored = new ClaudeCodeAgent({
+      runner: fakeRunner({
+        exitCode: 0,
+        stdout: JSON.stringify({ subtype: 'error_during_execution', is_error: true }),
+        stderr: 'api down',
+      }),
+    });
+    expect(await errored.run({ cwd: '/x', prompt: 'p', skills: [] })).toEqual({
+      ok: false,
+      exitCode: 0,
+      output: 'api down',
+    });
   });
 
   it('honours a custom permission mode', () => {
@@ -270,6 +423,44 @@ describe('ClaudeCodeAgent', () => {
     });
     const result = await agent.run({ cwd: '/x', prompt: 'p', skills: [] });
     expect(result).toEqual({ ok: false, exitCode: 1, output: 'boom' });
+  });
+});
+
+describe('parseClaudeJson', () => {
+  it('returns null for non-object output', () => {
+    expect(parseClaudeJson('plain text')).toBeNull();
+    expect(parseClaudeJson('[1,2]')).toBeNull();
+    expect(parseClaudeJson('null')).toBeNull();
+  });
+
+  it('keeps only well-typed fields', () => {
+    expect(parseClaudeJson('{"result": 3, "session_id": "s", "is_error": "no"}')).toEqual({
+      sessionId: 's',
+    });
+  });
+});
+
+describe('shell helpers', () => {
+  it('quotes only when needed', () => {
+    expect(shellQuote('/a/b-c_d.png')).toBe('/a/b-c_d.png');
+    expect(shellQuote('')).toBe("''");
+    expect(shellQuote("it's here")).toBe(`'it'\\''s here'`);
+  });
+
+  it('builds a tiraz shot command whose prefix matches the default allow-rule', () => {
+    const cmd = shotCommand('/pkg/dist/cli.js', {
+      worktree: '/repo/.tiraz/worktrees/g0-n0',
+      harness: 'storybook',
+      target: 'story:hero--default',
+      port: 41000,
+      out: '/repo/.tiraz/screenshots/g0-n0-check.png',
+    });
+    expect(cmd).toBe(
+      'node /pkg/dist/cli.js shot --worktree /repo/.tiraz/worktrees/g0-n0 --harness storybook ' +
+        '--target story:hero--default --port 41000 --out /repo/.tiraz/screenshots/g0-n0-check.png',
+    );
+    expect(defaultAllowedTools('/pkg/dist/cli.js')).toContain('Bash(node /pkg/dist/cli.js shot:*)');
+    expect(defaultAllowedTools().some((rule) => rule.includes('shot'))).toBe(false);
   });
 });
 

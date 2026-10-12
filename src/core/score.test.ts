@@ -8,7 +8,7 @@ import type { LintResult } from './lint';
 import type { Manifest, VariantNode } from './manifest';
 import { createManifest, recordGeneration, saveManifest, upsertNode } from './manifest';
 import { ScoreError, runScore } from './score';
-import type { PairwiseJudge } from './taste-judge';
+import type { RankingJudge } from './taste-judge';
 
 const tmpDirs: string[] = [];
 const config = TirazConfigSchema.parse({});
@@ -18,8 +18,8 @@ const designSystem: DesignSystem = { tokens: { color: ['#111'] }, components: ['
 
 const passingLint: LintResult = { passed: true, score: 100, violations: [] };
 
-const preferAJudge: PairwiseJudge = {
-  compare: (a, b) => Promise.resolve({ winner: a.id === 'g0-n0' ? a.id : b.id, rationale: 'r' }),
+const preferAJudge: RankingJudge = {
+  rank: () => Promise.resolve({ order: ['g0-n0', 'g0-n1'], critiques: { 'g0-n0': 'r' } }),
 };
 
 function node(id: string): VariantNode {
@@ -105,6 +105,29 @@ describe('runScore', () => {
     expect(updated.nodes['g0-n1']?.fitness?.composite).toBe(0);
     expect(updated.nodes['g0-n1']?.fitness?.lintFloor.passed).toBe(false);
     expect(updated.nodes['g0-n0']?.fitness?.composite).not.toBe(0);
+  });
+
+  it('keeps the lint floor advisory when lintGate is off (violations recorded, composite kept)', async () => {
+    const dir = await seedManifest();
+    const failing: LintResult = {
+      passed: false,
+      score: 40,
+      violations: [{ rule: 'x', severity: 25, detail: 'bad' }],
+    };
+    const updated = await runScore(dir, 0, {
+      lint: () => Promise.resolve(failing),
+      designSystem,
+      collectUsedValues: () => Promise.resolve({ values: {}, components: [] }),
+      judge: preferAJudge,
+      judgeModel: 'claude-haiku-5-5',
+      weights,
+      lintGate: false,
+    });
+    const top = updated.nodes['g0-n0']?.fitness;
+    expect(top?.lintFloor.passed).toBe(false);
+    expect(top?.lintFloor.violations).toHaveLength(1);
+    expect(top?.composite).toBeGreaterThan(0);
+    expect(top?.taste.panel[0]?.model).toBe('claude-haiku-5-5');
   });
 
   it('throws ScoreError when there is no manifest', async () => {

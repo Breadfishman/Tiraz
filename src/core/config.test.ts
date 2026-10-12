@@ -38,7 +38,11 @@ describe('TirazConfigSchema', () => {
     expect(config.pruning).toBe('lint-gated');
     expect(config.dials).toEqual({ variance: 5, motion: 5, density: 5 });
     expect(config.beam).toEqual({ width: 2, factor: 3, maxDepth: 3 });
-    expect(config.fitness.weights).toEqual({ dsAdherence: 0.5, taste: 0.5 });
+    // Taste leads the blend; the lint floor is advisory unless opted in.
+    expect(config.fitness).toEqual({
+      lintFloorRequired: false,
+      weights: { dsAdherence: 0.3, taste: 0.7 },
+    });
     expect(config.sources).toEqual({
       bundled: ['magic-ui'],
       fetch: [
@@ -55,8 +59,8 @@ describe('TirazConfigSchema', () => {
       aceternity: false,
       // Skiper UI is restricted (free+paid, attribution) — off by default like Aceternity.
       skiper: false,
-      // Genuine component fetching defaults on, with a 6-component-per-variant budget (SPEC §12).
-      fetchMode: 'install',
+      // Component sourcing is off by default (no fetching, no per-source prompt text) (SPEC §12).
+      fetchMode: 'off',
       fetchBudget: 6,
       // 21st.dev semantic search is opt-in (hosted, API-keyed) — off by default.
       twentyFirst: false,
@@ -65,12 +69,37 @@ describe('TirazConfigSchema', () => {
     expect(config.framework).toBe('astro');
     expect(config.lintThreshold).toBe(80);
     expect(config.modules).toEqual({ threeD: false, remotion: false });
-    // Self-critique-and-revise second pass is on by default (the headline anti-slop lever); a round
-    // materializes up to `concurrency` variants in parallel.
+    // The agent checks its own render in-session, so the second self-critique pass is off; gen-0
+    // directions are planned per brief; skills install lean.
     expect(config.generation).toEqual({
-      selfCritique: true,
+      selfCritique: false,
       concurrency: 4,
       diversity: 'diverse',
+      directions: 'planned',
+      skills: 'lean',
+    });
+    expect(config.agent).toEqual({
+      maxTurns: 60,
+      judgeModel: 'claude-sonnet-5-5',
+      plannerModel: 'claude-sonnet-5-5',
+      allowedTools: [],
+    });
+  });
+
+  it('field-defaults partial generation/agent blocks so older configs keep validating', () => {
+    const result = TirazConfigSchema.safeParse({
+      generation: { selfCritique: true },
+      agent: { model: 'claude-opus-5-5' },
+    });
+    expect(result.success).toBe(true);
+    expect(result.success && result.data.generation).toMatchObject({
+      selfCritique: true,
+      directions: 'planned',
+      skills: 'lean',
+    });
+    expect(result.success && result.data.agent).toMatchObject({
+      model: 'claude-opus-5-5',
+      maxTurns: 60,
     });
   });
 
@@ -101,7 +130,7 @@ describe('TirazConfigSchema', () => {
       sources: { bundled: ['magic-ui'], fetch: ['cult-ui'], aceternity: false },
     });
     expect(result.success).toBe(true);
-    expect(result.success && result.data.sources.fetchMode).toBe('install');
+    expect(result.success && result.data.sources.fetchMode).toBe('off');
     expect(result.success && result.data.sources.fetchBudget).toBe(6);
     // The 21st.dev keys also field-default (off / budget 3) so legacy configs validate.
     expect(result.success && result.data.sources.twentyFirst).toBe(false);

@@ -17,12 +17,12 @@ All examples assume the alias `alias tiraz="node /absolute/path/to/Tiraz/dist/cl
 - **Playwright browsers:** `npx playwright install chromium`.
 - **Your target repo's dependencies installed** (`npm install` in that repo): variants render by
   reusing its `node_modules` and booting its harness.
-- **A render surface** in the target repo: a Storybook (recommended), Ladle, or Histoire story. The
-  `app` and `scratch` harnesses are detected but not yet wired to render (v2), so use a real playground.
-  Without one, `gen` has nothing to render and cannot score (the most common first-run blocker). The
-  story id you target is the lowercased `title--export`, for example a `title: "Hero"` /
-  `export const Default` story is `hero--default`. **Greenfield `tiraz init` scaffolds this for you**
-  (a Storybook plus a `hero--default` starter story); in integration mode you add one yourself.
+- **A render surface** in the target repo. For a website, the simplest is the site itself: the `app`
+  harness runs your dev server (`appCommand`, default `npm run dev -- --port {port}`) and targets
+  routes (`route:/about`); `adopt` picks it when there's a `dev` script and no playground. A
+  Storybook, Ladle, or Histoire story works too; the story id is the lowercased `title--export` (a
+  `title: "Hero"` / `export const Default` story is `hero--default`). **Greenfield `tiraz init`
+  scaffolds a Storybook + `hero--default` starter story for you.**
 - **For `promote` only:** the `gh` CLI authenticated (`gh auth login`) and a git remote.
 
 ## Pick a mode for setup
@@ -48,7 +48,7 @@ cd your-existing-repo
 npm install                  # variants reuse these node_modules
 git checkout -b redesign-tiraz
 tiraz adopt                  # detects stack + harness, prints what it found, writes integration config
-#   add a Storybook story; if you add it AFTER adopt, pass --harness storybook to gen (or re-run adopt)
+#   no playground + a dev script → harness "app" (targets are routes); a story harness also works
 git add -A && git commit -m "tiraz setup"
 ```
 
@@ -63,11 +63,12 @@ paste wholesale.
 
 ```bash
 # Generate a round of variants for one target.
-tiraz gen --brief "A striking hero for ..." --target story:hero--default --harness storybook --count 4
-#   takes several minutes per variant and uses paid agent time; when done, `tiraz tree` lists g0-n0..g0-n3
+tiraz gen --brief "A striking homepage for ..." --target route:/ --count 4
+#   1 planning call + 4 build sessions (each agent screenshots and fixes its own page);
+#   when done, `tiraz tree` lists g0-n0..g0-n3. Story harnesses use --target story:<id>.
 
-# Score the round: lint floor + design-system adherence + pairwise taste tournament.
-tiraz score                 # add --no-lint so rough early variants still get a taste/DS score
+# Score the round: ONE vision call ranks all 4, plus free local lint + design-system checks.
+tiraz score
 
 # Review (two distinct commands).
 tiraz tree                  # the ranked variant DAG (every id, lineage, scores)
@@ -84,6 +85,12 @@ tiraz breed  g0-n2 --factor 2           # next generation; -m "make the hero bol
 
 # OR blend two parents (do NOT select first; that prunes one of them):
 tiraz recombine g0-n1 g0-n2 -g "take n2's hero, n1's palette"
+```
+
+Carry the winning design to another page (multi-page sites):
+
+```bash
+tiraz gen --from g2-n0 --target route:/about --count 2 --brief "About page: story, team, photos"
 ```
 
 Checkpoint anytime (revertible; it only snapshots the manifest):
@@ -108,24 +115,25 @@ tiraz promote g2-n0          # integration: opens a PR. greenfield: MERGES into 
 
 Per-command flags and status live in [../cli.md](../cli.md). The high-frequency ones:
 
-| Command                               | What it does                                                    |
-| ------------------------------------- | --------------------------------------------------------------- |
-| `tiraz gen`                           | Generate a round of variants for `--target` (`-c`/`--count` N)  |
-| `tiraz score`                         | Grade the latest generation (`--no-lint` to skip the lint gate) |
-| `tiraz tree`                          | Ranked variant DAG (every id, lineage, scores)                  |
-| `tiraz status`                        | Per-status summary of the run (a different view from `tree`)    |
-| `tiraz dashboard --open`              | The live cockpit: review, compare, and drive the search         |
-| `tiraz select` / `cull`               | Keep survivors / kill variants (`cull --lineage` for a chain)   |
-| `tiraz breed` / `recombine`           | Refine a survivor (`-m` directed) / blend two parents           |
-| `tiraz snapshot save\|list\|restore`  | Revertible session checkpoints                                  |
-| `tiraz promote <node>`                | Ship the winner (PR in integration, merge in greenfield)        |
-| `tiraz sources list\|enable\|disable` | Inspect sources; `disable` only toggles restricted ones         |
-| `tiraz skills list\|use`              | Inspect and set the design-taste skills (run from your project) |
+| Command                               | What it does                                                     |
+| ------------------------------------- | ---------------------------------------------------------------- |
+| `tiraz gen`                           | Generate a round for `--target` (`-c` N; `--from` for new pages) |
+| `tiraz score`                         | Rank the latest generation in one judge call (+ free checks)     |
+| `tiraz tree`                          | Ranked variant DAG (every id, lineage, scores)                   |
+| `tiraz status`                        | Per-status summary of the run (a different view from `tree`)     |
+| `tiraz dashboard --open`              | The live cockpit: review, compare, and drive the search          |
+| `tiraz select` / `cull`               | Keep survivors / kill variants (`cull --lineage` for a chain)    |
+| `tiraz breed` / `recombine`           | Refine a survivor (`-m` directed) / blend two parents            |
+| `tiraz snapshot save\|list\|restore`  | Revertible session checkpoints                                   |
+| `tiraz promote <node>`                | Ship the winner (PR in integration, merge in greenfield)         |
+| `tiraz sources list\|enable\|disable` | Inspect sources; `disable` only toggles restricted ones          |
+| `tiraz skills list\|use`              | Inspect and set the design-taste skills (run from your project)  |
 
 ## When something stalls
 
 - **`gen` renders nothing:** no render surface, or the target repo's `node_modules` are not installed.
-  Add a Storybook story and run `npm install` in your repo.
+  Run `npm install` in your repo and check `harness` / `appCommand` in `tiraz.config.json`; try
+  `tiraz shot` by hand (see [../cli.md](../cli.md#tiraz-shot-)).
 - **A restricted source's fetch hangs:** `tiraz sources disable aceternity` (only `aceternity` and
   `skiper-ui` are toggleable; others live in the `sources.fetch` list / dashboard Config panel).
 - **Scores look off:** review by eye in the dashboard. The fitness function is a pre-filter, not the

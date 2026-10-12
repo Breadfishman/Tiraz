@@ -1,49 +1,32 @@
 /**
- * The live taste judge (SPEC §9): a vision model reads two rendered screenshots and picks the
- * better one for a given lens. The prompt building and verdict parsing are pure + fully tested; the
- * actual Anthropic vision call (and reading the image files) is the injected `complete` boundary,
- * with the real implementation in `anthropic-io.ts` (coverage-excluded glue).
+ * The live taste judge (SPEC §9): a vision model sees every rendered screenshot of a generation at
+ * once and ranks them in a single call. Prompt building and verdict parsing are pure + fully tested;
+ * the actual vision call (and reading the image files) is the injected `complete` boundary, with real
+ * implementations in `anthropic-io.ts` (API) and `claude-judge-io.ts` (the local `claude` CLI).
  *
- * Pairwise, not absolute — LLM judges are far better at relative comparisons (SPEC §9). Images are
- * shown as neutral "A" / "B" so the model never sees the variant ids.
+ * Images are shown as neutral numbered options so the model never sees the variant ids.
  */
 
 import { z } from 'zod';
-import type { JudgeCandidate, JudgeContext, PairwiseJudge, PairwiseVerdict } from './taste-judge';
+import type { JudgeCandidate, JudgeContext, RankingJudge, RankingVerdict } from './taste-judge';
 import { antiSlopRubric, calibrationAnchors, paletteRubric } from './taste-rubric';
 
-// Lens rubrics judge CRAFT for the option's own intent, not conformity to one house style (SPEC §9).
-// They reward control and deliberateness in any aesthetic and never prefer sparse-over-dense or
-// restrained-over-bold for its own sake — that bias is exactly what used to collapse diversity.
-const LENS_RUBRICS: Record<string, string> = {
-  typography:
-    "type craft only: is the type system deliberate and well-executed for THIS design's intent — " +
-    'hierarchy, scale and weight contrast, pairing, line-length, leading, tracking? Reward confident, ' +
-    'intentional type (loud or quiet); penalise timid system-stack defaults and flat hierarchy.',
-  layout:
-    'composition craft only: spatial control, rhythm, focal hierarchy, and intentional use of space ' +
-    "(dense or sparse) for THIS design's intent. Reward deliberate, controlled composition; penalise " +
-    'templated, defaulted layout. Do NOT prefer sparse over dense or symmetric over asymmetric — ' +
-    'judge control and intent, not style.',
-  motion:
-    'implied motion and interaction polish: easing, choreography, micro-interaction cues visible in ' +
-    'the still. Reward motion that is intentional and choreographed for this design; penalise generic ' +
-    'or defaulted motion. Absence of motion is fine when the design does not call for it.',
-  // Dedicated palette/colour lens — judges colour craft (cohesion + intent), not amount of colour.
-  palette: paletteRubric(),
-  // The anti-slop lens draws on the universal floor so the judge grades on the same style-neutral
-  // catalog the agent builds against (taste-rubric.ts) — commitment + craft, not a preferred look.
-  'generic-feel': antiSlopRubric(),
-};
+// One rubric covering what the old per-lens panel split apart. It judges CRAFT for each option's own
+// intent, never conformity to one house style (sparse vs dense, restrained vs loud are not graded).
+const RUBRIC = [
+  '- Typography: a deliberate type system — hierarchy, scale and weight contrast, pairing, measure,',
+  '  leading. Confident type (loud or quiet) beats timid system-stack defaults.',
+  '- Layout: spatial control, rhythm, a clear focal hierarchy, intentional use of space (dense or',
+  '  sparse). Deliberate composition beats a templated, defaulted layout.',
+  `- Colour: ${paletteRubric()}`,
+  `- Originality: ${antiSlopRubric()}`,
+  '- Execution: nothing broken — no overlapping or clipped content, unstyled sections, missing images',
+  '  or blank areas. A broken render loses to a working one regardless of ambition.',
+].join('\n');
 
-const DEFAULT_RUBRIC = 'overall design quality and taste for this brief.';
-
-// A few concise calibration anchors (from the shared rubric) so the critic's bar is grounded few-shot
-// rather than free-floating — kept consistent with what the generator builds against (taste-rubric.ts).
 const JUDGE_SYSTEM = [
-  'You are a senior design critic with exceptional, non-generic taste. You compare two UI ' +
-    'screenshots and judge which is better on a single specified dimension. You are decisive and ' +
-    'never call a tie.',
+  'You are a senior design critic with exceptional, non-generic taste. You rank rendered UI',
+  'screenshots from best to worst. You are decisive: every option gets a distinct rank.',
   '',
   ...calibrationAnchors(),
 ].join('\n');
@@ -53,66 +36,74 @@ export interface JudgePrompt {
   prompt: string;
 }
 
-/** Each option's own aesthetic direction, so the judge grades execution-of-intent, not house style. */
-export interface JudgeIntents {
-  a?: string;
-  b?: string;
-}
-
-/** Build the (pure) system + user prompt for a lens comparison. The caller supplies the images. */
-export function buildJudgePrompt(
-  brief: string,
-  lens: string,
-  intents: JudgeIntents = {},
-): JudgePrompt {
-  const rubric = LENS_RUBRICS[lens] ?? DEFAULT_RUBRIC;
+/**
+ * Build the (pure) system + user prompt for ranking `intents.length` options. `intents[i]` is option
+ * `i + 1`'s own stated direction (or undefined). The caller supplies the images in the same order.
+ */
+export function buildRankPrompt(brief: string, intents: (string | undefined)[]): JudgePrompt {
+  const n = intents.length;
   const lines = [
-    'Two UI screenshots implement the same brief. The first image is option A; the second is option B.',
+    `${String(n)} UI screenshots implement the same brief. The images are options 1 to ${String(n)},`,
+    'in the order given (each may be a tall full-page capture — look at the whole page).',
     '',
     `Brief: ${brief.trim() === '' ? '(no brief supplied)' : brief.trim()}`,
   ];
 
-  // When each option states its own aesthetic direction, judge how well it realises THAT — the two
-  // may pursue very different looks, and neither aesthetic is "more correct" (SPEC §9).
-  const aIntent = intents.a?.trim() ?? '';
-  const bIntent = intents.b?.trim() ?? '';
-  if (aIntent !== '' || bIntent !== '') {
+  const stated = intents.map((intent) => intent?.trim() ?? '');
+  if (stated.some((intent) => intent !== '')) {
     lines.push(
       '',
       'Each option commits to its OWN aesthetic direction — they may be very different (minimal,',
-      'maximal, brutalist, playful). Do NOT favour one aesthetic over another; judge which option',
-      'realises its own direction with more craft, commitment, and memorability on the dimension below.',
+      'maximal, brutalist, playful). Do NOT favour one aesthetic over another; judge which options',
+      'realise their own direction with the most craft, commitment, and memorability.',
     );
-    if (aIntent !== '') lines.push(`Option A's direction: ${aIntent}`);
-    if (bIntent !== '') lines.push(`Option B's direction: ${bIntent}`);
+    stated.forEach((intent, i) => {
+      if (intent !== '') lines.push(`- Option ${String(i + 1)}'s direction: ${intent}`);
+    });
   }
 
   lines.push(
     '',
-    `Judge ONLY this dimension — ${lens}: ${rubric}`,
-    'Ignore all other dimensions. Pick the single better option.',
+    'Judge on:',
+    RUBRIC,
+    '',
+    'Rank ALL options, best first. For each, give one specific sentence of critique: what works and',
+    'the single most important thing to fix.',
     '',
     'Respond with strict JSON and nothing else:',
-    '{"winner": "A" | "B", "rationale": "<one or two sentences, specific to the dimension>"}',
+    '{"ranking": [{"option": <number>, "critique": "<one sentence>"}, ...]}',
   );
   return { system: JUDGE_SYSTEM, prompt: lines.join('\n') };
 }
 
-const VerdictSchema = z.object({
-  winner: z.enum(['A', 'B']),
-  rationale: z.string().min(1),
+const RankingSchema = z.object({
+  ranking: z
+    .array(
+      z.object({
+        option: z.union([z.number(), z.string()]),
+        critique: z.string().optional(),
+      }),
+    )
+    .min(1),
 });
 
 /** Extract the first balanced `{…}` JSON object from arbitrary model text, or `null`. */
-function extractJsonObject(text: string): string | null {
+export function extractJsonObject(text: string): string | null {
   const start = text.indexOf('{');
   if (start === -1) {
     return null;
   }
   let depth = 0;
+  let inString = false;
   for (let i = start; i < text.length; i += 1) {
     const ch = text[i];
-    if (ch === '{') depth += 1;
+    if (inString) {
+      if (ch === '\\') i += 1;
+      else if (ch === '"') inString = false;
+      continue;
+    }
+    if (ch === '"') inString = true;
+    else if (ch === '{') depth += 1;
     else if (ch === '}') {
       depth -= 1;
       if (depth === 0) {
@@ -124,65 +115,69 @@ function extractJsonObject(text: string): string | null {
 }
 
 /**
- * Parse a model response into a {@link PairwiseVerdict}, mapping the "A"/"B" label back to the
- * candidate ids. Defaults to `aId` (with a noting rationale) when the response can't be parsed — the
- * tournament must always get a valid winner from the pair.
+ * Parse a model response into a {@link RankingVerdict}, mapping 1-based option numbers back to the
+ * candidate ids. Out-of-range or duplicate options are ignored (the ranker appends any omitted ids).
+ * When nothing parses, returns the input order with an explanatory critique so a run never aborts.
  */
-export function parseVerdict(text: string, aId: string, bId: string): PairwiseVerdict {
+export function parseRanking(text: string, ids: readonly string[]): RankingVerdict {
   const json = extractJsonObject(text);
   if (json !== null) {
     try {
-      const parsed = VerdictSchema.safeParse(JSON.parse(json));
+      const parsed = RankingSchema.safeParse(JSON.parse(json));
       if (parsed.success) {
-        return {
-          winner: parsed.data.winner === 'A' ? aId : bId,
-          rationale: parsed.data.rationale,
-        };
+        const order: string[] = [];
+        const critiques: Record<string, string> = {};
+        for (const entry of parsed.data.ranking) {
+          const index = Number(entry.option) - 1;
+          const id = Number.isInteger(index) ? ids[index] : undefined;
+          if (id === undefined || order.includes(id)) continue;
+          order.push(id);
+          const critique = entry.critique?.trim() ?? '';
+          if (critique !== '') critiques[id] = critique;
+        }
+        if (order.length > 0) return { order, critiques };
       }
     } catch {
       // fall through to the default below
     }
   }
-  return {
-    winner: aId,
-    rationale: `Could not parse judge response; defaulted to A. Raw: ${text.trim().slice(0, 200)}`,
-  };
+  const note = `Could not parse judge response; kept input order. Raw: ${text.trim().slice(0, 200)}`;
+  return { order: [...ids], critiques: Object.fromEntries(ids.map((id) => [id, note])) };
 }
 
 export interface VisionRequest {
   model: string;
   system: string;
   prompt: string;
-  /** Screenshot paths in [A, B] order — the live impl reads + sends them as image blocks. */
-  imagePaths: [string, string];
+  /** Screenshot paths in option order — the live impl reads + sends them as image blocks. */
+  imagePaths: string[];
 }
 
-/** Sends a lens prompt + the two screenshots to a vision model and returns its raw text response. */
+/** Sends the ranking prompt + every screenshot to a vision model and returns its raw text. */
 export type VisionComplete = (request: VisionRequest) => Promise<string>;
 
-/**
- * {@link PairwiseJudge} backed by a vision model (SPEC §9). Pure orchestration: build the lens
- * prompt, hand the two screenshots to the injected `complete`, parse the verdict. The mixed-model
- * panel is realized by `JudgeContext.model` varying per lens (`DEFAULT_LENSES`).
- */
-export class VisionPairwiseJudge implements PairwiseJudge {
+/** {@link RankingJudge} backed by a vision model: build the prompt, call `complete`, parse. */
+export class VisionRankingJudge implements RankingJudge {
   private readonly complete: VisionComplete;
 
   constructor(complete: VisionComplete) {
     this.complete = complete;
   }
 
-  async compare(a: JudgeCandidate, b: JudgeCandidate, ctx: JudgeContext): Promise<PairwiseVerdict> {
-    const { system, prompt } = buildJudgePrompt(ctx.brief, ctx.lens, {
-      ...(a.intent !== undefined ? { a: a.intent } : {}),
-      ...(b.intent !== undefined ? { b: b.intent } : {}),
-    });
+  async rank(candidates: JudgeCandidate[], ctx: JudgeContext): Promise<RankingVerdict> {
+    const { system, prompt } = buildRankPrompt(
+      ctx.brief,
+      candidates.map((c) => c.intent),
+    );
     const text = await this.complete({
       model: ctx.model,
       system,
       prompt,
-      imagePaths: [a.screenshotPath, b.screenshotPath],
+      imagePaths: candidates.map((c) => c.screenshotPath),
     });
-    return parseVerdict(text, a.id, b.id);
+    return parseRanking(
+      text,
+      candidates.map((c) => c.id),
+    );
   }
 }

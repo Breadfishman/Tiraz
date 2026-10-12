@@ -13,12 +13,26 @@ export interface AgentRunOptions {
   skills: string[];
   /** Tier-2 component sources the agent may draw from (SPEC §12). */
   sources?: string[];
+  /** Continue an earlier session (keeps its context + prompt cache) instead of starting fresh. */
+  resumeSessionId?: string;
+  /** Extra directories the agent may read/write outside `cwd` (e.g. the screenshots dir). */
+  additionalDirectories?: string[];
+  /** Per-run model override (e.g. a cheaper planner model); falls back to the agent default. */
+  model?: string;
+  /** Per-run turn cap override; falls back to the agent default. */
+  maxTurns?: number;
+  /** Deny every file-editing and shell tool for this run (planning / judging calls). */
+  readOnly?: boolean;
 }
 
 export interface AgentResult {
   ok: boolean;
   exitCode: number;
   output: string;
+  /** The backend's session id, when it reports one (lets a follow-up pass resume it). */
+  sessionId?: string;
+  /** Reported spend for this run in USD, when the backend reports it. */
+  costUsd?: number;
 }
 
 /**
@@ -53,6 +67,36 @@ function designSystemSection(system: DesignSystem | undefined): string[] {
   return lines;
 }
 
+/** Optional prompt context that isn't part of the genome. */
+export interface PromptExtras {
+  /** Integration mode keeps the existing brand; greenfield is free to invent one. */
+  mode?: 'integration' | 'greenfield';
+  /**
+   * A shell command that renders + screenshots the target to `screenshotPath` (boots the harness,
+   * captures, tears down). When present the agent is told to look at its own render and iterate.
+   */
+  check?: { command: string; screenshotPath: string };
+}
+
+/** Lines telling the agent how to verify its own work (build + look at the render). */
+function checkSection(check: PromptExtras['check']): string[] {
+  const lines = [
+    '## Check your work before finishing',
+    '- If the project has a typecheck or build script (e.g. `npm run build`, `npx tsc --noEmit`), run it and fix errors.',
+  ];
+  if (check !== undefined) {
+    lines.push(
+      `- Render and screenshot your target with: \`${check.command}\``,
+      `  It boots the render harness, writes a full-page PNG to ${check.screenshotPath}, and shuts down.`,
+      '  Read that PNG and look at it critically: fix anything broken (blank areas, overlap, clipped or',
+      '  unstyled content, missing assets) and the weakest design choices, then re-check. Two or three',
+      '  check rounds is plenty — stop when it is genuinely good.',
+    );
+  }
+  lines.push('');
+  return lines;
+}
+
 /**
  * Compose the agent prompt from a genome + its resolved active skill ids (SPEC §8): brief,
  * target scope, the repo's design system (§3/§9), active skills, dials, commands, recombination
@@ -66,11 +110,15 @@ export function composePrompt(
   designSystem?: DesignSystem,
   directive?: string,
   fetched?: { source: string; item: string }[],
+  extras: PromptExtras = {},
 ): string {
   const lines: string[] = [
     '# Tiraz variant brief',
     '',
     'Implement the following UI brief with exceptional, non-generic design taste.',
+    'You are running headless: nobody will answer questions. Make confident decisions yourself, skip',
+    'any skill setup step that asks the user something or runs a script that is not present, and finish',
+    'with a complete, working implementation.',
     '',
     '## Brief',
     genome.brief,
@@ -79,6 +127,28 @@ export function composePrompt(
 
   if (genome.target !== undefined) {
     lines.push('## Target', `Scope your work to: ${genome.target}`, '');
+  }
+
+  if (extras.mode === 'integration') {
+    lines.push(
+      '## Keep the brand',
+      'This is a redesign of an existing product. Keep its brand: logo, name, voice, and brand colours',
+      'and type (via the design system below). Rethink composition, hierarchy, rhythm, and detail — not',
+      'who the company is.',
+      '',
+    );
+  }
+
+  // Multi-page work: this page extends a design already established on another page's branch.
+  if (genome.extends !== undefined) {
+    lines.push(
+      '## Extend the established design',
+      `This worktree already contains an approved design (from ${genome.extends}) for another page of`,
+      'the same site. Build THIS target as a new page of that site: reuse its tokens, type, colour,',
+      'navigation, footer, and component vocabulary so the pages read as one system. Do not restyle the',
+      'existing page; vary only what this page needs.',
+      '',
+    );
   }
 
   // Gen-0 diversity (SPEC §4): the variant's aesthetic ethos, high in the prompt so it frames every
@@ -209,6 +279,8 @@ export function composePrompt(
     );
   }
 
+  lines.push(...checkSection(extras.check));
+
   lines.push(`Variation seed: ${String(genome.seed)} — make distinctive choices for this seed.`);
   return lines.join('\n');
 }
@@ -224,8 +296,8 @@ export function composeCritiquePrompt(genome: Genome, screenshotPath?: string): 
   const lines: string[] = [
     '# Tiraz self-critique pass',
     '',
-    'You ALREADY built this component for the brief below and committed it in this worktree. Do NOT',
-    'rebuild it and do NOT restart from scratch. Your job now is a focused, critical self-review.',
+    'You ALREADY built this for the brief below and it is committed in this worktree. Do NOT rebuild',
+    'it and do NOT restart from scratch. Your job now is a focused, critical self-review.',
     '',
     '## Brief',
     genome.brief,
@@ -304,36 +376,163 @@ export interface ClaudeCodeAgentOptions {
   /** The Claude Code binary; defaults to `claude`. */
   binary?: string;
   /**
-   * Headless permission mode. Defaults to `acceptEdits` so the agent actually applies file edits in
-   * its (isolated) variant worktree without a TTY prompt — `-p` alone leaves edits unapproved and
-   * the variant comes back unchanged. Use `bypassPermissions` if a variant must also run commands.
+   * Headless permission mode. Defaults to `acceptEdits` so the agent applies file edits in its
+   * (isolated) variant worktree without a TTY prompt. Shell commands are then limited to
+   * {@link allowedTools}.
    */
   permissionMode?: string;
+  /** Default model for runs (`--model`); absent → the user's `claude` default. */
+  model?: string;
+  /** Default agentic turn cap per run (`--max-turns`). */
+  maxTurns?: number;
+  /** Claude Code permission allow-rules (e.g. `Bash(npm run build:*)`) granted to every run. */
+  allowedTools?: string[];
 }
+
+/** The parts of `claude -p --output-format json` output Tiraz uses. */
+export interface ClaudeJsonResult {
+  result?: string;
+  sessionId?: string;
+  costUsd?: number;
+  isError?: boolean;
+  subtype?: string;
+}
+
+/** Parse `claude -p --output-format json` stdout; `null` if it isn't the expected JSON object. */
+export function parseClaudeJson(stdout: string): ClaudeJsonResult | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stdout.trim()) as unknown;
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) return null;
+  const o = parsed as Record<string, unknown>;
+  return {
+    ...(typeof o.result === 'string' ? { result: o.result } : {}),
+    ...(typeof o.session_id === 'string' ? { sessionId: o.session_id } : {}),
+    ...(typeof o.total_cost_usd === 'number' ? { costUsd: o.total_cost_usd } : {}),
+    ...(typeof o.is_error === 'boolean' ? { isError: o.is_error } : {}),
+    ...(typeof o.subtype === 'string' ? { subtype: o.subtype } : {}),
+  };
+}
+
+/** Quote a shell word only when needed, so simple paths stay readable (and prefix-matchable). */
+export function shellQuote(word: string): string {
+  return /^[\w@%+=:,./-]+$/.test(word) ? word : `'${word.replace(/'/g, `'\\''`)}'`;
+}
+
+/**
+ * The `tiraz shot` command a build agent runs to render + screenshot its own work (see the `shot`
+ * CLI command). Its prefix matches the allow-rule from {@link defaultAllowedTools}.
+ */
+export function shotCommand(
+  tirazCli: string,
+  args: { worktree: string; harness: string; target: string; port: number; out: string },
+): string {
+  return [
+    'node',
+    shellQuote(tirazCli),
+    'shot',
+    '--worktree',
+    shellQuote(args.worktree),
+    '--harness',
+    shellQuote(args.harness),
+    '--target',
+    shellQuote(args.target),
+    '--port',
+    String(args.port),
+    '--out',
+    shellQuote(args.out),
+  ].join(' ');
+}
+
+/**
+ * The permission rules every build session gets: run the project's build/typecheck/lint scripts and
+ * (when `tirazCli` is known) the `tiraz shot` self-check, so the agent can verify its own work.
+ */
+export function defaultAllowedTools(tirazCli?: string): string[] {
+  return [
+    'Bash(npm run build:*)',
+    'Bash(npm run typecheck:*)',
+    'Bash(npm run lint:*)',
+    'Bash(npm run check:*)',
+    'Bash(npx tsc:*)',
+    'Bash(npx astro check:*)',
+    'Bash(git status:*)',
+    'Bash(git diff:*)',
+    ...(tirazCli !== undefined ? [`Bash(node ${shellQuote(tirazCli)} shot:*)`] : []),
+  ];
+}
+
+/** Tools denied for a read-only run. */
+const READ_ONLY_DENY = ['Edit', 'Write', 'MultiEdit', 'NotebookEdit', 'Bash'] as const;
 
 /** {@link Agent} backed by Claude Code in headless/print mode (`claude -p`). */
 export class ClaudeCodeAgent implements Agent {
   private readonly runner: CommandRunner;
   private readonly binary: string;
   private readonly permissionMode: string;
+  private readonly model: string | undefined;
+  private readonly maxTurns: number | undefined;
+  private readonly allowedTools: string[];
 
   constructor(opts: ClaudeCodeAgentOptions = {}) {
     this.runner = opts.runner ?? spawnRunner;
     this.binary = opts.binary ?? 'claude';
     this.permissionMode = opts.permissionMode ?? 'acceptEdits';
+    this.model = opts.model;
+    this.maxTurns = opts.maxTurns;
+    this.allowedTools = opts.allowedTools ?? [];
   }
 
   /** Build the headless CLI args. Kept separate so it can be asserted without spawning. */
   buildArgs(opts: AgentRunOptions): string[] {
-    return ['-p', '--permission-mode', this.permissionMode, opts.prompt];
+    const model = opts.model ?? this.model;
+    const maxTurns = opts.maxTurns ?? this.maxTurns;
+    const dirs = opts.additionalDirectories ?? [];
+    // Permissions go through `--settings` JSON (one argv entry) rather than the variadic
+    // `--allowedTools` / `--add-dir` flags, which would otherwise swallow the trailing prompt.
+    const permissions: Record<string, string[]> = {};
+    if (opts.readOnly === true) permissions.deny = [...READ_ONLY_DENY];
+    else if (this.allowedTools.length > 0) permissions.allow = this.allowedTools;
+    if (dirs.length > 0) permissions.additionalDirectories = dirs;
+    return [
+      '-p',
+      '--output-format',
+      'json',
+      '--permission-mode',
+      this.permissionMode,
+      ...(model !== undefined ? ['--model', model] : []),
+      ...(maxTurns !== undefined ? ['--max-turns', String(maxTurns)] : []),
+      ...(Object.keys(permissions).length > 0
+        ? ['--settings', JSON.stringify({ permissions })]
+        : []),
+      ...(opts.resumeSessionId !== undefined ? ['--resume', opts.resumeSessionId] : []),
+      opts.prompt,
+    ];
   }
 
   async run(opts: AgentRunOptions): Promise<AgentResult> {
     const result = await this.runner(this.binary, this.buildArgs(opts), { cwd: opts.cwd });
+    const json = parseClaudeJson(result.stdout);
+    if (json === null) {
+      return {
+        ok: result.exitCode === 0,
+        exitCode: result.exitCode,
+        output: result.stdout !== '' ? result.stdout : result.stderr,
+      };
+    }
+    // Running out of turns still leaves (usually substantial) committed work in the worktree, so it
+    // counts as a usable result rather than a failed variant.
+    const hitTurnCap = json.subtype === 'error_max_turns';
+    const ok = hitTurnCap || (result.exitCode === 0 && json.isError !== true);
     return {
-      ok: result.exitCode === 0,
+      ok,
       exitCode: result.exitCode,
-      output: result.stdout !== '' ? result.stdout : result.stderr,
+      output: json.result ?? (hitTurnCap ? 'Stopped at the max-turns cap.' : result.stderr),
+      ...(json.sessionId !== undefined ? { sessionId: json.sessionId } : {}),
+      ...(json.costUsd !== undefined ? { costUsd: json.costUsd } : {}),
     };
   }
 }

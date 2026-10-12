@@ -5,6 +5,64 @@ SPEC §16. The format loosely follows [Keep a Changelog](https://keepachangelog.
 
 ## [Unreleased]
 
+### Leaner, cheaper loop (usage overhaul)
+
+An adversarial review against current models found that most of the usage went into scaffolding
+built for weaker models. A round of 4 variants plus a score used to cost ~56 Claude sessions (8 build
+
+- 48 pairwise judge calls; 132 for a round of 6); it now costs 6 (1 planner + 4 build + 1 judge).
+
+* **One-call listwise judge** (`taste-judge.ts`, `vision-judge.ts`, `anthropic-io.ts`,
+  `claude-judge-io.ts`, `score.ts`). The pairwise tournament (every pair × 4 lenses × both orders,
+  quadratic in variants) is replaced by `runTasteRanking`: a single vision call sees every screenshot
+  and returns a rank plus a one-line critique per variant. `agent.judgeModel` (default
+  `claude-sonnet-5-5`) replaces the hard-coded per-lens model IDs. `PairwiseJudge`,
+  `runTasteTournament`, `DEFAULT_LENSES`, `buildJudgePrompt`, and `parseVerdict` are removed.
+* **Agents check their own work** (`agent.ts`, `gen.ts`, new `tiraz shot`). Build sessions get
+  permission rules (`agent.allowedTools` + built-ins) to run the project's build/typecheck and
+  `tiraz shot`, which renders + screenshots the target mid-session so the agent can look and fix.
+  The extra self-critique session is now **off by default**; when enabled it **resumes** the build
+  session (`--resume`) instead of re-reading the codebase cold, and can read its screenshot
+  (`additionalDirectories`).
+* **Claude Code session controls** (`agent.ts`, `config.agent`): `--output-format json` (session id +
+  cost captured), `agent.model`, `agent.maxTurns` (default 60; a capped session keeps its work), and
+  permissions passed as one `--settings` JSON. Every prompt states it is headless (no questions, skip
+  setup scripts that aren't vendored, e.g. impeccable's `context.mjs`).
+* **Planned gen-0 directions** (new `directions.ts`, `generation.directions: planned`). One short,
+  read-only call writes directions tailored to the brief + design system. In integration mode they
+  stay inside the brand, and the fallback is a brand-safe profile set rather than the greenfield
+  costume catalog (Y2K, vaporwave, cyberpunk…), which used to be seeded onto company redesigns.
+* **Lean skills** (`generation.skills: lean`, default). Only the short base skill (+ the redesign skill
+  in integration, + an overlay when a profile names one) is installed. The large greenfield primaries
+  (design-taste-frontend is ~87 KB) need `skills: full`.
+* **Component sourcing off by default** (`sources.fetchMode: off`): no fetching and no per-library
+  prompt text unless opted into `signatures` / `install`.
+* **Full-page 1x screenshots** (`playwright-renderer.ts`, `playwright-io.ts`). The page is scrolled
+  through (so scroll-triggered reveals paint) and captured full-page, capped at 3 viewports, at
+  `deviceScaleFactor: 1`. The judge previously saw only the first viewport at 2x.
+  `TIRAZ_CHROMIUM_PATH` points at an existing browser.
+
+### Website redesign support
+
+- **`app` harness wired** (`render-harness.ts`, `detect.ts`, `config.appCommand`): renders your real
+  site's routes on its own dev server (`npm run dev -- --port {port}` by default), so a site redesign
+  no longer needs Storybook. Auto-detected when there's no playground but a `dev` script.
+- **Multi-page `gen --from <node>`** (`search.ts`, genome `extends`): extend an approved design to a
+  new page, based on its branch, reusing its tokens, type, nav, and footer.
+- **Brand-keeping prompt** in integration mode.
+
+### Fixes
+
+- **Variant branches committed the `node_modules` symlink and the installed skills** (`gen.ts`). A
+  `node_modules/` ignore rule doesn't match a symlink, so `git add -A` committed it (and the skills),
+  and `promote` carried both into the user's repo. They're now unstaged before every commit.
+- **The lint floor linted a dead URL** (`lint.ts`): `score` pointed `impeccable detect` at the
+  variant's dev-server URL after the server was torn down, with the deprecated `--fast` flag. It now
+  scans the UI files each variant changed since its `baseCommit`. It is advisory by default
+  (`fitness.lintFloorRequired: false`, which was previously defined but never read), is skipped (not
+  fatal) if the detector can't run, and the dashboard's Score button no longer fails on it.
+- `fitness.weights` default to `{ dsAdherence: 0.3, taste: 0.7 }`.
+
 ### Live adapters (in progress)
 
 - **Anti-monoculture: per-variant prior weight + intent-relative judging** (`core/genome.ts`,

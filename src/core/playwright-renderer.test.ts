@@ -76,8 +76,10 @@ describe('PlaywrightRenderer', () => {
     expect(rec.screenshots[0]?.opts).toEqual({
       width: 1440,
       height: 900,
-      deviceScaleFactor: 2,
+      deviceScaleFactor: 1,
       timeoutMs: 30_000,
+      fullPage: true,
+      maxHeight: 2700,
     });
   });
 
@@ -86,6 +88,26 @@ describe('PlaywrightRenderer', () => {
     await expect(renderer.render(request('storybook', 'story:x'))).rejects.toThrow('shot failed');
     expect(rec.stopped).toBe(1);
     expect(rec.events.at(-1)).toBe('stop');
+  });
+
+  it('boots the configured app dev command and screenshots the route', async () => {
+    const launched: { command: string; args: string[] }[] = [];
+    const shots: string[] = [];
+    const renderer = new PlaywrightRenderer({
+      launchServer: (cmd) => {
+        launched.push(cmd);
+        return { stop: () => Promise.resolve() };
+      },
+      waitForServer: () => Promise.resolve(),
+      screenshot: (url) => {
+        shots.push(url);
+        return Promise.resolve();
+      },
+      appCommand: 'pnpm dev --port {port}',
+    });
+    await renderer.render(request('app', 'route:/about'));
+    expect(launched).toEqual([{ command: 'pnpm', args: ['dev', '--port', '41000'] }]);
+    expect(shots).toEqual(['http://localhost:41000/about']);
   });
 
   it('rejects an unsupported harness before launching anything', async () => {
@@ -109,6 +131,8 @@ describe('PlaywrightRenderer', () => {
       },
       viewport: { width: 390, height: 844, deviceScaleFactor: 3 },
       timeoutMs: 5_000,
+      fullPage: false,
+      maxHeight: 1000,
     });
     await renderer.render(request('storybook', 'story:x'));
     expect(rec.screenshots[0]?.opts).toEqual({
@@ -116,6 +140,8 @@ describe('PlaywrightRenderer', () => {
       height: 844,
       deviceScaleFactor: 3,
       timeoutMs: 5_000,
+      fullPage: false,
+      maxHeight: 1000,
     });
   });
 });

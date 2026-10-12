@@ -12,6 +12,8 @@ import { createManifest, loadManifest, saveManifest, upsertNode } from './manife
 import { createMutex, mapPool } from './pool';
 import { resolveCapabilities } from './capabilities';
 import { collectDesignSystem } from './ds-collect-io';
+import type { Direction } from './directions';
+import { planDirections } from './directions';
 import { seedPrimaries } from './skills-registry';
 import { resolveSources } from './sources';
 import { assignPort } from './worktree';
@@ -247,6 +249,80 @@ const SEED_PROFILES: SeedProfile[] = [
   },
 ];
 
+/**
+ * Brand-safe fallback profiles for integration mode (a redesign), used when direction planning is
+ * unavailable. The fixed greenfield catalog would push costume aesthetics (Y2K, cyberpunk, Memphis…)
+ * onto an existing brand; these vary composition and emphasis while keeping the brand intact.
+ */
+const INTEGRATION_PROFILES: SeedProfile[] = [
+  {
+    overlay: 'none',
+    dials: { variance: 4, motion: 4, density: 5 },
+    ethos:
+      'Faithful refinement — the same brand, with sharper hierarchy, tighter rhythm, better detail.',
+    sourceMode: 'all',
+    prior: 'full',
+    excellence: 'instantly recognisable as the brand, but every section clearly more considered.',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 7, motion: 4, density: 4 },
+    ethos:
+      'Editorial — typography leads: dramatic scale contrast and confident, art-directed layout.',
+    sourceMode: 'all',
+    prior: 'full',
+    excellence: 'type does the heavy lifting; the brand voice reads louder and more assured.',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 8, motion: 6, density: 5 },
+    ethos:
+      'Bold product-forward — a dramatic hero built around the product, one strong focal element.',
+    sourceMode: 'all',
+    prior: 'full',
+    excellence: 'a memorable signature hero that makes the product the star, on-brand throughout.',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 5, motion: 3, density: 3 },
+    ethos:
+      'Calm and premium — generous space, restrained use of the brand palette, refined details.',
+    sourceMode: 'all',
+    prior: 'full',
+    excellence:
+      'quiet confidence: space, precision, and restraint that make the brand feel expensive.',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 5, motion: 3, density: 8 },
+    ethos: 'Information-rich — denser structure, strong scanning paths, clear information design.',
+    sourceMode: 'all',
+    prior: 'full',
+    excellence: 'lots of substance, effortless to scan: rhythm and hierarchy carry the density.',
+  },
+  {
+    overlay: 'none',
+    dials: { variance: 6, motion: 8, density: 5 },
+    ethos: 'Kinetic — the same brand, with choreographed motion and interactive moments.',
+    sourceMode: 'all',
+    prior: 'full',
+    excellence:
+      'motion that clarifies and delights, never decoration; still unmistakably the brand.',
+  },
+];
+
+/** A planned direction expressed as a seed profile (no overlay; library use per config). */
+function plannedProfile(direction: Direction): SeedProfile {
+  return {
+    overlay: 'none',
+    dials: direction.dials,
+    ethos: direction.ethos,
+    sourceMode: 'all',
+    prior: 'full',
+    excellence: direction.excellence,
+  };
+}
+
 const HOMEGROWN_CLAUSE =
   ' Build this entirely from scratch — do NOT use external component libraries.';
 
@@ -273,9 +349,25 @@ function allocateSources(mode: SourceMode, permitted: readonly string[], index: 
  * homegrown variant is guaranteed per round; `alien` additionally pushes dial extremes + experimentation.
  * `conservative` reverts to the prior uniform full-source seeding (overlay + dials only).
  */
-export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext): Genome[] {
+export function seedGenomes(
+  config: TirazConfig,
+  count: number,
+  ctx: SeedContext,
+  directions?: readonly Direction[],
+): Genome[] {
   const primaries = seedPrimaries(config.mode);
-  const permittedSources = resolveSources(config.sources).permittedIds;
+  // With sourcing off (the default) no variant draws on component libraries, so none of the
+  // per-source prompt text or fetching applies.
+  const permittedSources =
+    config.sources.fetchMode === 'off' ? [] : resolveSources(config.sources).permittedIds;
+  // Planned directions (when supplied) replace the catalog; integration falls back to brand-safe
+  // profiles rather than the greenfield costume catalog.
+  const profiles: readonly SeedProfile[] =
+    directions !== undefined && directions.length > 0
+      ? directions.map(plannedProfile)
+      : config.mode === 'integration'
+        ? INTEGRATION_PROFILES
+        : SEED_PROFILES;
   const diversity = config.generation.diversity;
   const wide = diversity !== 'conservative';
   // Lighter priors (drop the primary / all taste skills) are a greenfield-only diversity lever —
@@ -285,7 +377,7 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
   const genomes = Array.from({ length: count }, (_unused, i): Genome => {
     const primarySkill = primaries[i % primaries.length];
     const primary = primarySkill?.primaryKey ?? config.primary;
-    const profile = SEED_PROFILES[i % SEED_PROFILES.length];
+    const profile = profiles[i % profiles.length];
 
     let dials = profile?.dials ?? config.dials;
     let ethos = profile?.ethos;
@@ -299,7 +391,7 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
     }
 
     const sourceMode: SourceMode = wide ? (profile?.sourceMode ?? 'all') : 'all';
-    const homegrown = wide && sourceMode === 'homegrown';
+    const homegrown = wide && sourceMode === 'homegrown' && permittedSources.length > 0;
     const sources = wide ? allocateSources(sourceMode, permittedSources, i) : permittedSources;
     if (homegrown && ethos !== undefined) ethos = `${ethos}${HOMEGROWN_CLAUSE}`;
 
@@ -330,8 +422,14 @@ export function seedGenomes(config: TirazConfig, count: number, ctx: SeedContext
     } satisfies Genome;
   });
 
-  // Guarantee at least one homegrown (from-scratch, no-fetch) variant per wide round (SPEC §4).
-  if (wide && count >= 2 && !genomes.some((g) => g.homegrown === true)) {
+  // Guarantee at least one homegrown (from-scratch, no-fetch) variant per wide round (SPEC §4) —
+  // only meaningful when sources are in play at all.
+  if (
+    wide &&
+    count >= 2 &&
+    permittedSources.length > 0 &&
+    !genomes.some((g) => g.homegrown === true)
+  ) {
     const last = genomes[genomes.length - 1];
     if (last !== undefined) {
       last.homegrown = true;
@@ -424,6 +522,7 @@ async function materialize(
           capabilities,
           designSystem,
           selfCritique: config.generation.selfCritique,
+          skills: config.generation.skills,
           fetchMode: config.sources.fetchMode,
           fetchBudget: config.sources.fetchBudget,
           bundledSources,
@@ -473,9 +572,19 @@ export interface GenerationOptions {
   count: number;
   target?: string;
   harness?: HarnessKind;
+  /**
+   * Multi-page work: extend the approved design of this node to a new page (`target`). Every variant
+   * is based on that node's branch and inherits its direction; no new directions are planned.
+   */
+  from?: string;
 }
 
-/** Produce a fresh round-0 generation of `count` diverse variants (SPEC §7 step 1). */
+/**
+ * Produce a fresh generation of `count` variants (SPEC §7 step 1). By default one short planning
+ * call writes directions tailored to the brief + design system (`generation.directions: planned`),
+ * falling back to the built-in profiles. With `from`, the round extends an existing node's design
+ * to a new page instead.
+ */
 export async function generateGeneration(
   opts: GenerationOptions,
   deps: GenDeps,
@@ -488,13 +597,58 @@ export async function generateGeneration(
     (await loadManifest(opts.cwd)) ?? createManifest(path.basename(opts.cwd), config.mode, config);
   const generation = manifest.generations.length;
   const now = deps.now ?? (() => new Date().toISOString());
+  const createdAt = now();
 
-  const genomes = seedGenomes(config, opts.count, {
-    brief: opts.brief,
-    createdAt: now(),
-    generation,
-    ...(opts.target !== undefined ? { target: opts.target } : {}),
-  });
+  if (opts.from !== undefined) {
+    const base = manifest.nodes[opts.from];
+    if (base === undefined) {
+      throw new SearchError(`--from node ${opts.from} not found`);
+    }
+    const items: MaterializeItem[] = Array.from({ length: opts.count }, (_unused, i) => {
+      const genome: Genome = {
+        ...base.genome,
+        id: genomeId(generation, i),
+        parents: [],
+        commands: [],
+        seed: i,
+        brief: opts.brief,
+        createdAt,
+        extends: opts.from,
+      };
+      delete genome.graft;
+      delete genome.target;
+      if (opts.target !== undefined) genome.target = opts.target;
+      return { genome, baseRef: base.branch };
+    });
+    return materialize(opts.cwd, config, manifest, items, generation, opts.harness, deps);
+  }
+
+  const wide = config.generation.diversity !== 'conservative';
+  const directions =
+    wide && config.generation.directions === 'planned'
+      ? await planDirections({
+          agent: deps.agent,
+          cwd: opts.cwd,
+          brief: opts.brief,
+          count: opts.count,
+          mode: config.mode,
+          model: config.agent.plannerModel,
+          designSystem: await collectDesignSystem(opts.cwd),
+          ...(opts.target !== undefined ? { target: opts.target } : {}),
+        })
+      : null;
+
+  const genomes = seedGenomes(
+    config,
+    opts.count,
+    {
+      brief: opts.brief,
+      createdAt,
+      generation,
+      ...(opts.target !== undefined ? { target: opts.target } : {}),
+    },
+    directions ?? undefined,
+  );
 
   return materialize(
     opts.cwd,

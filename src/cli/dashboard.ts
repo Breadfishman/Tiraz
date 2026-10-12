@@ -5,19 +5,19 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import path from 'node:path';
 import type { Command } from 'commander';
 import { z } from 'zod';
-import { ClaudeCodeAgent, spawnRunner } from '../core/agent';
+import { spawnRunner } from '../core/agent';
 import { createVisionJudge } from '../core/anthropic-io';
 import { cull, favorite, selectSurvivors } from '../core/beam';
 import { createClaudeCliJudge } from '../core/claude-judge-io';
 import { collectDesignSystem, collectUsedValues } from '../core/ds-collect-io';
-import { lint } from '../core/lint';
+import { createVariantLinter } from '../core/lint';
 import { runScore } from '../core/score';
 import { describeError, loadConfig, updateConfig } from '../core/config';
 import { renderDashboardHtml } from '../core/dashboard';
 import { detectHarness } from '../core/detect';
 import { loadManifest, saveManifest } from '../core/manifest';
 import type { VariantNode } from '../core/manifest';
-import { createPlaywrightRenderer, launchServerProcess } from '../core/playwright-io';
+import { launchServerProcess } from '../core/playwright-io';
 import { promoteVariant } from '../core/promote';
 import type { ServerProcess } from '../core/playwright-renderer';
 import {
@@ -43,7 +43,7 @@ import { breedGeneration, recombineVariant } from '../core/search';
 import { listSnapshots, restoreSnapshot, saveSnapshot } from '../core/snapshot';
 import { contentTypeFor, safeAssetPath, safeJoin } from '../core/static-serve';
 import { assignPort } from '../core/worktree';
-import { bundledSkillsDir } from './bundled';
+import { liveDeps } from './live';
 import { openInBrowser } from './open';
 
 interface LiveServer {
@@ -179,11 +179,11 @@ async function runDashboard(
   const harness = await detectHarness(cwd, config.harness === 'auto' ? undefined : config.harness);
 
   const canBuild = harnessBuildCommand(harness.kind, '/probe') !== null;
-  const canServe = harnessServeCommand(harness.kind, 0) !== null;
+  const canServe = harnessServeCommand(harness.kind, 0, config.appCommand) !== null;
   if (!canBuild && !canServe) {
     console.error(
       `Harness '${harness.kind}' has no playground to embed — the dashboard needs a ` +
-        `Storybook / Ladle / Histoire surface.`,
+        `Storybook / Ladle / Histoire surface or an \`app\` dev server.`,
     );
     process.exitCode = 1;
     return;
@@ -236,7 +236,7 @@ async function runDashboard(
     }
     const vport = assignPort(usedPorts);
     usedPorts.add(vport);
-    const cmd = harnessServeCommand(harness.kind, vport);
+    const cmd = harnessServeCommand(harness.kind, vport, config.appCommand);
     if (cmd === null) return;
     const handle = launchServerProcess(cmd, { cwd: node.worktree });
     devServers.push({ id, handle });
@@ -277,11 +277,7 @@ async function runDashboard(
   const jobs = new Map<string, JobState>();
   let jobSeq = 0;
   let jobInFlight = false;
-  const agentDeps = (): Parameters<typeof breedGeneration>[1] => ({
-    agent: new ClaudeCodeAgent(),
-    renderer: createPlaywrightRenderer(),
-    skillsSourceDir: bundledSkillsDir(),
-  });
+  const agentDeps = (): Promise<Parameters<typeof breedGeneration>[1]> => liveDeps(cwd);
 
   /** Run a long agent job: produce new variant nodes, mount each, report completion. */
   function startJob(initialMessage: string, run: () => Promise<VariantNode[]>): string {
@@ -384,7 +380,7 @@ async function runDashboard(
           }
           const { ids, factor, directive } = parsed.data;
           const hasDirective = directive !== undefined && directive.trim() !== '';
-          const jobId = startJob('Breeding (running the agent)…', () =>
+          const jobId = startJob('Breeding (running the agent)…', async () =>
             breedGeneration(
               {
                 cwd,
@@ -393,7 +389,7 @@ async function runDashboard(
                 ...(factor !== undefined ? { factor } : {}),
                 ...(hasDirective ? { directive: directive.trim() } : {}),
               },
-              agentDeps(),
+              await agentDeps(),
             ),
           );
           sendJson(res, 202, { jobId });
@@ -406,7 +402,7 @@ async function runDashboard(
         }
         const { parentA, parentB, instructions } = parsed.data;
         const jobId = startJob('Combining (running the agent)…', async () => [
-          await recombineVariant({ cwd, parentA, parentB, instructions }, agentDeps()),
+          await recombineVariant({ cwd, parentA, parentB, instructions }, await agentDeps()),
         ]);
         sendJson(res, 202, { jobId });
         return;
@@ -431,17 +427,13 @@ async function runDashboard(
         const jobId = startJob(`Scoring generation ${String(generationIndex)}…`, async () => {
           const designSystem = await collectDesignSystem(cwd);
           await runScore(cwd, generationIndex, {
-            lint: (node) =>
-              lint({
-                target: node.renderUrl ?? node.worktree,
-                threshold: cfg.lintThreshold,
-                fast: true,
-                cwd,
-              }),
+            lint: createVariantLinter({ cwd, threshold: cfg.lintThreshold }),
             designSystem,
             collectUsedValues,
             judge,
+            judgeModel: cfg.agent.judgeModel,
             weights: cfg.fitness.weights,
+            lintGate: cfg.fitness.lintFloorRequired,
           });
           // Scoring mutates fitness on existing nodes; no new variants are produced to mount.
           return [];

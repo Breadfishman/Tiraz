@@ -59,6 +59,16 @@ async function skillsSource(): Promise<string> {
 }
 
 const okAgent: Agent = { run: () => Promise.resolve({ ok: true, exitCode: 0, output: 'done' }) };
+
+/** Config with component sourcing on (prompt-only), for the source-allocation tests. */
+const WITH_SOURCES = {
+  sources: {
+    bundled: ['magic-ui'],
+    fetch: ['react-bits', '21st-registry', 'cult-ui', 'motion-primitives', 'kokonut-ui'],
+    aceternity: false,
+    fetchMode: 'signatures',
+  },
+} as const;
 const fakeRenderer: Renderer = {
   render: async (req) => {
     await writeFile(req.screenshotPath, 'png', 'utf8');
@@ -113,7 +123,7 @@ describe('seedGenomes', () => {
   });
 
   it('defaults to diverse: each variant gets a distinct ethos and a varied source allocation', () => {
-    const config = TirazConfigSchema.parse({ mode: 'greenfield' }); // diversity defaults to 'diverse'
+    const config = TirazConfigSchema.parse({ mode: 'greenfield', ...WITH_SOURCES }); // diverse
     const genomes = seedGenomes(config, 5, {
       brief: 'b',
       createdAt: '2026-06-08T00:00:00.000Z',
@@ -177,7 +187,7 @@ describe('seedGenomes', () => {
   });
 
   it('guarantees a homegrown variant even on a small round', () => {
-    const config = TirazConfigSchema.parse({ mode: 'greenfield' });
+    const config = TirazConfigSchema.parse({ mode: 'greenfield', ...WITH_SOURCES });
     const genomes = seedGenomes(config, 2, {
       brief: 'b',
       createdAt: '2026-06-08T00:00:00.000Z',
@@ -218,6 +228,53 @@ describe('seedGenomes', () => {
       Math.max(...gs.map((g) => g.dials.variance));
     expect(maxVariance(alien)).toBeGreaterThanOrEqual(maxVariance(diverse));
     expect(alien.some((g) => g.ethos?.includes('extreme'))).toBe(true);
+  });
+
+  it('with sourcing off (the default) seeds no sources and no homegrown flag', () => {
+    const genomes = seedGenomes(TirazConfigSchema.parse({ mode: 'greenfield' }), 5, {
+      brief: 'b',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      generation: 0,
+    });
+    expect(genomes.every((g) => g.sources === undefined)).toBe(true);
+    expect(genomes.every((g) => g.homegrown === undefined)).toBe(true);
+  });
+
+  it('uses planned directions instead of the catalog when supplied', () => {
+    const directions = [
+      {
+        ethos: 'Warm editorial',
+        excellence: 'type-led',
+        dials: { variance: 6, motion: 3, density: 4 },
+      },
+      {
+        ethos: 'Bold product',
+        excellence: 'hero-led',
+        dials: { variance: 8, motion: 6, density: 5 },
+      },
+    ];
+    const genomes = seedGenomes(
+      TirazConfigSchema.parse({ mode: 'greenfield' }),
+      2,
+      { brief: 'b', createdAt: '2026-06-08T00:00:00.000Z', generation: 0 },
+      directions,
+    );
+    expect(genomes.map((g) => g.ethos)).toEqual(['Warm editorial', 'Bold product']);
+    expect(genomes.map((g) => g.excellence)).toEqual(['type-led', 'hero-led']);
+    expect(genomes[1]?.dials).toEqual({ variance: 8, motion: 6, density: 5 });
+    expect(genomes.every((g) => g.overlay === 'none' && g.prior === 'full')).toBe(true);
+  });
+
+  it('integration mode falls back to brand-safe profiles, never the costume catalog', () => {
+    const genomes = seedGenomes(TirazConfigSchema.parse({ mode: 'integration' }), 6, {
+      brief: 'b',
+      createdAt: '2026-06-08T00:00:00.000Z',
+      generation: 0,
+    });
+    const ethoses = genomes.map((g) => g.ethos ?? '').join(' | ');
+    expect(ethoses).not.toMatch(/Y2K|vaporwave|cyberpunk|Memphis|brutalism/i);
+    expect(new Set(genomes.map((g) => g.ethos)).size).toBe(6);
+    expect(genomes.every((g) => g.primary === 'redesign-existing-projects')).toBe(true);
   });
 });
 
@@ -260,7 +317,9 @@ describe('generateGeneration', () => {
     // on `bothActive`, which is released only once a second variant is also active. A sequential loop
     // would deadlock here — so completion itself proves parallelism, and `peak` confirms the overlap.
     const barrierAgent: Agent = {
-      run: async () => {
+      run: async (opts) => {
+        // The round's one planning call (read-only) happens before materialization.
+        if (opts.readOnly === true) return { ok: true, exitCode: 0, output: 'no plan' };
         active += 1;
         peak = Math.max(peak, active);
         if (active >= 2) release();
@@ -276,6 +335,104 @@ describe('generateGeneration', () => {
     );
     expect(nodes.map((n) => n.genome.id)).toEqual(['g0-n0', 'g0-n1']);
     expect(peak).toBeGreaterThanOrEqual(2);
+  });
+
+  it('plans tailored directions with ONE read-only call on the planner model', async () => {
+    const repo = await initRepo();
+    const planCalls: Parameters<Agent['run']>[0][] = [];
+    const plan = JSON.stringify({
+      directions: [
+        { ethos: 'Ink and paper', excellence: 'crafted', variance: 4, motion: 2, density: 5 },
+        { ethos: 'Neon product', excellence: 'electric', variance: 9, motion: 8, density: 6 },
+      ],
+    });
+    const planningAgent: Agent = {
+      run: (opts) => {
+        if (opts.readOnly === true) {
+          planCalls.push(opts);
+          return Promise.resolve({ ok: true, exitCode: 0, output: plan });
+        }
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+      },
+    };
+    const nodes = await generateGeneration(
+      { cwd: repo, brief: 'A landing page', count: 2, harness: 'storybook' },
+      { ...(await deps()), agent: planningAgent },
+    );
+    expect(planCalls).toHaveLength(1);
+    expect(planCalls[0]?.model).toBe('claude-sonnet-5-5');
+    expect(planCalls[0]?.cwd).toBe(repo);
+    expect(nodes.map((n) => n.genome.ethos)).toEqual(['Ink and paper', 'Neon product']);
+  });
+
+  it('skips planning with directions: catalog', async () => {
+    const repo = await initRepo();
+    await writeFile(
+      path.join(repo, 'tiraz.config.json'),
+      JSON.stringify({ mode: 'greenfield', generation: { directions: 'catalog' } }),
+      'utf8',
+    );
+    let planned = 0;
+    const agent: Agent = {
+      run: (opts) => {
+        if (opts.readOnly === true) planned += 1;
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+      },
+    };
+    await generateGeneration(
+      { cwd: repo, brief: 'b', count: 1, harness: 'storybook' },
+      { ...(await deps()), agent },
+    );
+    expect(planned).toBe(0);
+  });
+
+  it('--from extends a node to a new page on its branch, inheriting its direction', async () => {
+    const repo = await initRepo();
+    const writingAgent: Agent = {
+      run: async (opts) => {
+        if (opts.readOnly === true) return { ok: true, exitCode: 0, output: 'no plan' };
+        if (!opts.prompt.includes('## Extend the established design')) {
+          await writeFile(path.join(opts.cwd, 'tokens.css'), ':root{--brand:#123}\n', 'utf8');
+        }
+        return { ok: true, exitCode: 0, output: 'done' };
+      },
+    };
+    const d: GenDeps = { ...(await deps()), agent: writingAgent };
+    const [home] = await generateGeneration(
+      { cwd: repo, brief: 'Home page', count: 1, target: 'route:/', harness: 'storybook' },
+      d,
+    );
+    const pages = await generateGeneration(
+      {
+        cwd: repo,
+        brief: 'About page',
+        count: 2,
+        target: 'route:/about',
+        harness: 'storybook',
+        from: home!.genome.id,
+      },
+      d,
+    );
+    expect(pages.map((n) => n.genome.id)).toEqual(['g1-n0', 'g1-n1']);
+    for (const page of pages) {
+      expect(page.genome.extends).toBe('g0-n0');
+      expect(page.genome.parents).toEqual([]);
+      expect(page.genome.target).toBe('route:/about');
+      expect(page.genome.brief).toBe('About page');
+      expect(page.genome.ethos).toBe(home!.genome.ethos);
+      // Based on the home variant's branch, so its design system is already in the worktree.
+      expect(await exists(path.join(page.worktree, 'tokens.css'))).toBe(true);
+    }
+  });
+
+  it('--from rejects an unknown node', async () => {
+    const repo = await initRepo();
+    await expect(
+      generateGeneration(
+        { cwd: repo, brief: 'b', count: 1, harness: 'storybook', from: 'g9-n9' },
+        await deps(),
+      ),
+    ).rejects.toBeInstanceOf(SearchError);
   });
 
   it('persists the variants that succeed and surfaces the ones that fail', async () => {

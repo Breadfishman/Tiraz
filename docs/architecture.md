@@ -44,9 +44,11 @@ what is implemented and how the modules fit together.
 | `scaffold.ts`            | Greenfield `init` scaffolder: drives Astro/Next + Tailwind + shadcn + module deps      |
 | `export.ts`              | Interop export adapters (§12bis): Stitch DESIGN.md / v0 prompt / Claude Design brief   |
 | `fitness.ts`             | Assembles the three-term `Fitness` composite (lint floor gates, then blend)            |
-| `taste-judge.ts`         | Mixed-model pairwise tournament → taste ranking (depends on a `PairwiseJudge`)         |
-| `vision-judge.ts`        | Live `PairwiseJudge`: lens prompt + verdict parsing (pure); vision call injected       |
-| `anthropic-io.ts`        | Real Anthropic vision call + image reads for the judge (coverage-excluded glue)        |
+| `taste-judge.ts`         | `runTasteRanking`: one listwise judge call → rank + score per variant (`RankingJudge`) |
+| `vision-judge.ts`        | Live `RankingJudge`: ranking prompt + verdict parsing (pure); vision call injected     |
+| `anthropic-io.ts`        | Real Anthropic vision call (all screenshots in one request) (coverage-excluded glue)   |
+| `claude-judge-io.ts`     | The same judge via one `claude -p` session (no API key) (coverage-excluded glue)       |
+| `directions.ts`          | Gen-0 direction planning: prompt + parse (pure), one read-only call via the `Agent`    |
 | `score.ts`               | `runScore`: scores a whole generation (lint + DS-adherence + taste → Fitness)          |
 | `beam.ts`                | `pruneGeneration` (3 modes) + `selectSurvivors`: the prune/select decision logic       |
 | `tree.ts`                | `renderTree` / `renderStatus`: text rendering of the variant DAG                       |
@@ -74,10 +76,11 @@ it is testable without the real thing:
   browser (`npx playwright install chromium`) + a playground in the target repo.
 - **`CommandRunner`** (`agent.ts`): the one process-spawning primitive, reused by `worktree.ts`,
   `lint.ts` (which shells out to `impeccable detect`), and `promote.ts` (`git` merge / `gh pr`).
-- **`PairwiseJudge`** (`taste-judge.ts`): compares two screenshots for a lens. The live adapter is
-  `VisionPairwiseJudge` (`vision-judge.ts`): pure lens-prompt building + verdict parsing around an
-  injected vision call, whose real Anthropic implementation lives in `anthropic-io.ts` (needs
-  `ANTHROPIC_API_KEY`). The tournament + `runScore` are tested with a deterministic fake.
+- **`RankingJudge`** (`taste-judge.ts`): ranks a whole generation's screenshots in one call. The live
+  adapter is `VisionRankingJudge` (`vision-judge.ts`): pure prompt building + verdict parsing around
+  an injected vision call, implemented in `anthropic-io.ts` (needs `ANTHROPIC_API_KEY`) or
+  `claude-judge-io.ts` (the logged-in `claude` CLI). The ranking + `runScore` are tested with a
+  deterministic fake.
 
 ## State on disk (in the target project)
 
@@ -85,24 +88,32 @@ it is testable without the real thing:
 .tiraz/
   manifest.json            # the single source of truth: config + every variant node + lineage
   worktrees/<id>/          # one git worktree per variant (its own branch)
-  screenshots/<id>.png     # captured render of each variant
+  screenshots/<id>.png     # captured full-page render of each variant
+  screenshots/<id>-check.png # the agent's own mid-session check render (tiraz shot)
 <worktree>/.claude/skills/ # the resolved active skill set, written before each agent run
 ```
 
-## The `gen` pipeline (Phase 1)
+## The `gen` pipeline
 
-`runGen(opts, deps)` produces a single variant:
+`generateGeneration(opts, deps)` produces a round (`runGen` is the single-variant form):
 
 1. Load `tiraz.config.json`; load or create the manifest.
-2. Resolve the active skill set for the config (base + primary + optional overlay).
-3. Build the `Genome` (id `g<gen>-n0`, primary/overlay/dials from config, brief, target, permitted
-   sources).
-4. Detect the render harness (or use the `--harness` override).
-5. Assign a free dev-server port.
-6. `git worktree add` a fresh branch (`tiraz/<id>`) under `.tiraz/worktrees/<id>`.
-7. Write the resolved skills into the worktree's `.claude/skills/`.
-8. Compose the prompt and run the `Agent` in the worktree.
-9. Render + screenshot the target via the `Renderer`.
-10. Record the `VariantNode` in the manifest and persist it.
+2. Plan directions: one read-only `Agent` call (`agent.plannerModel`) writes `count` directions for the
+   brief + design system; on failure, fall back to the built-in profiles (brand-safe ones in
+   integration mode). With `--from <node>`, skip planning: every genome inherits that node's direction
+   and is based on its branch (`genome.extends`).
+3. For each genome, in parallel (`generation.concurrency`), `generateVariant`:
+   1. `git worktree add` a fresh branch (`tiraz/<id>`) under `.tiraz/worktrees/<id>` (serialized) and
+      record its `baseCommit`.
+   2. Write the resolved skills into `.claude/skills/` (`generation.skills`: lean by default) and link
+      the repo's `node_modules`.
+   3. Compose the prompt (brief, direction, taste bar, design system, brand-keeping in integration, a
+      `tiraz shot` self-check command) and run the `Agent`: one `claude -p` session with a model, turn
+      cap, and permission rules from `config.agent`.
+   4. Commit the work, excluding the `node_modules` link and installed skills.
+   5. Render + full-page screenshot the target via the `Renderer`.
+   6. Optionally (`generation.selfCritique`) resume the same session for a critique pass, then
+      re-commit and re-render.
+4. Persist each `VariantNode` as it completes.
 
-The beam search (Phase 3) drives this primitive across a generation and then breeds survivors.
+`score` then runs the local lint/DS checks per node and one `runTasteRanking` call per generation.

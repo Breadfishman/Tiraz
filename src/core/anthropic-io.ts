@@ -7,7 +7,7 @@
 
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-import { VisionPairwiseJudge } from './vision-judge';
+import { VisionRankingJudge } from './vision-judge';
 import type { VisionComplete, VisionRequest } from './vision-judge';
 
 type MediaType = 'image/png' | 'image/jpeg' | 'image/webp' | 'image/gif';
@@ -37,7 +37,7 @@ async function imageBlock(file: string): Promise<{
   };
 }
 
-/** Call Anthropic's vision model with the lens prompt + both screenshots; return its text. */
+/** Call Anthropic's vision model with the ranking prompt + every screenshot; return its text. */
 export const anthropicVisionComplete: VisionComplete = async (req: VisionRequest) => {
   let mod: typeof import('@anthropic-ai/sdk');
   try {
@@ -55,13 +55,20 @@ export const anthropicVisionComplete: VisionComplete = async (req: VisionRequest
   }
   const AnthropicCtor = mod.default as unknown as new () => AnthropicLike;
   const client = new AnthropicCtor();
-  const [a, b] = await Promise.all([imageBlock(req.imagePaths[0]), imageBlock(req.imagePaths[1])]);
+  const images = await Promise.all(req.imagePaths.map((file) => imageBlock(file)));
+
+  // Label each image so the model can map it to its option number unambiguously.
+  const content: unknown[] = [];
+  images.forEach((image, i) => {
+    content.push({ type: 'text', text: `Option ${String(i + 1)}:` }, image);
+  });
+  content.push({ type: 'text', text: req.prompt });
 
   const message = await client.messages.create({
     model: req.model,
-    max_tokens: 1024,
+    max_tokens: 2048,
     system: req.system,
-    messages: [{ role: 'user', content: [{ type: 'text', text: req.prompt }, a, b] }],
+    messages: [{ role: 'user', content }],
   });
 
   return message.content
@@ -70,7 +77,7 @@ export const anthropicVisionComplete: VisionComplete = async (req: VisionRequest
     .join('\n');
 };
 
-/** Build a live {@link VisionPairwiseJudge} wired to the Anthropic vision API. */
-export function createVisionJudge(): VisionPairwiseJudge {
-  return new VisionPairwiseJudge(anthropicVisionComplete);
+/** Build a live {@link VisionRankingJudge} wired to the Anthropic vision API. */
+export function createVisionJudge(): VisionRankingJudge {
+  return new VisionRankingJudge(anthropicVisionComplete);
 }

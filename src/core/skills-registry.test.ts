@@ -51,6 +51,30 @@ describe('getSkill', () => {
 });
 
 describe('resolveActiveSkills', () => {
+  it('lean skills drop the large greenfield primary but keep base + overlay', () => {
+    const resolved = resolveActiveSkills({
+      mode: 'greenfield',
+      primary: 'design-taste-frontend',
+      overlay: 'minimalist',
+      skills: 'lean',
+    });
+    expect(resolved.primary).toBeNull();
+    expect(resolved.all.map((s) => s.id)).toEqual(['frontend-design', 'minimalist-ui']);
+  });
+
+  it('lean skills keep the short integration (redesign) primary', () => {
+    const resolved = resolveActiveSkills({
+      mode: 'integration',
+      primary: 'impeccable',
+      overlay: 'none',
+      skills: 'lean',
+    });
+    expect(resolved.all.map((s) => s.id)).toEqual([
+      'frontend-design',
+      'redesign-existing-projects',
+    ]);
+  });
+
   it('selects base + the seeded primary with no overlay (greenfield)', () => {
     const resolved = resolveActiveSkills({
       mode: 'greenfield',

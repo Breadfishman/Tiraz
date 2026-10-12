@@ -192,6 +192,12 @@ export interface ResolvedSkillSet {
 export type ResolveInput = Pick<TirazConfig, 'mode' | 'primary' | 'overlay'> & {
   /** Anti-homogenisation lever (SPEC §4); absent → `full`. Integration always resolves to `full`. */
   prior?: PriorWeight;
+  /**
+   * `generation.skills`: `lean` skips the large opinionated greenfield primary (impeccable /
+   * design-taste-frontend) — current models don't need tens of KB of doctrine per run. The
+   * integration primary (the short redesign skill) is kept either way. Absent → `full`.
+   */
+  skills?: TirazConfig['generation']['skills'];
 };
 
 /**
@@ -217,10 +223,12 @@ export function resolveActiveSkills(config: ResolveInput): ResolvedSkillSet {
       ? null
       : config.mode === 'integration'
         ? requireSkill((s) => s.integrationPrimary === true, 'missing integration primary')
-        : requireSkill(
-            (s) => s.primaryKey === config.primary,
-            `no primary skill for "${config.primary}"`,
-          );
+        : config.skills === 'lean'
+          ? null
+          : requireSkill(
+              (s) => s.primaryKey === config.primary,
+              `no primary skill for "${config.primary}"`,
+            );
 
   // The overlay (the variant's chosen aesthetic lane) is kept under every prior — it reinforces the
   // ethos rather than imposing a generic house style.

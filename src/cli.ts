@@ -14,6 +14,7 @@ import { registerRecombineCommand } from './cli/recombine';
 import { registerReviewCommand } from './cli/review';
 import { registerScoreCommand } from './cli/score';
 import { registerSelectCommand } from './cli/select';
+import { registerShotCommand } from './cli/shot';
 import { registerSkillsCommand } from './cli/skills';
 import { registerSnapshotCommand } from './cli/snapshot';
 import { registerSourcesCommand } from './cli/sources';
@@ -50,6 +51,7 @@ export function buildProgram(): Command {
   registerCompareCommand(program);
   registerDashboardCommand(program);
   registerSnapshotCommand(program);
+  registerShotCommand(program);
   return program;
 }
 

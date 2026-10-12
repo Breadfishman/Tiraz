@@ -1,7 +1,7 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Agent, CommandRunner } from './agent';
-import { composeCritiquePrompt, composePrompt, spawnRunner } from './agent';
+import { composeCritiquePrompt, composePrompt, shotCommand, spawnRunner } from './agent';
 import { resolveFetchPlan } from './component-fetch';
 import { fetchComponents } from './component-fetch-io';
 import { planAndFetchTwentyFirst } from './twentyfirst-io';
@@ -49,6 +49,12 @@ export interface VariantDeps {
    * expensive agent + render work still runs fully in parallel. Absent → no serialization.
    */
   worktreeLock?: Mutex;
+  /**
+   * Absolute path of the running `tiraz` CLI. When set, the build agent is given a `tiraz shot`
+   * command to render + screenshot its own work mid-session (and the matching permission rule is
+   * granted by the CLI layer's agent). Absent → the agent is only told to run the build/typecheck.
+   */
+  tirazCli?: string;
 }
 
 export interface GenerateVariantContext {
@@ -78,7 +84,7 @@ export interface GenerateVariantContext {
    * prompt asks the agent to compose + restyle them; `'signatures'` (or omitted) keeps the
    * prompt-only behaviour. Best-effort: a worktree with no `components.json` silently falls back.
    */
-  fetchMode?: 'signatures' | 'install';
+  fetchMode?: TirazConfig['sources']['fetchMode'];
   /** Max components to install per variant when `fetchMode === 'install'` (defaults to 6). */
   fetchBudget?: number;
   /**
@@ -96,6 +102,16 @@ export interface GenerateVariantContext {
   twentyFirst?: boolean;
   /** Max 21st.dev queries (= components) per variant when {@link twentyFirst} is on (defaults to 3). */
   twentyFirstBudget?: number;
+  /** `generation.skills` — `lean` skips the large greenfield primary skill (defaults to `full`). */
+  skills?: TirazConfig['generation']['skills'];
+}
+
+/** Paths the agent may create in a worktree that must never be committed onto a variant branch. */
+function uncommittable(installedSkillIds: string[]): string[] {
+  // `node_modules` is a symlink to the repo's deps: a `node_modules/` gitignore rule doesn't match a
+  // symlink, so without this `git add -A` would commit it. The installed skills are Tiraz scaffolding,
+  // not part of the design, and would otherwise ride along into `promote`.
+  return ['node_modules', ...installedSkillIds.map((id) => path.join('.claude', 'skills', id))];
 }
 
 /**
@@ -112,6 +128,7 @@ export async function generateVariant(
     primary: ctx.genome.primary,
     overlay: ctx.genome.overlay,
     ...(ctx.genome.prior !== undefined ? { prior: ctx.genome.prior } : {}),
+    ...(ctx.skills !== undefined ? { skills: ctx.skills } : {}),
   });
   const activeSkillIds = resolved.all.map((skill) => skill.id);
 
@@ -132,7 +149,13 @@ export async function generateVariant(
     ? deps.worktreeLock.run(createWorktree)
     : createWorktree());
 
-  await installResolvedSkills(resolved.all, {
+  const git = deps.runner ?? spawnRunner;
+  // Record where this variant started so the lint floor can scan only the files it changed.
+  const head = await git('git', ['rev-parse', 'HEAD'], { cwd: worktreePath });
+  const baseCommit =
+    head.exitCode === 0 && head.stdout.trim() !== '' ? head.stdout.trim() : undefined;
+
+  const installedSkills = await installResolvedSkills(resolved.all, {
     sourceDir: deps.skillsSourceDir,
     worktreeDir: worktreePath,
   });
@@ -176,6 +199,26 @@ export async function generateVariant(
 
   const allFetched = [...fetched, ...twentyFirstFetched];
 
+  const screenshotsDir = path.join(ctx.cwd, '.tiraz', 'screenshots');
+  const screenshotPath = path.join(screenshotsDir, `${ctx.genome.id}.png`);
+  await mkdir(screenshotsDir, { recursive: true });
+  const check =
+    deps.tirazCli !== undefined
+      ? (() => {
+          const out = path.join(screenshotsDir, `${ctx.genome.id}-check.png`);
+          return {
+            screenshotPath: out,
+            command: shotCommand(deps.tirazCli, {
+              worktree: worktreePath,
+              harness: ctx.harness.kind,
+              target: ctx.genome.target ?? '',
+              port: ctx.port,
+              out,
+            }),
+          };
+        })()
+      : undefined;
+
   const prompt = composePrompt(
     ctx.genome,
     activeSkillIds,
@@ -183,11 +226,15 @@ export async function generateVariant(
     ctx.designSystem,
     ctx.directive,
     allFetched.map((f) => ({ source: f.source, item: f.item })),
+    { mode: ctx.mode, ...(check !== undefined ? { check } : {}) },
   );
   const agentResult = await deps.agent.run({
     cwd: worktreePath,
     prompt,
     skills: activeSkillIds,
+    // The screenshots live under the repo's `.tiraz/`, outside the worktree — grant access so the
+    // agent can read its own check renders.
+    additionalDirectories: [screenshotsDir],
     ...(ctx.genome.sources !== undefined ? { sources: ctx.genome.sources } : {}),
   });
   if (!agentResult.ok) {
@@ -199,15 +246,15 @@ export async function generateVariant(
   // Commit the agent's work onto the variant's branch so its design is captured — this is what lets
   // children branch off it (breed/recombine refine, not restart) and what `promote` actually merges.
   // A no-op commit (agent made no changes) exits non-zero; that's fine, so failures are ignored.
-  const git = deps.runner ?? spawnRunner;
   const commitWork = async (message: string): Promise<void> => {
     await git('git', ['add', '-A'], { cwd: worktreePath });
+    await git('git', ['reset', '-q', '--', ...uncommittable(installedSkills)], {
+      cwd: worktreePath,
+    });
     await git('git', ['commit', '-q', '-m', message], { cwd: worktreePath });
   };
   await commitWork(`tiraz: variant ${ctx.genome.id}`);
 
-  const screenshotPath = path.join(ctx.cwd, '.tiraz', 'screenshots', `${ctx.genome.id}.png`);
-  await mkdir(path.dirname(screenshotPath), { recursive: true });
   const renderShot = (): ReturnType<Renderer['render']> =>
     deps.renderer.render({
       worktreeDir: worktreePath,
@@ -218,15 +265,18 @@ export async function generateVariant(
     });
   let render = await renderShot();
 
-  // Optional self-critique-and-revise pass (SPEC §9): the agent reviews its own rendered output
-  // against the taste bar and fixes the worst slop tells in place, then we re-commit and re-render
-  // to refresh the screenshot. The first pass already succeeded, so a critique-pass failure (or a
+  // Optional self-critique-and-revise pass (SPEC §9), off by default: the agent reviews its own
+  // rendered output against the taste bar and fixes the worst slop tells in place, then we re-commit
+  // and re-render. It RESUMES the build session when the backend reported one, so it keeps its
+  // context (and prompt cache) instead of re-reading the codebase. A critique-pass failure (or a
   // no-op commit) must not discard the variant — we keep the original render in that case.
   if (ctx.selfCritique === true) {
     const critique = await deps.agent.run({
       cwd: worktreePath,
       prompt: composeCritiquePrompt(ctx.genome, render.screenshotPath),
       skills: activeSkillIds,
+      additionalDirectories: [screenshotsDir],
+      ...(agentResult.sessionId !== undefined ? { resumeSessionId: agentResult.sessionId } : {}),
       ...(ctx.genome.sources !== undefined ? { sources: ctx.genome.sources } : {}),
     });
     if (critique.ok) {
@@ -243,6 +293,7 @@ export async function generateVariant(
     devPort: ctx.port,
     renderUrl: render.renderUrl,
     screenshot: render.screenshotPath,
+    ...(baseCommit !== undefined ? { baseCommit } : {}),
     fitness: null,
     status: 'generated',
   };
@@ -279,9 +330,9 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
   const generation = manifest.generations.length;
   const id = genomeId(generation, 0);
   const now = deps.now ?? (() => new Date().toISOString());
-  const resolved = resolveActiveSkills(config);
+  const resolved = resolveActiveSkills({ ...config, skills: config.generation.skills });
   const resolvedSources = resolveSources(config.sources);
-  const permittedSources = resolvedSources.permittedIds;
+  const permittedSources = config.sources.fetchMode === 'off' ? [] : resolvedSources.permittedIds;
   const bundledSources = resolvedSources.bundled.map((source) => source.id);
 
   const genome: Genome = {
@@ -314,6 +365,7 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
       capabilities,
       designSystem,
       selfCritique: config.generation.selfCritique,
+      skills: config.generation.skills,
       fetchMode: config.sources.fetchMode,
       fetchBudget: config.sources.fetchBudget,
       bundledSources,

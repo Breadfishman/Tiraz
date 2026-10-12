@@ -65,7 +65,7 @@ describe('buildResourceView', () => {
 
   it('surfaces the genuine-fetch mode + budget', () => {
     const view = buildResourceView(config);
-    expect(view.fetchMode).toBe('install');
+    expect(view.fetchMode).toBe('off');
     expect(view.fetchBudget).toBe(6);
     const off = buildResourceView(
       TirazConfigSchema.parse({
@@ -123,9 +123,9 @@ describe('toggleModule', () => {
 });
 
 describe('setFetchMode', () => {
-  it('maps true→install and false→signatures', () => {
+  it('maps true→install and false→off', () => {
     expect(setFetchMode(config, true).sources.fetchMode).toBe('install');
-    expect(setFetchMode(config, false).sources.fetchMode).toBe('signatures');
+    expect(setFetchMode(config, false).sources.fetchMode).toBe('off');
   });
 
   it('leaves the rest of the sources block intact', () => {

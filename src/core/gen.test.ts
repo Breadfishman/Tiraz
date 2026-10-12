@@ -113,9 +113,37 @@ describe('runGen', () => {
     expect(manifest?.generations).toEqual([['g0-n0']]);
   });
 
-  it('passes the configured Tier-2 sources to the genome', async () => {
+  it('records no Tier-2 sources by default (sourcing off)', async () => {
     const repo = await initRepo();
     const skillsSourceDir = await skillsSource();
+    const node = await runGen(
+      { cwd: repo, brief: 'b', harness: 'storybook' },
+      { agent: okAgent, renderer: fakeRenderer, skillsSourceDir },
+    );
+    expect(node.genome.sources).toBeUndefined();
+  });
+
+  it('passes the configured Tier-2 sources to the genome when sourcing is on', async () => {
+    const repo = await initRepo();
+    const skillsSourceDir = await skillsSource();
+    await updateConfig(repo, (raw) => {
+      raw.sources = {
+        bundled: ['magic-ui'],
+        fetch: [
+          'react-bits',
+          '21st-registry',
+          'cult-ui',
+          'motion-primitives',
+          'kokonut-ui',
+          'smoothui',
+          'eldora-ui',
+          'tailark',
+          'mynaui',
+        ],
+        aceternity: false,
+        fetchMode: 'signatures',
+      };
+    });
     const node = await runGen(
       { cwd: repo, brief: 'b', harness: 'storybook' },
       {
@@ -166,13 +194,19 @@ describe('runGen', () => {
     const repo = await initRepo();
     const skillsSourceDir = await skillsSource();
 
+    await updateConfig(repo, (raw) => {
+      raw.generation = { selfCritique: true };
+    });
+
     let agentCalls = 0;
     const prompts: string[] = [];
+    const runs: Parameters<Agent['run']>[0][] = [];
     const countingAgent: Agent = {
       run: (opts) => {
         agentCalls += 1;
         prompts.push(opts.prompt);
-        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+        runs.push(opts);
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done', sessionId: 'sess-1' });
       },
     };
     let renderCalls = 0;
@@ -187,7 +221,6 @@ describe('runGen', () => {
       },
     };
 
-    // Default config has selfCritique on.
     await runGen(
       { cwd: repo, brief: 'A hero section', harness: 'storybook' },
       {
@@ -204,14 +237,15 @@ describe('runGen', () => {
     // The second pass is the self-critique prompt, not a rebuild.
     expect(prompts[1]).toContain('# Tiraz self-critique pass');
     expect(prompts[1]).toContain('## Taste bar — clear it (this is graded)');
+    // The critique pass resumes the build session and can read the screenshots dir.
+    expect(runs[0]?.resumeSessionId).toBeUndefined();
+    expect(runs[1]?.resumeSessionId).toBe('sess-1');
+    expect(runs[1]?.additionalDirectories).toEqual([path.join(repo, '.tiraz', 'screenshots')]);
   });
 
-  it('runs exactly one agent pass + one render when generation.selfCritique is off', async () => {
+  it('runs exactly one agent pass + one render by default (selfCritique off)', async () => {
     const repo = await initRepo();
     const skillsSourceDir = await skillsSource();
-    await updateConfig(repo, (raw) => {
-      raw.generation = { selfCritique: false };
-    });
 
     let agentCalls = 0;
     const countingAgent: Agent = {
@@ -250,6 +284,9 @@ describe('runGen', () => {
   it('keeps the first render when the self-critique pass fails (variant not discarded)', async () => {
     const repo = await initRepo();
     const skillsSourceDir = await skillsSource();
+    await updateConfig(repo, (raw) => {
+      raw.generation = { selfCritique: true };
+    });
 
     let agentCalls = 0;
     const flakyAgent: Agent = {
@@ -306,6 +343,14 @@ describe('runGen', () => {
     );
     await spawnRunner('git', ['add', '-A'], { cwd: repo });
     await spawnRunner('git', ['commit', '-q', '-m', 'add components.json'], { cwd: repo });
+    await updateConfig(repo, (raw) => {
+      raw.sources = {
+        bundled: ['magic-ui'],
+        fetch: ['cult-ui', 'kokonut-ui'],
+        aceternity: false,
+        fetchMode: 'install',
+      };
+    });
 
     const prompts: string[] = [];
     const capturingAgent: Agent = {
@@ -350,6 +395,69 @@ describe('runGen', () => {
     // The first (build) prompt tells the agent to compose the real installed components.
     expect(prompts[0]).toContain('## Real components installed — compose, do not reimplement');
     expect(prompts[0]).toContain('- magic-ui/marquee');
+  });
+
+  it('never commits the node_modules link or installed skills, and records the base commit', async () => {
+    const repo = await initRepo();
+    const skillsSourceDir = await skillsSource();
+    // A typical `node_modules/` ignore rule does not match the symlink Tiraz creates in a worktree.
+    await writeFile(path.join(repo, '.gitignore'), 'node_modules/\n', 'utf8');
+    await mkdir(path.join(repo, 'node_modules'), { recursive: true });
+    await spawnRunner('git', ['add', '-A'], { cwd: repo });
+    await spawnRunner('git', ['commit', '-q', '-m', 'ignore deps'], { cwd: repo });
+    const head = (await spawnRunner('git', ['rev-parse', 'HEAD'], { cwd: repo })).stdout.trim();
+
+    const writingAgent: Agent = {
+      run: async (opts) => {
+        await writeFile(path.join(opts.cwd, 'Hero.tsx'), 'export const Hero = 1;\n', 'utf8');
+        return { ok: true, exitCode: 0, output: 'done' };
+      },
+    };
+    const node = await runGen(
+      { cwd: repo, brief: 'A hero section', harness: 'storybook' },
+      { agent: writingAgent, renderer: fakeRenderer, skillsSourceDir, runner: spawnRunner },
+    );
+
+    expect(node.baseCommit).toBe(head);
+    const committed = (
+      await spawnRunner('git', ['show', '--name-only', '--format=', 'HEAD'], { cwd: node.worktree })
+    ).stdout
+      .split('\n')
+      .filter((line) => line !== '');
+    expect(committed).toEqual(['Hero.tsx']);
+    // The skills are still installed in the worktree for the agent — just not committed.
+    expect(await exists(path.join(node.worktree, '.claude', 'skills', 'frontend-design'))).toBe(
+      true,
+    );
+    expect(await exists(path.join(node.worktree, 'node_modules'))).toBe(true);
+  });
+
+  it('gives the agent a tiraz shot self-check when the CLI path is known', async () => {
+    const repo = await initRepo();
+    const skillsSourceDir = await skillsSource();
+    const runs: Parameters<Agent['run']>[0][] = [];
+    const capturingAgent: Agent = {
+      run: (opts) => {
+        runs.push(opts);
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+      },
+    };
+    await runGen(
+      { cwd: repo, brief: 'A hero section', target: 'story:hero--default', harness: 'storybook' },
+      {
+        agent: capturingAgent,
+        renderer: fakeRenderer,
+        skillsSourceDir,
+        tirazCli: '/pkg/dist/cli.js',
+      },
+    );
+    const prompt = runs[0]?.prompt ?? '';
+    expect(prompt).toContain('node /pkg/dist/cli.js shot --worktree');
+    expect(prompt).toContain('--harness storybook --target story:hero--default --port 41000');
+    expect(prompt).toContain(path.join(repo, '.tiraz', 'screenshots', 'g0-n0-check.png'));
+    // Integration mode (the default) keeps the brand.
+    expect(prompt).toContain('## Keep the brand');
+    expect(runs[0]?.additionalDirectories).toEqual([path.join(repo, '.tiraz', 'screenshots')]);
   });
 
   it('throws GenError when the agent fails', async () => {

@@ -53,7 +53,10 @@ export const TirazConfigSchema = z.strictObject({
     .refine((f) => Math.abs(f.weights.dsAdherence + f.weights.taste - 1) < 1e-9, {
       message: 'fitness.weights.dsAdherence + fitness.weights.taste must sum to 1',
     })
-    .default({ lintFloorRequired: true, weights: { dsAdherence: 0.5, taste: 0.5 } }),
+    // The lint floor is advisory by default: violations are recorded and shown, but only zero a
+    // variant's composite when `lintFloorRequired` is true. Taste leads the blend; DS-adherence is a
+    // supporting signal (off-system literals are surfaced either way).
+    .default({ lintFloorRequired: false, weights: { dsAdherence: 0.3, taste: 0.7 } }),
 
   sources: z
     .strictObject({
@@ -72,7 +75,9 @@ export const TirazConfigSchema = z.strictObject({
       // components installed per variant (bounds network + time). These fields carry FIELD-LEVEL
       // defaults so an existing `tiraz.config.json` with a `sources` block but without these keys
       // still validates and picks them up.
-      fetchMode: z.enum(['signatures', 'install']).default('install'),
+      // `off` (the default) skips fetching AND the per-source prompt text entirely: modern agents
+      // compose well from the design system alone, and fetching costs time + tokens per variant.
+      fetchMode: z.enum(['off', 'signatures', 'install']).default('off'),
       fetchBudget: z.number().int().min(0).max(20).default(6),
       // 21st.dev semantic-search source (SPEC §12, Phase 2/3). Unlike the shadcn-registry sources
       // (fixed slug lists), this is QUERY-DRIVEN: a planning agent pass picks search queries and each
@@ -100,13 +105,20 @@ export const TirazConfigSchema = z.strictObject({
       ],
       aceternity: false,
       skiper: false,
-      fetchMode: 'install',
+      fetchMode: 'off',
       fetchBudget: 6,
       twentyFirst: false,
       twentyFirstBudget: 3,
     }),
 
   harness: z.enum(['auto', 'storybook', 'ladle', 'histoire', 'scratch', 'app']).default('auto'),
+
+  /**
+   * How the `app` harness boots the project's own dev server in a variant worktree. Whitespace-
+   * separated (no shell quoting); `{port}` is replaced with the variant's port. Override for scripts
+   * that take the port differently (e.g. `npx next dev --webpack -p {port}`).
+   */
+  appCommand: z.string().min(1).default('npm run dev -- --port {port}'),
 
   /** Greenfield default; in integration mode this is overwritten by stack detection. */
   framework: z.string().min(1).default('astro'),
@@ -119,28 +131,63 @@ export const TirazConfigSchema = z.strictObject({
 
   /**
    * Generation behaviour.
-   * - `selfCritique` adds a second agent pass after the first render: the agent reviews its own
-   *   rendered output against the slop-tell rubric and fixes the worst offenders in place (SPEC §9
-   *   anti-slop). On by default — it is the headline taste lever for generation.
+   * - `selfCritique` adds a second agent pass after the first render (resumed in the same session so
+   *   it keeps its context). Off by default: the agent already screenshots and checks its own work
+   *   during the first pass (see `agent.allowedTools`), so the extra pass rarely pays for itself.
    * - `concurrency` is how many variants in a round are materialized in parallel (SPEC §7). Each
-   *   variant is fully isolated (own worktree, port, and branch), so concurrent runs are safe; the
-   *   cap bounds the load (concurrent agent sessions + harness boots). Field-defaulted so existing
-   *   configs keep validating.
+   *   variant is fully isolated (own worktree, port, and branch), so concurrent runs are safe.
+   * - `diversity` sets the gen-0 spread: `diverse` (default) / `alien` (more extreme) /
+   *   `conservative` (uniform, no per-variant direction).
+   * - `directions` is where gen-0 aesthetic directions come from: `planned` (default) asks one cheap
+   *   model call to write directions tailored to the brief + the repo's design system (in integration
+   *   mode they stay inside the brand); `catalog` cycles the built-in seed profiles. A failed plan
+   *   falls back to the catalog.
+   * - `skills` controls how much vendored taste doctrine is installed per variant: `lean` (default)
+   *   installs only the short base skill (+ the redesign skill in integration mode, + an overlay when
+   *   a catalog profile asks for one); `full` also installs the large opinionated primary skill.
+   * All fields are field-defaulted so existing configs keep validating.
    */
   generation: z
     .strictObject({
-      selfCritique: z.boolean().default(true),
+      selfCritique: z.boolean().default(false),
       concurrency: z.number().int().min(1).max(16).default(4),
-      /**
-       * Gen-0 diversity spread (SPEC §4). `diverse` (default) seeds the first generation across
-       * divergent aesthetic ethoses with varied per-variant source allocation (all / few / single /
-       * homegrown-from-scratch) so a round spans real options, not near-duplicates; `alien` pushes
-       * dial extremes + experimentation harder; `conservative` reverts to uniform full-source seeding.
-       * Field-defaulted so existing configs keep validating.
-       */
       diversity: z.enum(['conservative', 'diverse', 'alien']).default('diverse'),
+      directions: z.enum(['planned', 'catalog']).default('planned'),
+      skills: z.enum(['lean', 'full']).default('lean'),
     })
-    .default({ selfCritique: true, concurrency: 4, diversity: 'diverse' }),
+    .default({
+      selfCritique: false,
+      concurrency: 4,
+      diversity: 'diverse',
+      directions: 'planned',
+      skills: 'lean',
+    }),
+
+  /**
+   * Model + session controls for the Claude Code agent and the taste judge. Every field is
+   * field-defaulted, so an existing config without this block validates.
+   * - `model`: the model for build sessions (`claude --model`); absent → your `claude` default.
+   * - `maxTurns`: caps each build session's agentic turns (`--max-turns`) so a stuck variant can't
+   *   burn unbounded usage.
+   * - `judgeModel`: the vision model that ranks a generation in ONE listwise call.
+   * - `plannerModel`: the model that writes gen-0 directions (one short call per round).
+   * - `allowedTools`: extra Claude Code permission rules for build sessions, on top of the built-in
+   *   set that lets the agent run the build/typecheck and screenshot its own render.
+   */
+  agent: z
+    .strictObject({
+      model: z.string().min(1).optional(),
+      maxTurns: z.number().int().min(1).max(500).default(60),
+      judgeModel: z.string().min(1).default('claude-sonnet-5-5'),
+      plannerModel: z.string().min(1).default('claude-sonnet-5-5'),
+      allowedTools: z.array(z.string().min(1)).default([]),
+    })
+    .default({
+      maxTurns: 60,
+      judgeModel: 'claude-sonnet-5-5',
+      plannerModel: 'claude-sonnet-5-5',
+      allowedTools: [],
+    }),
 });
 
 /** Fully-resolved configuration (all fields present after parsing). */

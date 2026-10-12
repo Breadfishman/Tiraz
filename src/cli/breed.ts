@@ -1,10 +1,8 @@
 import type { Command } from 'commander';
-import { ClaudeCodeAgent } from '../core/agent';
 import { describeError } from '../core/config';
 import type { HarnessKind } from '../core/detect';
-import { createPlaywrightRenderer } from '../core/playwright-io';
 import { breedGeneration } from '../core/search';
-import { bundledSkillsDir } from './bundled';
+import { liveDeps } from './live';
 
 const HARNESSES: readonly HarnessKind[] = ['storybook', 'ladle', 'histoire', 'scratch', 'app'];
 
@@ -51,11 +49,7 @@ export function registerBreedCommand(program: Command): void {
             ...(options.harness !== undefined ? { harness: options.harness as HarnessKind } : {}),
             ...(options.note !== undefined ? { directive: options.note } : {}),
           },
-          {
-            agent: new ClaudeCodeAgent(),
-            renderer: createPlaywrightRenderer(),
-            skillsSourceDir: bundledSkillsDir(),
-          },
+          await liveDeps(cwd),
         );
         console.log(`Bred ${String(nodes.length)} child variant(s):`);
         for (const node of nodes) {

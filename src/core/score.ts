@@ -5,8 +5,8 @@ import type { TasteResult } from './fitness';
 import type { LintResult } from './lint';
 import type { Manifest, TirazConfig, VariantNode } from './manifest';
 import { loadManifest, saveManifest, upsertNode } from './manifest';
-import type { JudgeCandidate, LensConfig, PairwiseJudge } from './taste-judge';
-import { runTasteTournament } from './taste-judge';
+import type { JudgeCandidate, RankingJudge } from './taste-judge';
+import { runTasteRanking } from './taste-judge';
 
 export class ScoreError extends Error {
   override readonly name = 'ScoreError';
@@ -19,10 +19,16 @@ export interface ScoreDeps {
   designSystem: DesignSystem;
   /** Collect the values a variant actually used (an adapter over its render/code). */
   collectUsedValues: (node: VariantNode) => Promise<UsedValues>;
-  /** The pairwise VLM judge. */
-  judge: PairwiseJudge;
+  /** The listwise vision judge (one call ranks the whole generation). */
+  judge: RankingJudge;
+  /** Vision model for the ranking call (`agent.judgeModel`); defaults to `DEFAULT_JUDGE_MODEL`. */
+  judgeModel?: string;
   weights: TirazConfig['fitness']['weights'];
-  lenses?: readonly LensConfig[];
+  /**
+   * Whether a failed lint floor zeroes the composite (`fitness.lintFloorRequired`). Defaults to
+   * true here; the CLI passes the config value (false by default — the floor is advisory).
+   */
+  lintGate?: boolean;
 }
 
 /** A node with no screenshot can't be taste-judged; it gets a zero taste term. */
@@ -30,7 +36,7 @@ const ABSENT_TASTE: TasteResult = { rank: 0, derivedScore: 0, panel: [] };
 
 /**
  * Score every variant in a generation (SPEC §9): compute the lint floor and design-system
- * adherence per node, run the taste tournament across the generation, assemble each node's
+ * adherence per node, rank the generation with one listwise judge call, assemble each node's
  * three-term {@link composeFitness}, mark it `scored`, and persist the manifest. Returns the
  * updated manifest.
  */
@@ -58,17 +64,21 @@ export async function runScore(
     return node;
   });
 
+  // Lint + DS-adherence are deterministic and local, so every node is computed in parallel.
   const lintResults = new Map<string, LintResult>();
   const dsResults = new Map<string, DsAdherenceResult>();
-  for (const node of nodes) {
-    lintResults.set(node.genome.id, await deps.lint(node));
-    dsResults.set(
-      node.genome.id,
-      scoreDsAdherence(deps.designSystem, await deps.collectUsedValues(node), {
-        ...(node.genome.sources !== undefined ? { whitelistedSources: node.genome.sources } : {}),
-      }),
-    );
-  }
+  await Promise.all(
+    nodes.map(async (node) => {
+      const [lintResult, used] = await Promise.all([deps.lint(node), deps.collectUsedValues(node)]);
+      lintResults.set(node.genome.id, lintResult);
+      dsResults.set(
+        node.genome.id,
+        scoreDsAdherence(deps.designSystem, used, {
+          ...(node.genome.sources !== undefined ? { whitelistedSources: node.genome.sources } : {}),
+        }),
+      );
+    }),
+  );
 
   const candidates: JudgeCandidate[] = [];
   for (const node of nodes) {
@@ -84,10 +94,10 @@ export async function runScore(
     }
   }
   const brief = nodes[0]?.genome.brief ?? '';
-  const taste = await runTasteTournament(candidates, {
+  const taste = await runTasteRanking(candidates, {
     brief,
     judge: deps.judge,
-    ...(deps.lenses !== undefined ? { lenses: deps.lenses } : {}),
+    ...(deps.judgeModel !== undefined ? { model: deps.judgeModel } : {}),
   });
 
   let updated = manifest;
@@ -102,6 +112,7 @@ export async function runScore(
       dsResult,
       taste[node.genome.id] ?? ABSENT_TASTE,
       deps.weights,
+      deps.lintGate ?? true,
     );
     updated = upsertNode(updated, { ...node, fitness, status: 'scored' });
   }

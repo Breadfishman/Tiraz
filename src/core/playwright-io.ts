@@ -46,7 +46,13 @@ export const playwrightScreenshot: Screenshotter = async (url, screenshotPath, o
       'Playwright is not installed. Run `npm install playwright && npx playwright install chromium`.',
     );
   }
-  const browser = await pw.chromium.launch({ headless: true });
+  // `TIRAZ_CHROMIUM_PATH` points at an existing Chromium/Chrome when Playwright's own download is
+  // missing or version-mismatched (e.g. a pre-provisioned CI or cloud image).
+  const executablePath = process.env.TIRAZ_CHROMIUM_PATH;
+  const browser = await pw.chromium.launch({
+    headless: true,
+    ...(executablePath !== undefined && executablePath !== '' ? { executablePath } : {}),
+  });
   try {
     const context = await browser.newContext({
       viewport: { width: opts.width, height: opts.height },
@@ -67,17 +73,39 @@ export const playwrightScreenshot: Screenshotter = async (url, screenshotPath, o
         { timeout: 15_000 },
       )
       .catch(() => undefined);
-    await page.waitForTimeout(3_500);
-    await page.screenshot({ path: screenshotPath });
+    if (opts.fullPage) {
+      // Scroll through the page so lazy images and scroll-triggered reveals (whileInView, IO-based
+      // fade-ins) paint before a full-page capture, then return to the top. Runs in the browser.
+      await page
+        .evaluate(
+          `(async () => { const step = window.innerHeight * 0.8; const limit = ${String(opts.maxHeight)}; for (let y = 0; y < Math.min(document.documentElement.scrollHeight, limit); y += step) { window.scrollTo(0, y); await new Promise((r) => setTimeout(r, 150)); } window.scrollTo(0, 0); })()`,
+        )
+        .catch(() => undefined);
+    }
+    await page.waitForTimeout(2_000);
+    if (opts.fullPage) {
+      const pageHeight = await page
+        .evaluate('document.documentElement.scrollHeight')
+        .then((h) => (typeof h === 'number' ? h : opts.height))
+        .catch(() => opts.height);
+      await page.screenshot({
+        path: screenshotPath,
+        fullPage: true,
+        clip: { x: 0, y: 0, width: opts.width, height: Math.min(pageHeight, opts.maxHeight) },
+      });
+    } else {
+      await page.screenshot({ path: screenshotPath });
+    }
   } finally {
     await browser.close();
   }
 };
 
 /** Build a live {@link PlaywrightRenderer} wired to the real process + browser I/O. */
-export function createPlaywrightRenderer(): PlaywrightRenderer {
+export function createPlaywrightRenderer(opts: { appCommand?: string } = {}): PlaywrightRenderer {
   return new PlaywrightRenderer({
     launchServer: launchServerProcess,
     screenshot: playwrightScreenshot,
+    ...(opts.appCommand !== undefined ? { appCommand: opts.appCommand } : {}),
   });
 }

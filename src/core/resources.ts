@@ -42,8 +42,8 @@ export interface ResourceView {
   modules: { threeD: boolean; remotion: boolean };
   dials: { variance: number; motion: number; density: number };
   weights: { dsAdherence: number; taste: number };
-  /** Genuine component fetching (SPEC §12): whether real components are installed (`install`). */
-  fetchMode: 'signatures' | 'install';
+  /** Component sourcing (SPEC §12): `off` (default), `signatures` (prompt-only), or `install`. */
+  fetchMode: TirazConfig['sources']['fetchMode'];
   /** Max components installed per variant in `install` mode. */
   fetchBudget: number;
   /** 21st.dev semantic-search fetching (SPEC §12, Phase 2/3): whether it is opted in (needs a key). */
@@ -160,13 +160,13 @@ export function toggleSource(config: TirazConfig, id: string, enabled: boolean):
 
 /**
  * Return a copy of `config` with genuine component fetching toggled (SPEC §12, Phase 1):
- * `true` → `'install'` (pre-fetch + compose real components), `false` → `'signatures'` (prompt-only
- * fallback). The off switch for a feature that defaults on.
+ * `true` → `'install'` (pre-fetch + compose real components), `false` → `'off'` (no fetching and no
+ * per-source prompt text — the default).
  */
 export function setFetchMode(config: TirazConfig, enabled: boolean): TirazConfig {
   return {
     ...config,
-    sources: { ...config.sources, fetchMode: enabled ? 'install' : 'signatures' },
+    sources: { ...config.sources, fetchMode: enabled ? 'install' : 'off' },
   };
 }
 

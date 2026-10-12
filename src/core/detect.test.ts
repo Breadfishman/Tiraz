@@ -68,6 +68,16 @@ describe('detectHarness', () => {
     expect((await detectHarness(dir)).kind).toBe('scratch');
   });
 
+  it("falls back to the app harness (the project's own dev server) when a dev script exists", async () => {
+    const dir = await project({ packageJson: { scripts: { dev: 'astro dev' } } });
+    expect(await detectHarness(dir)).toMatchObject({ kind: 'app' });
+  });
+
+  it('ignores a non-string dev script', async () => {
+    const dir = await project({ packageJson: { scripts: { dev: 1 } } });
+    expect((await detectHarness(dir)).kind).toBe('scratch');
+  });
+
   it('treats a missing package.json as no dependencies', async () => {
     const dir = await project({});
     expect((await detectHarness(dir)).kind).toBe('scratch');

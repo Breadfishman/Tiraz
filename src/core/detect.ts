@@ -74,9 +74,26 @@ export async function detectFramework(repoRoot: string): Promise<DetectedFramewo
   return { framework: null, reason: 'no known framework found in package.json' };
 }
 
+/** Whether the repo's package.json defines a `dev` script (what the `app` harness runs). */
+async function hasDevScript(repoRoot: string): Promise<boolean> {
+  try {
+    const pkg = JSON.parse(await readFile(path.join(repoRoot, 'package.json'), 'utf8')) as unknown;
+    if (typeof pkg !== 'object' || pkg === null) return false;
+    const scripts = (pkg as { scripts?: unknown }).scripts;
+    return (
+      typeof scripts === 'object' &&
+      scripts !== null &&
+      typeof (scripts as Record<string, unknown>).dev === 'string'
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Resolve the render harness for a repo (SPEC §11): explicit override → detect an existing
- * playground (Storybook → Ladle → Histoire) → fall back to `scratch` (a v2 stretch goal).
+ * playground (Storybook → Ladle → Histoire) → the project's own dev server (`app`, when a `dev`
+ * script exists) → fall back to `scratch`.
  */
 export async function detectHarness(
   repoRoot: string,
@@ -113,9 +130,16 @@ export async function detectHarness(
     };
   }
 
+  if (await hasDevScript(repoRoot)) {
+    return {
+      kind: 'app',
+      reason: "no component playground — rendering routes on the project's own dev server",
+    };
+  }
+
   return {
     kind: 'scratch',
     reason:
-      'no component playground detected — scratch-route fallback is a v2 stretch goal (SPEC §11)',
+      'no component playground or dev script detected — scratch-route fallback is a v2 stretch goal (SPEC §11)',
   };
 }

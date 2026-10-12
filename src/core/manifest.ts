@@ -43,6 +43,8 @@ export const VariantNodeSchema = z.strictObject({
   devPort: z.number().int().optional(),
   renderUrl: z.string().optional(),
   screenshot: z.string().optional(),
+  /** Commit the variant's worktree started from — the lint floor scans only files changed since. */
+  baseCommit: z.string().optional(),
   fitness: FitnessSchema.nullable(),
   status: z.enum(NODE_STATUSES),
 });
