@@ -21,6 +21,9 @@ export function claudeCliVisionComplete(runner: CommandRunner = spawnRunner): Vi
       'The options are local PNG screenshots. Read EVERY image file below with your Read tool (do',
       'nothing else), then reply with ONLY the JSON ranking (no prose).',
       ...req.imagePaths.map((file, i) => `- Option ${String(i + 1)}: ${file}`),
+      ...(req.referencePaths ?? []).map(
+        (file, i) => `- Reference ${String(i + 1)} (not an option): ${file}`,
+      ),
     ].join('\n');
     const args = [
       '-p',
@@ -28,7 +31,7 @@ export function claudeCliVisionComplete(runner: CommandRunner = spawnRunner): Vi
       req.model,
       // One Read per image plus the answer; a small cap keeps a confused session from wandering.
       '--max-turns',
-      String(req.imagePaths.length + 4),
+      String(req.imagePaths.length + (req.referencePaths?.length ?? 0) + 4),
       prompt,
     ];
     const result = await runner('claude', args, { cwd: process.cwd() });

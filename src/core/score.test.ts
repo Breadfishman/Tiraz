@@ -156,4 +156,72 @@ describe('runScore', () => {
       }),
     ).rejects.toBeInstanceOf(ScoreError);
   });
+
+  it('scans each node for tells, flags near-duplicates, and gives the judge brand/taste/refs', async () => {
+    const dir = await seedManifest();
+    let ctxSeen: Parameters<RankingJudge['rank']>[1] | undefined;
+    const judge: RankingJudge = {
+      rank: (_c, ctx) => {
+        ctxSeen = ctx;
+        return Promise.resolve({ order: ['g0-n1', 'g0-n0'], critiques: {} });
+      },
+    };
+    const pairs: unknown[] = [];
+    const ledger = '<h1>Roasted in <em>Portland</em></h1>';
+    const updated = await runScore(dir, 0, {
+      lint: () => Promise.resolve(passingLint),
+      designSystem,
+      collectUsedValues: () => Promise.resolve({ values: {}, components: [] }),
+      judge,
+      weights,
+      scan: () =>
+        Promise.resolve([
+          { path: 'index.html', content: ledger },
+          { path: 'a.css', content: 'h1 { font-family: "GT Alpina"; color: #111111 }' },
+        ]),
+      exemptFonts: ['GT Alpina'],
+      tellPenalty: 0.5,
+      onNearDuplicates: (p) => pairs.push(...p),
+      brand: 'Only true of us: a rebuilt 1952 roaster',
+      taste: '- liked g0-n0: the curve',
+      referencePaths: ['/refs/love-1.png'],
+    });
+    const fitness = updated.nodes['g0-n1']?.fitness;
+    expect(fitness?.originality).toEqual({ score: 80, tells: ['italic-accent-headline'] });
+    expect(pairs).toEqual([{ a: 'g0-n0', b: 'g0-n1', similarity: 1 }]);
+    expect(ctxSeen?.brand).toContain('1952');
+    expect(ctxSeen?.taste).toContain('the curve');
+    expect(ctxSeen?.references).toEqual(['/refs/love-1.png']);
+  });
+
+  it('passes each candidate signature to the judge as part of its intent', async () => {
+    const dir = await mkdtemp(path.join(tmpdir(), 'tiraz-score-sig-'));
+    tmpDirs.push(dir);
+    const withSig = (id: string, extra: Partial<VariantNode['genome']>): VariantNode => ({
+      ...node(id),
+      genome: { ...node(id).genome, ...extra },
+    });
+    let m: Manifest = createManifest('demo', 'integration', config);
+    m = upsertNode(m, withSig('g0-n0', { ethos: 'Ink', signature: 'a hand-drawn roast curve' }));
+    m = upsertNode(m, withSig('g0-n1', { signature: 'bean-origin map' }));
+    m = recordGeneration(m, ['g0-n0', 'g0-n1']);
+    await saveManifest(dir, m);
+    const intents: (string | undefined)[] = [];
+    await runScore(dir, 0, {
+      lint: () => Promise.resolve(passingLint),
+      designSystem,
+      collectUsedValues: () => Promise.resolve({ values: {}, components: [] }),
+      judge: {
+        rank: (cands) => {
+          intents.push(...cands.map((c) => c.intent));
+          return Promise.resolve({ order: [], critiques: {} });
+        },
+      },
+      weights,
+    });
+    expect(intents).toEqual([
+      'Ink Signature: a hand-drawn roast curve',
+      'Signature: bean-origin map',
+    ]);
+  });
 });

@@ -18,7 +18,7 @@ every default.
 | `dials`         | `{ variance, motion, density }`, each int 1–10                                   | `{ 5, 5, 5 }`                       | Design intensity dials                                                   |
 | `beam`          | `{ width, factor, maxDepth }`, positive ints                                     | `{ 2, 3, 3 }`                       | Beam-search knobs                                                        |
 | `pruning`       | `"human-only"` \| `"lint-gated"` \| `"auto-beam"`                                | `"lint-gated"`                      | The human can always override                                            |
-| `fitness`       | `{ lintFloorRequired: bool, weights: { dsAdherence, taste } }`                   | `{ false, { 0.3, 0.7 } }`           | `weights` must sum to 1; the lint floor only gates when required (below) |
+| `fitness`       | `{ lintFloorRequired, weights: { dsAdherence, taste }, tellPenalty }`            | `{ false, { 0.3, 0.7 }, 0.3 }`      | `weights` must sum to 1; the lint floor only gates when required (below) |
 | `sources`       | see [`sources`](#sources-two-tier-component-menu-spec-12)                        | sourcing `fetchMode: "off"`         | Component libraries are opt-in                                           |
 | `harness`       | `"auto"` \| `"storybook"` \| `"ladle"` \| `"histoire"` \| `"scratch"` \| `"app"` | `"auto"`                            | Render surface; `app` = your project's own dev server                    |
 | `appCommand`    | string with `{port}`                                                             | `"npm run dev -- --port {port}"`    | How the `app` harness boots your dev server in a worktree                |
@@ -72,12 +72,30 @@ zero its composite when `fitness.lintFloorRequired` is `true` and the score fall
 `lintThreshold`. If the detector can't run (offline, say), the floor is skipped for that variant and
 `score` carries on. `--no-lint` skips it entirely.
 
+## Originality (the tells scan)
+
+`score` scans every variant's changed files for the second-order AI look (see
+[`tiraz tells`](./cli.md#tiraz-tells-node-)). The 0–100 originality score scales the composite:
+`composite × (1 − tellPenalty × (1 − originality/100))`. At the default `fitness.tellPenalty: 0.3`,
+a variant with every tell loses 30%; `0` records tells without penalising. Brand fonts listed in
+`BRAND.md` are never flagged.
+
+## Files Tiraz reads
+
+| File                | Who writes it                                  | Read by                      |
+| ------------------- | ---------------------------------------------- | ---------------------------- |
+| `BRAND.md`          | you (`tiraz brand draft` to start), committed  | planner, build agents, judge |
+| `.tiraz/TASTE.md`   | `select`/`cull --why`, the dashboard "Why" box | planner, build agents, judge |
+| `.tiraz/refs/*.png` | `tiraz brand refs`                             | planner, build agents, judge |
+
 ## Environment
 
 - `ANTHROPIC_API_KEY`: when set, `score` calls the judge through the API (images sent directly);
   otherwise it uses one `claude -p` session.
 - `TIRAZ_CHROMIUM_PATH`: point the renderer at an existing Chromium/Chrome when Playwright's own
   browser download is missing or a different version.
+- `HTTPS_PROXY` / `HTTP_PROXY`: used by the browser for external pages (reference sites); local
+  render servers bypass it.
 
 ## `sources`: two-tier component menu (SPEC §12)
 

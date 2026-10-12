@@ -56,11 +56,15 @@ export const anthropicVisionComplete: VisionComplete = async (req: VisionRequest
   const AnthropicCtor = mod.default as unknown as new () => AnthropicLike;
   const client = new AnthropicCtor();
   const images = await Promise.all(req.imagePaths.map((file) => imageBlock(file)));
+  const refs = await Promise.all((req.referencePaths ?? []).map((file) => imageBlock(file)));
 
   // Label each image so the model can map it to its option number unambiguously.
   const content: unknown[] = [];
   images.forEach((image, i) => {
     content.push({ type: 'text', text: `Option ${String(i + 1)}:` }, image);
+  });
+  refs.forEach((image, i) => {
+    content.push({ type: 'text', text: `Reference ${String(i + 1)} (not an option):` }, image);
   });
   content.push({ type: 'text', text: req.prompt });
 

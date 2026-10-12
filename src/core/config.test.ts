@@ -42,6 +42,7 @@ describe('TirazConfigSchema', () => {
     expect(config.fitness).toEqual({
       lintFloorRequired: false,
       weights: { dsAdherence: 0.3, taste: 0.7 },
+      tellPenalty: 0.3,
     });
     expect(config.sources).toEqual({
       bundled: ['magic-ui'],

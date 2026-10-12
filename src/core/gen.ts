@@ -1,7 +1,17 @@
 import { mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import type { Agent, CommandRunner } from './agent';
-import { composeCritiquePrompt, composePrompt, shotCommand, spawnRunner } from './agent';
+import {
+  composeCritiquePrompt,
+  composePrompt,
+  shotCommand,
+  spawnRunner,
+  tellsCommand,
+} from './agent';
+import { brandFonts, brandPromptSection } from './brand';
+import type { CreativeContext } from './creative-context';
+import { REFS_DIR, loadCreativeContext } from './creative-context';
+import { tasteSection } from './taste-memory';
 import { resolveFetchPlan } from './component-fetch';
 import { fetchComponents } from './component-fetch-io';
 import { planAndFetchTwentyFirst } from './twentyfirst-io';
@@ -104,6 +114,8 @@ export interface GenerateVariantContext {
   twentyFirstBudget?: number;
   /** `generation.skills` — `lean` skips the large greenfield primary skill (defaults to `full`). */
   skills?: TirazConfig['generation']['skills'];
+  /** BRAND.md, taste notes, and reference screenshots (loaded once per round by the caller). */
+  creative?: CreativeContext;
 }
 
 /** Paths the agent may create in a worktree that must never be committed onto a variant branch. */
@@ -199,7 +211,13 @@ export async function generateVariant(
 
   const allFetched = [...fetched, ...twentyFirstFetched];
 
+  const creative = ctx.creative;
   const screenshotsDir = path.join(ctx.cwd, '.tiraz', 'screenshots');
+  // Directories outside the worktree the agent may read: its screenshots, plus reference shots.
+  const readableDirs = [
+    screenshotsDir,
+    ...((creative?.references ?? []).length > 0 ? [path.join(ctx.cwd, REFS_DIR)] : []),
+  ];
   const screenshotPath = path.join(screenshotsDir, `${ctx.genome.id}.png`);
   await mkdir(screenshotsDir, { recursive: true });
   const check =
@@ -215,6 +233,10 @@ export async function generateVariant(
               port: ctx.port,
               out,
             }),
+            tellsCommand: tellsCommand(deps.tirazCli, {
+              worktree: worktreePath,
+              ...(baseCommit !== undefined ? { base: baseCommit } : {}),
+            }),
           };
         })()
       : undefined;
@@ -226,7 +248,14 @@ export async function generateVariant(
     ctx.designSystem,
     ctx.directive,
     allFetched.map((f) => ({ source: f.source, item: f.item })),
-    { mode: ctx.mode, ...(check !== undefined ? { check } : {}) },
+    {
+      mode: ctx.mode,
+      ...(check !== undefined ? { check } : {}),
+      brand: brandPromptSection(creative?.brand ?? null),
+      taste: tasteSection(creative?.taste ?? ''),
+      references: creative?.references ?? [],
+      brandFonts: creative?.brand != null ? brandFonts(creative.brand) : [],
+    },
   );
   const agentResult = await deps.agent.run({
     cwd: worktreePath,
@@ -234,7 +263,7 @@ export async function generateVariant(
     skills: activeSkillIds,
     // The screenshots live under the repo's `.tiraz/`, outside the worktree — grant access so the
     // agent can read its own check renders.
-    additionalDirectories: [screenshotsDir],
+    additionalDirectories: readableDirs,
     ...(ctx.genome.sources !== undefined ? { sources: ctx.genome.sources } : {}),
   });
   if (!agentResult.ok) {
@@ -275,7 +304,7 @@ export async function generateVariant(
       cwd: worktreePath,
       prompt: composeCritiquePrompt(ctx.genome, render.screenshotPath),
       skills: activeSkillIds,
-      additionalDirectories: [screenshotsDir],
+      additionalDirectories: readableDirs,
       ...(agentResult.sessionId !== undefined ? { resumeSessionId: agentResult.sessionId } : {}),
       ...(ctx.genome.sources !== undefined ? { sources: ctx.genome.sources } : {}),
     });
@@ -353,6 +382,7 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
   const port = assignPort(usedPorts(manifest));
   const capabilities = resolveCapabilities(config.modules).libraries.map((c) => c.name);
   const designSystem = await collectDesignSystem(opts.cwd);
+  const creative = await loadCreativeContext(opts.cwd);
 
   const node = await generateVariant(
     {
@@ -371,6 +401,7 @@ export async function runGen(opts: GenOptions, deps: GenDeps): Promise<VariantNo
       bundledSources,
       twentyFirst: config.sources.twentyFirst,
       twentyFirstBudget: config.sources.twentyFirstBudget,
+      creative,
     },
     deps,
   );

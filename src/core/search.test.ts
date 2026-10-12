@@ -11,6 +11,7 @@ import {
   breedGeneration,
   generateGeneration,
   recombineVariant,
+  exploredDirections,
   seedGenomes,
 } from './search';
 import { TirazConfigSchema } from './config';
@@ -230,6 +231,25 @@ describe('seedGenomes', () => {
     expect(alien.some((g) => g.ethos?.includes('extreme'))).toBe(true);
   });
 
+  it('carries planned signature / philosophy / type onto the genome', () => {
+    const [g] = seedGenomes(
+      TirazConfigSchema.parse({ mode: 'greenfield' }),
+      1,
+      { brief: 'b', createdAt: '2026-06-08T00:00:00.000Z', generation: 0 },
+      [
+        {
+          ethos: 'e',
+          excellence: 'x',
+          signature: 'curve',
+          philosophy: 'swiss',
+          type: 'Söhne',
+          dials: { variance: 5, motion: 5, density: 5 },
+        },
+      ],
+    );
+    expect(g).toMatchObject({ signature: 'curve', philosophy: 'swiss', typography: 'Söhne' });
+  });
+
   it('with sourcing off (the default) seeds no sources and no homegrown flag', () => {
     const genomes = seedGenomes(TirazConfigSchema.parse({ mode: 'greenfield' }), 5, {
       brief: 'b',
@@ -275,6 +295,22 @@ describe('seedGenomes', () => {
     expect(ethoses).not.toMatch(/Y2K|vaporwave|cyberpunk|Memphis|brutalism/i);
     expect(new Set(genomes.map((g) => g.ethos)).size).toBe(6);
     expect(genomes.every((g) => g.primary === 'redesign-existing-projects')).toBe(true);
+  });
+});
+
+describe('exploredDirections', () => {
+  it('lists distinct ethoses across generations, capped to the most recent', () => {
+    const node = (id: string, ethos?: string) =>
+      ({ genome: { id, ...(ethos !== undefined ? { ethos } : {}) } }) as never;
+    const manifest = {
+      generations: [
+        ['a', 'b'],
+        ['c', 'd'],
+      ],
+      nodes: { a: node('a', 'One'), b: node('b', 'Two'), c: node('c', 'One'), d: node('d') },
+    } as never;
+    expect(exploredDirections(manifest)).toEqual(['One', 'Two']);
+    expect(exploredDirections(manifest, 1)).toEqual(['Two']);
   });
 });
 
@@ -363,6 +399,40 @@ describe('generateGeneration', () => {
     expect(planCalls[0]?.model).toBe('claude-sonnet-5-5');
     expect(planCalls[0]?.cwd).toBe(repo);
     expect(nodes.map((n) => n.genome.ethos)).toEqual(['Ink and paper', 'Neon product']);
+  });
+
+  it('gives the planner BRAND.md, taste notes, references, and earlier directions', async () => {
+    const repo = await initRepo();
+    await writeFile(
+      path.join(repo, 'BRAND.md'),
+      '## The one thing only we can say\nWe rebuilt a 1952 roaster.\n## Brand type\nGT Alpina\n',
+      'utf8',
+    );
+    await mkdir(path.join(repo, '.tiraz', 'refs'), { recursive: true });
+    await writeFile(path.join(repo, '.tiraz', 'refs', 'love-1.png'), 'x', 'utf8');
+    await writeFile(path.join(repo, '.tiraz', 'TASTE.md'), '- liked g0-n0: warm\n', 'utf8');
+    const prompts: Parameters<Agent['run']>[0][] = [];
+    const agent: Agent = {
+      run: (opts) => {
+        prompts.push(opts);
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+      },
+    };
+    const d: GenDeps = { ...(await deps()), agent };
+    await generateGeneration({ cwd: repo, brief: 'b', count: 1, harness: 'storybook' }, d);
+    await generateGeneration({ cwd: repo, brief: 'b', count: 1, harness: 'storybook' }, d);
+    const plans = prompts.filter((p) => p.readOnly === true);
+    expect(plans[0]?.prompt).toContain('We rebuilt a 1952 roaster');
+    expect(plans[0]?.prompt).toContain('liked g0-n0: warm');
+    expect(plans[0]?.prompt).toContain(path.join(repo, '.tiraz', 'refs', 'love-1.png'));
+    expect(plans[0]?.prompt).toContain("the brand's typefaces are GT Alpina");
+    // Round 2 knows what round 1 tried.
+    expect(plans[1]?.prompt).toContain('Already tried in earlier rounds');
+    // The build agent gets the brand material, references dir, and brand type.
+    const build = prompts.find((p) => p.readOnly !== true);
+    expect(build?.prompt).toContain('## The brand (BRAND.md)');
+    expect(build?.prompt).toContain('Use the brand typefaces: GT Alpina');
+    expect(build?.additionalDirectories).toContain(path.join(repo, '.tiraz', 'refs'));
   });
 
   it('skips planning with directions: catalog', async () => {

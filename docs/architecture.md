@@ -48,6 +48,13 @@ what is implemented and how the modules fit together.
 | `vision-judge.ts`        | Live `RankingJudge`: ranking prompt + verdict parsing (pure); vision call injected     |
 | `anthropic-io.ts`        | Real Anthropic vision call (all screenshots in one request) (coverage-excluded glue)   |
 | `claude-judge-io.ts`     | The same judge via one `claude -p` session (no API key) (coverage-excluded glue)       |
+| `brand.ts`               | `BRAND.md`: template, lenient parse, prompt/judge excerpts, draft prompt (pure + load) |
+| `creative-context.ts`    | Loads BRAND.md + TASTE.md + reference shots once per round                             |
+| `taste-memory.ts`        | `.tiraz/TASTE.md`: record why variants were liked/rejected; prompt section             |
+| `tells.ts`               | The "Claude tells" detector: second-order AI-look rules → originality score (pure)     |
+| `diversity.ts`           | Fingerprints (fonts / colours / tells) + near-duplicate detection (pure)               |
+| `philosophies.ts`        | Design-philosophy index + the crowd looks of popular AI design skills (data)           |
+| `type-library.ts`        | Curated OFL type library + the model-default "overused" list (data)                    |
 | `directions.ts`          | Gen-0 direction planning: prompt + parse (pure), one read-only call via the `Agent`    |
 | `score.ts`               | `runScore`: scores a whole generation (lint + DS-adherence + taste → Fitness)          |
 | `beam.ts`                | `pruneGeneration` (3 modes) + `selectSurvivors`: the prune/select decision logic       |

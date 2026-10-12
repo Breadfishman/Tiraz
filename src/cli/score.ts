@@ -3,7 +3,9 @@ import { createVisionJudge } from '../core/anthropic-io';
 import { createClaudeCliJudge } from '../core/claude-judge-io';
 import { describeError, loadConfig } from '../core/config';
 import { collectDesignSystem, collectUsedValues } from '../core/ds-collect-io';
-import { createVariantLinter } from '../core/lint';
+import { brandBrief, brandFonts } from '../core/brand';
+import { loadCreativeContext } from '../core/creative-context';
+import { createVariantLinter, createVariantScanner } from '../core/lint';
 import type { LintResult } from '../core/lint';
 import type { RankingJudge } from '../core/taste-judge';
 import { loadManifest } from '../core/manifest';
@@ -62,6 +64,8 @@ export function registerScoreCommand(program: Command): void {
         );
 
         const designSystem = await collectDesignSystem(cwd);
+        const creative = await loadCreativeContext(cwd);
+        const nearDupes: string[] = [];
         const scored = await runScore(cwd, generationIndex, {
           lint:
             options.lint === false
@@ -79,6 +83,17 @@ export function registerScoreCommand(program: Command): void {
           judgeModel: config.agent.judgeModel,
           weights: config.fitness.weights,
           lintGate: config.fitness.lintFloorRequired,
+          scan: createVariantScanner({ cwd }),
+          exemptFonts: creative.brand !== null ? brandFonts(creative.brand) : [],
+          tellPenalty: config.fitness.tellPenalty,
+          onNearDuplicates: (pairs) => {
+            for (const p of pairs) {
+              nearDupes.push(`${p.a} ≈ ${p.b} (${String(Math.round(p.similarity * 100))}% alike)`);
+            }
+          },
+          brand: brandBrief(creative.brand),
+          taste: creative.taste,
+          referencePaths: creative.references,
         });
 
         console.log(`\nScored generation ${String(generationIndex)}:`);
@@ -100,13 +115,28 @@ export function registerScoreCommand(program: Command): void {
           console.log(
             `  ${id}  composite ${String(f.composite)}  (lint ${floor}, ds ${String(f.dsAdherence.score)}, taste #${String(f.taste.rank)})`,
           );
+          if (f.originality !== undefined) {
+            const tells = f.originality.tells.join(', ');
+            console.log(
+              `       originality ${String(f.originality.score)} (${tells === '' ? 'no AI-default tells' : tells})`,
+            );
+          }
           const rationale = f.taste.panel[0]?.rationale;
           if (rationale !== undefined && rationale !== '') {
             console.log(`       ↳ ${rationale.slice(0, 140)}`);
           }
         }
+        if (nearDupes.length > 0) {
+          console.log('\nNear-duplicates (same type/palette/habits; consider culling one):');
+          for (const line of nearDupes) console.log(`  ${line}`);
+        }
+        if (creative.brand === null) {
+          console.log(
+            '\nTip: add a BRAND.md (`tiraz brand draft`) so variants grow out of your brand.',
+          );
+        }
         console.log(
-          '\nNext: `tiraz tree` / `tiraz dashboard` to inspect, then `tiraz select <id…>`.',
+          '\nNext: `tiraz tree` / `tiraz dashboard` to inspect, then `tiraz select <id…> --why "..."`.',
         );
       } catch (err) {
         console.error(describeError(err));

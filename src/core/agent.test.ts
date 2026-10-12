@@ -11,6 +11,7 @@ import {
   shellQuote,
   shotCommand,
   spawnRunner,
+  tellsCommand,
 } from './agent';
 
 const base: Genome = {
@@ -244,6 +245,65 @@ describe('composePrompt — headless, brand, multi-page, and self-check sections
   });
 });
 
+describe('composePrompt — brand uniqueness sections', () => {
+  const extras = (e: Parameters<typeof composePrompt>[6]) =>
+    composePrompt(base, [], [], undefined, undefined, undefined, e);
+
+  it('injects brand, references, and taste when provided', () => {
+    const prompt = extras({
+      brand: ['## The brand (BRAND.md)', 'Only true of us: x', ''],
+      taste: ["## The owner's taste so far", '- liked g0-n1', ''],
+      references: ['/repo/.tiraz/refs/love-1.png'],
+    });
+    expect(prompt).toContain('## The brand (BRAND.md)');
+    expect(prompt).toContain('## Reference sites the owner loves');
+    expect(prompt).toContain('- /repo/.tiraz/refs/love-1.png');
+    expect(prompt).toContain("## The owner's taste so far");
+    expect(composePrompt(base, [])).not.toContain('## Reference sites');
+  });
+
+  it('builds around a planned signature, or asks the agent to decide one first', () => {
+    expect(composePrompt({ ...base, signature: 'a hand-drawn roast curve' }, [])).toContain(
+      '## Signature element — build the design around it\na hand-drawn roast curve',
+    );
+    expect(composePrompt(base, [])).toContain('## Signature element — decide it first');
+  });
+
+  it('always warns about the second-order AI look', () => {
+    expect(composePrompt(base, [])).toContain('## The second-order AI look — avoid it');
+    expect(composeCritiquePrompt(base)).toContain('## The second-order AI look — avoid it');
+  });
+
+  it('applies a philosophy backbone with its lazy failure mode; ignores unknown ids', () => {
+    const prompt = composePrompt({ ...base, philosophy: 'swiss' }, []);
+    expect(prompt).toMatch(/## Design backbone: .*Swiss/i);
+    expect(prompt).toContain('The lazy version to avoid:');
+    expect(composePrompt({ ...base, philosophy: 'nope' }, [])).not.toContain('## Design backbone');
+  });
+
+  it('chooses typography: brand fonts > direction type > integration keep > curated library', () => {
+    expect(extras({ brandFonts: ['GT Alpina'] })).toContain('Use the brand typefaces: GT Alpina');
+    expect(composePrompt({ ...base, typography: 'Söhne + Tiempos' }, [])).toContain(
+      'Use: Söhne + Tiempos.',
+    );
+    expect(extras({ mode: 'integration' })).toContain("Keep the site's existing brand typefaces");
+    const library = composePrompt(base, []);
+    expect(library).toContain('## Typography — choose deliberately');
+    expect(library).toContain('Avoid: ');
+  });
+
+  it('adds the tells scan to the self-check when given', () => {
+    const prompt = extras({
+      check: {
+        command: 'shot',
+        screenshotPath: '/s.png',
+        tellsCommand: 'node cli tells --worktree /wt',
+      },
+    });
+    expect(prompt).toContain('`node cli tells --worktree /wt`');
+  });
+});
+
 describe('composeCritiquePrompt', () => {
   it('instructs a focused self-review against the shared taste bar without rebuilding', () => {
     const prompt = composeCritiquePrompt(base);
@@ -461,6 +521,15 @@ describe('shell helpers', () => {
     );
     expect(defaultAllowedTools('/pkg/dist/cli.js')).toContain('Bash(node /pkg/dist/cli.js shot:*)');
     expect(defaultAllowedTools().some((rule) => rule.includes('shot'))).toBe(false);
+    expect(defaultAllowedTools('/pkg/dist/cli.js')).toContain(
+      'Bash(node /pkg/dist/cli.js tells:*)',
+    );
+    expect(tellsCommand('/pkg/dist/cli.js', { worktree: '/wt', base: 'abc' })).toBe(
+      'node /pkg/dist/cli.js tells --worktree /wt --base abc',
+    );
+    expect(tellsCommand('/pkg/dist/cli.js', { worktree: '/wt' })).toBe(
+      'node /pkg/dist/cli.js tells --worktree /wt',
+    );
   });
 });
 

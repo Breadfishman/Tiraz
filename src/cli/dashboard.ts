@@ -10,7 +10,9 @@ import { createVisionJudge } from '../core/anthropic-io';
 import { cull, favorite, selectSurvivors } from '../core/beam';
 import { createClaudeCliJudge } from '../core/claude-judge-io';
 import { collectDesignSystem, collectUsedValues } from '../core/ds-collect-io';
-import { createVariantLinter } from '../core/lint';
+import { brandBrief, brandFonts } from '../core/brand';
+import { loadCreativeContext } from '../core/creative-context';
+import { createVariantLinter, createVariantScanner } from '../core/lint';
 import { runScore } from '../core/score';
 import { describeError, loadConfig, updateConfig } from '../core/config';
 import { renderDashboardHtml } from '../core/dashboard';
@@ -433,6 +435,7 @@ async function runDashboard(
             : createClaudeCliJudge();
         const jobId = startJob(`Scoring generation ${String(generationIndex)}…`, async () => {
           const designSystem = await collectDesignSystem(cwd);
+          const creative = await loadCreativeContext(cwd);
           await runScore(cwd, generationIndex, {
             lint: createVariantLinter({ cwd, threshold: cfg.lintThreshold }),
             designSystem,
@@ -441,6 +444,12 @@ async function runDashboard(
             judgeModel: cfg.agent.judgeModel,
             weights: cfg.fitness.weights,
             lintGate: cfg.fitness.lintFloorRequired,
+            scan: createVariantScanner({ cwd }),
+            exemptFonts: creative.brand !== null ? brandFonts(creative.brand) : [],
+            tellPenalty: cfg.fitness.tellPenalty,
+            brand: brandBrief(creative.brand),
+            taste: creative.taste,
+            referencePaths: creative.references,
           });
           // Scoring mutates fitness on existing nodes; no new variants are produced to mount.
           return [];

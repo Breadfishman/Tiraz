@@ -21,6 +21,12 @@ export interface JudgeContext {
   brief: string;
   /** Vision model id used for the ranking call. */
   model: string;
+  /** Compact BRAND.md excerpt: what's unique, what's off-limits. */
+  brand?: string;
+  /** The owner's taste notes (TASTE.md). */
+  taste?: string;
+  /** Screenshots of reference sites the owner loves (the bar), sent after the options. */
+  references?: string[];
 }
 
 /**
@@ -42,6 +48,9 @@ export interface TasteRankingOptions {
   brief: string;
   judge: RankingJudge;
   model?: string;
+  brand?: string;
+  taste?: string;
+  references?: string[];
 }
 
 /**
@@ -64,7 +73,13 @@ export async function runTasteRanking(
   const verdict: RankingVerdict =
     candidates.length === 1
       ? { order: ids, critiques: {} }
-      : await opts.judge.rank(candidates, { brief: opts.brief, model });
+      : await opts.judge.rank(candidates, {
+          brief: opts.brief,
+          model,
+          ...(opts.brand !== undefined ? { brand: opts.brand } : {}),
+          ...(opts.taste !== undefined ? { taste: opts.taste } : {}),
+          ...(opts.references !== undefined ? { references: opts.references } : {}),
+        });
 
   const known = new Set(ids);
   const order: string[] = [];

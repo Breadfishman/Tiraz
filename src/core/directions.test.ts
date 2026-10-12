@@ -40,6 +40,47 @@ describe('composeDirectionsPrompt', () => {
   });
 });
 
+describe('composeDirectionsPrompt — owner material, backbones, type', () => {
+  it('feeds brand, taste, earlier directions, and references to the planner', () => {
+    const prompt = composeDirectionsPrompt({
+      brief: 'b',
+      count: 2,
+      mode: 'greenfield',
+      brand: 'Only true of us: we rebuilt a 1952 roaster',
+      taste: '- liked g0-n1: the roast curve',
+      explored: ['Ink and paper editorial'],
+      references: ['/repo/.tiraz/refs/love-1.png'],
+    });
+    expect(prompt).toContain('we rebuilt a 1952 roaster');
+    expect(prompt).toContain('the roast curve');
+    expect(prompt).toContain('- Ink and paper editorial');
+    expect(prompt).toContain('/repo/.tiraz/refs/love-1.png');
+    expect(prompt).toContain('Read only the reference screenshots listed above');
+  });
+
+  it('offers the philosophy index, the crowd looks, a type sample, and asks for signatures', () => {
+    const prompt = composeDirectionsPrompt({ brief: 'b', count: 3, mode: 'greenfield', seed: 2 });
+    expect(prompt).toContain('swiss: ');
+    expect(prompt).toContain("The crowd's looks");
+    expect(prompt).toContain('curated library');
+    expect(prompt).toContain('Never the model defaults (');
+    expect(prompt).toContain('"signature"');
+    expect(prompt).toContain('"philosophy"');
+    expect(prompt).not.toContain('Read only the reference');
+  });
+
+  it("uses the brand's typefaces instead of the library when BRAND.md sets them", () => {
+    const prompt = composeDirectionsPrompt({
+      brief: 'b',
+      count: 2,
+      mode: 'integration',
+      brandFonts: ['GT Alpina', 'Söhne'],
+    });
+    expect(prompt).toContain("the brand's typefaces are GT Alpina, Söhne");
+    expect(prompt).not.toContain('curated library');
+  });
+});
+
 describe('parseDirections', () => {
   it('parses, trims, clamps dials, and truncates to count', () => {
     const directions = parseDirections(`Sure:\n${plan(5)}`, 3);
@@ -49,6 +90,38 @@ describe('parseDirections', () => {
       excellence: 'Excellent 0',
       dials: { variance: 10, motion: 3, density: 1 },
     });
+  });
+
+  it('keeps signature, a known philosophy id, and type; drops unknown philosophies', () => {
+    const text = JSON.stringify({
+      directions: [
+        {
+          ethos: 'a',
+          excellence: 'b',
+          signature: ' curve ',
+          philosophy: 'Swiss',
+          type: 'Söhne',
+          variance: 5,
+          motion: 5,
+          density: 5,
+        },
+        {
+          ethos: 'c',
+          excellence: 'd',
+          signature: ' ',
+          philosophy: 'vibes',
+          type: '',
+          variance: 5,
+          motion: 5,
+          density: 5,
+        },
+      ],
+    });
+    const [first, second] = parseDirections(text, 2) ?? [];
+    expect(first).toMatchObject({ signature: 'curve', philosophy: 'swiss', type: 'Söhne' });
+    expect(second?.signature).toBeUndefined();
+    expect(second?.philosophy).toBeUndefined();
+    expect(second?.type).toBeUndefined();
   });
 
   it('returns null for unusable replies (no JSON, bad shape, too few)', () => {

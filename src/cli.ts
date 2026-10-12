@@ -1,6 +1,7 @@
 import { Command } from 'commander';
 import { describeError } from './core/config';
 import { registerAdoptCommand } from './cli/adopt';
+import { registerBrandCommand } from './cli/brand';
 import { registerBreedCommand } from './cli/breed';
 import { registerCompareCommand } from './cli/compare';
 import { registerCullCommand } from './cli/cull';
@@ -18,6 +19,7 @@ import { registerShotCommand } from './cli/shot';
 import { registerSkillsCommand } from './cli/skills';
 import { registerSnapshotCommand } from './cli/snapshot';
 import { registerSourcesCommand } from './cli/sources';
+import { registerTellsCommand } from './cli/tells';
 import { registerTreeCommands } from './cli/tree';
 
 /** Kept in sync with package.json's `version` field. */
@@ -52,6 +54,8 @@ export function buildProgram(): Command {
   registerDashboardCommand(program);
   registerSnapshotCommand(program);
   registerShotCommand(program);
+  registerBrandCommand(program);
+  registerTellsCommand(program);
   return program;
 }
 

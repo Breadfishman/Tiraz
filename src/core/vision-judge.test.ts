@@ -56,6 +56,50 @@ describe('buildRankPrompt', () => {
   });
 });
 
+describe('buildRankPrompt — brand, taste, references', () => {
+  it('grades against the owner: brand excerpt, taste notes, and the reference bar', () => {
+    const { prompt } = buildRankPrompt('Homepage', [undefined, undefined], {
+      brand: 'Never look like: a Starbucks clone',
+      taste: '- rejected g0-n2: too corporate',
+      referenceCount: 2,
+    });
+    expect(prompt).toContain('unmistakably THIS company');
+    expect(prompt).toContain('a Starbucks clone');
+    expect(prompt).toContain('too corporate');
+    expect(prompt).toContain('2 reference screenshot(s)');
+    expect(prompt).toContain('NOT options to rank');
+    expect(prompt).toContain('- Signature:');
+    expect(prompt).toContain('- Not the AI house style:');
+  });
+
+  it('omits each block when its context is empty', () => {
+    const { prompt } = buildRankPrompt('Homepage', [undefined, undefined], {
+      brand: ' ',
+      taste: '',
+    });
+    expect(prompt).not.toContain('unmistakably THIS company');
+    expect(prompt).not.toContain("owner's reactions");
+    expect(prompt).not.toContain('reference screenshot');
+  });
+
+  it('sends reference images after the options', async () => {
+    let captured: Parameters<VisionComplete>[0] | undefined;
+    const judge = new VisionRankingJudge((req) => {
+      captured = req;
+      return Promise.resolve('{"ranking":[{"option":1}]}');
+    });
+    await judge.rank(
+      [
+        { id: 'a', screenshotPath: '/a.png' },
+        { id: 'b', screenshotPath: '/b.png' },
+      ],
+      { brief: 'b', model: 'm', references: ['/r1.png'], brand: 'x', taste: 'y' },
+    );
+    expect(captured?.referencePaths).toEqual(['/r1.png']);
+    expect(captured?.prompt).toContain('1 reference screenshot(s)');
+  });
+});
+
 describe('extractJsonObject', () => {
   it('finds the first balanced object, ignoring braces inside strings', () => {
     expect(extractJsonObject('pre {"a": "x}y", "b": {"c": 1}} post')).toBe(

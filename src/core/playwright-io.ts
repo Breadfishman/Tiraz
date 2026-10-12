@@ -49,9 +49,15 @@ export const playwrightScreenshot: Screenshotter = async (url, screenshotPath, o
   // `TIRAZ_CHROMIUM_PATH` points at an existing Chromium/Chrome when Playwright's own download is
   // missing or version-mismatched (e.g. a pre-provisioned CI or cloud image).
   const executablePath = process.env.TIRAZ_CHROMIUM_PATH;
+  // Honour HTTPS_PROXY / HTTP_PROXY for external pages (reference sites) behind a proxy; the local
+  // harness servers always bypass it.
+  const proxyServer = process.env.HTTPS_PROXY ?? process.env.https_proxy ?? process.env.HTTP_PROXY;
   const browser = await pw.chromium.launch({
     headless: true,
     ...(executablePath !== undefined && executablePath !== '' ? { executablePath } : {}),
+    ...(proxyServer !== undefined && proxyServer !== ''
+      ? { proxy: { server: proxyServer, bypass: 'localhost,127.0.0.1,::1' } }
+      : {}),
   });
   try {
     const context = await browser.newContext({

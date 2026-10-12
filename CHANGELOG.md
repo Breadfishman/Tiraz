@@ -5,6 +5,39 @@ SPEC §16. The format loosely follows [Keep a Changelog](https://keepachangelog.
 
 ## [Unreleased]
 
+### Brand uniqueness (escaping the AI house style)
+
+A live run showed two "different" directions converging on the same second-order default: a serif
+headline with an italic accent word, tracked uppercase labels, "§ 01" numbering, hairlines on cream.
+The cause: Claude planned, built, and judged with nothing specific about the brand to go on.
+
+- **`BRAND.md` + `tiraz brand init|draft|check|refs`** (`brand.ts`, `creative-context.ts`). The
+  owner's material (what only they can say, voice, proof, loves/hates, never-look-like, assets, brand
+  type) feeds the planner, every build prompt, and the judge. `draft` has a read-only agent start it
+  from the existing site, leaving owner-only answers as `TODO(owner)`. `refs` screenshots the sites
+  the owner loves for the planner, agents, and judge. The browser now honours `HTTPS_PROXY`.
+- **The tells detector** (`tells.ts`, `tiraz tells`). A free, deterministic scan for the AI house
+  style (italic accent headlines, tracked/small-caps eyebrows, section numbering, cream paper + serif,
+  drop caps, glow orbs, scroll cues, middle-dot meta strings, arrow links, hairline rules,
+  model-default fonts) over each variant's changed files. It produces an originality score that
+  scales the composite (`fitness.tellPenalty`, default 0.3) and is listed in every build prompt. Build
+  agents run it on their own uncommitted work.
+- **Signature elements**. Every planned direction names one ownable element drawn from the brand or
+  product (genome `signature`); the build prompt is organised around it (or asks the agent to choose
+  one first), and the judge's rubric checks it.
+- **Philosophy backbones + curated type** (`philosophies.ts`, `type-library.ts`,
+  `docs/research/design-skills-landscape.md`). The planner gives each direction a different
+  design-philosophy backbone (genome `philosophy`) and typefaces from a 51-family OFL library (genome
+  `typography`) instead of the model defaults, and avoids the crowd looks of the popular AI design
+  skills (frontend-design, impeccable, taste-skill, Apple design, ui-ux-pro-max). Integration mode
+  keeps the brand's type.
+- **Taste memory** (`taste-memory.ts`). `select`/`cull --why` and a "Why" box in the dashboard record
+  reasons in `.tiraz/TASTE.md`, which later plans, builds, and judgements read.
+- **Measured diversity** (`diversity.ts`). `score` fingerprints variants (fonts, colours, tells) and
+  prints near-duplicates; the planner is told which directions earlier rounds already tried.
+- **Judge grades against the owner**: brand excerpt, taste notes, and reference screenshots go to the
+  one ranking call, and the rubric adds signature and "not the AI house style".
+
 ### Leaner, cheaper loop (usage overhaul)
 
 An adversarial review against current models found that most of the usage went into scaffolding

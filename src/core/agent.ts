@@ -3,6 +3,9 @@ import type { DesignSystem } from './ds-adherence';
 import type { Genome } from './genome';
 import { signaturesFor } from './sources';
 import { tasteBarSection } from './taste-rubric';
+import { getPhilosophy } from './philosophies';
+import { tellsPromptSection } from './tells';
+import { OVERUSED_FONTS, typeMenu } from './type-library';
 
 export interface AgentRunOptions {
   /** Working directory (the variant's worktree). */
@@ -75,7 +78,15 @@ export interface PromptExtras {
    * A shell command that renders + screenshots the target to `screenshotPath` (boots the harness,
    * captures, tears down). When present the agent is told to look at its own render and iterate.
    */
-  check?: { command: string; screenshotPath: string };
+  check?: { command: string; screenshotPath: string; tellsCommand?: string };
+  /** Pre-rendered BRAND.md section (`brandPromptSection`). */
+  brand?: string[];
+  /** Pre-rendered taste-memory section (`tasteSection`). */
+  taste?: string[];
+  /** Screenshots of reference sites the owner loves. */
+  references?: string[];
+  /** The brand's own typefaces (BRAND.md). */
+  brandFonts?: string[];
 }
 
 /** Lines telling the agent how to verify its own work (build + look at the render). */
@@ -93,8 +104,60 @@ function checkSection(check: PromptExtras['check']): string[] {
       '  check rounds is plenty — stop when it is genuinely good.',
     );
   }
+  if (check?.tellsCommand !== undefined) {
+    lines.push(
+      `- Scan for the AI house-style tells with: \`${check.tellsCommand}\` and rework anything it`,
+      '  flags (unless BRAND.md asks for that move).',
+    );
+  }
   lines.push('');
   return lines;
+}
+
+/** The direction's design-philosophy backbone (constraints, plus its lazy failure mode). */
+function backboneSection(genome: Genome): string[] {
+  const philosophy = genome.philosophy !== undefined ? getPhilosophy(genome.philosophy) : undefined;
+  if (philosophy === undefined) return [];
+  return [
+    `## Design backbone: ${philosophy.name}`,
+    'Apply its constraints as a working method, filtered through the brand — not as a costume:',
+    ...philosophy.constraints.map((c) => `- ${c}`),
+    `The lazy version to avoid: ${philosophy.lazyFailure}`,
+    '',
+  ];
+}
+
+/** Typeface guidance: the brand's own type, the direction's chosen faces, or a curated sample. */
+function typographySection(
+  genome: Genome,
+  brandFonts: readonly string[],
+  mode?: PromptExtras['mode'],
+): string[] {
+  if (brandFonts.length > 0) {
+    return [
+      '## Typography',
+      `Use the brand typefaces: ${brandFonts.join(', ')}. Make them work harder (scale, weight, rhythm)`,
+      'rather than adding a second voice.',
+      '',
+    ];
+  }
+  if (genome.typography !== undefined && genome.typography.trim() !== '') {
+    return ['## Typography', `Use: ${genome.typography.trim()}.`, ''];
+  }
+  if (mode === 'integration') {
+    return [
+      '## Typography',
+      "Keep the site's existing brand typefaces; make them work harder (scale, weight, rhythm).",
+      '',
+    ];
+  }
+  return [
+    '## Typography — choose deliberately',
+    'Pick this variant’s faces from this curated library (load them properly), not the model defaults:',
+    ...typeMenu(genome.seed, 8).map((line) => `- ${line}`),
+    `Avoid: ${OVERUSED_FONTS.slice(0, 12).join(', ')}, …`,
+    '',
+  ];
 }
 
 /**
@@ -139,6 +202,20 @@ export function composePrompt(
     );
   }
 
+  lines.push(...(extras.brand ?? []));
+
+  if ((extras.references ?? []).length > 0) {
+    lines.push(
+      '## Reference sites the owner loves',
+      'Screenshots of sites the owner holds up as the bar. Read them for the level of craft and the kind',
+      'of taste wanted — do NOT copy their layouts or styling.',
+      ...(extras.references ?? []).map((ref) => `- ${ref}`),
+      '',
+    );
+  }
+
+  lines.push(...(extras.taste ?? []));
+
   // Multi-page work: this page extends a design already established on another page's branch.
   if (genome.extends !== undefined) {
     lines.push(
@@ -165,9 +242,35 @@ export function composePrompt(
     );
   }
 
+  lines.push(
+    ...backboneSection(genome),
+    ...typographySection(genome, extras.brandFonts ?? [], extras.mode),
+  );
+
+  // The signature element: one ownable thing the design is built around (from the brand / product).
+  if (genome.signature !== undefined && genome.signature.trim() !== '') {
+    lines.push(
+      '## Signature element — build the design around it',
+      genome.signature.trim(),
+      'Make it unmistakable above the fold and carry it through the page. It must come from this',
+      'company or its product, executed with real craft — not decoration bolted on.',
+      '',
+    );
+  } else {
+    lines.push(
+      '## Signature element — decide it first',
+      'Before designing, choose ONE ownable signature element drawn from the brand or the product (a',
+      'custom illustration system, a typographic device, a visualisation of something real the company',
+      'does). Build the design around it. Generic devices (stat counters, gradient orbs, logo marquees)',
+      'do not count.',
+      '',
+    );
+  }
+
   // The shared taste bar, high in the prompt: the agent builds against the same rubric the judge
   // grades on (see taste-rubric.ts) — the main lever against output that reads as AI-slop.
   lines.push(...tasteBarSection());
+  lines.push(...tellsPromptSection());
 
   if (genome.parents.length > 0) {
     lines.push(
@@ -326,6 +429,7 @@ export function composeCritiquePrompt(genome: Genome, screenshotPath?: string): 
   }
 
   lines.push(...tasteBarSection());
+  lines.push(...tellsPromptSection());
 
   lines.push(
     '## What to do',
@@ -447,11 +551,24 @@ export function shotCommand(
   ].join(' ');
 }
 
+/** The `tiraz tells` command a build agent runs to scan its changes for the AI house-style tells. */
+export function tellsCommand(tirazCli: string, args: { worktree: string; base?: string }): string {
+  return [
+    'node',
+    shellQuote(tirazCli),
+    'tells',
+    '--worktree',
+    shellQuote(args.worktree),
+    ...(args.base !== undefined ? ['--base', shellQuote(args.base)] : []),
+  ].join(' ');
+}
+
 /**
  * The permission rules every build session gets: run the project's build/typecheck/lint scripts and
  * (when `tirazCli` is known) the `tiraz shot` self-check, so the agent can verify its own work.
  */
 export function defaultAllowedTools(tirazCli?: string): string[] {
+  const cli = tirazCli !== undefined ? shellQuote(tirazCli) : undefined;
   return [
     'Bash(npm run build:*)',
     'Bash(npm run typecheck:*)',
@@ -461,7 +578,7 @@ export function defaultAllowedTools(tirazCli?: string): string[] {
     'Bash(npx astro check:*)',
     'Bash(git status:*)',
     'Bash(git diff:*)',
-    ...(tirazCli !== undefined ? [`Bash(node ${shellQuote(tirazCli)} shot:*)`] : []),
+    ...(cli !== undefined ? [`Bash(node ${cli} shot:*)`, `Bash(node ${cli} tells:*)`] : []),
   ];
 }
 

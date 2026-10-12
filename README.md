@@ -85,10 +85,12 @@ The `docs/` describe what is actually implemented today.
 npm ci && npm run build && npm link       # in the Tiraz clone; puts `tiraz` on your PATH
 cd ../your-site && npm install            # variants reuse your node_modules
 tiraz adopt                               # detects your stack; no Storybook → renders your dev server
+tiraz brand draft                         # drafts BRAND.md from your site — then answer its TODOs
+tiraz brand refs                          # screenshots the sites you love (the bar for the judge)
 git add -A && git commit -m "tiraz setup" # variants branch from HEAD
 tiraz gen --brief "Redesign our homepage: ..." --target route:/ --count 4
 tiraz score                               # one judge call ranks all 4
-tiraz dashboard --open                    # compare, heart, breed with notes
+tiraz dashboard --open                    # compare; heart / cull with a reason; breed with notes
 tiraz gen --from g0-n2 --target route:/about --count 2 --brief "About page: ..."
 tiraz promote g0-n2                       # opens a PR
 ```
@@ -96,6 +98,29 @@ tiraz promote g0-n2                       # opens a PR
 Next.js sites: set `"appCommand": "npx next dev --webpack -p {port}"` in `tiraz.config.json` first
 (Turbopack rejects the symlinked `node_modules` in variant worktrees). The full walkthrough is the
 [redesign guide](./docs/guides/redesign-an-existing-site.md).
+
+## Making it yours, not "AI design"
+
+Models avoid the obvious template now, but fall into a second default that's just as recognisable:
+a serif headline with one italic word in the accent colour, tiny letter-spaced uppercase labels,
+"§ 01" numbering, hairline rules on cream paper, the same handful of fonts. Tiraz pushes back on
+several fronts:
+
+- **`BRAND.md`**: what only your company can say, its real voice and proof, sites you love and hate,
+  what to never look like, real assets. Every direction grows out of it, every agent builds from it,
+  and the judge grades against it. `tiraz brand draft` starts it from your site.
+- **A signature element per direction**: one ownable thing drawn from your brand or product, built
+  around and checked by the judge.
+- **A different philosophy backbone per direction** (Swiss, Rams, Bauhaus, information design, …)
+  and typefaces from a curated library instead of the model defaults. Directions must also avoid the
+  crowd looks of the popular AI design skills ([research](./docs/research/design-skills-landscape.md)).
+- **A tells scan** (`tiraz tells`): a free check for the AI house style that agents run on their own
+  work and that lowers a variant's score.
+- **Your taste, remembered**: give a reason when you heart or cull (`--why`, or the dashboard box);
+  it lands in `.tiraz/TASTE.md` and steers every later round.
+- **Reference sites**: the sites you love are shown to the judge as the bar.
+- **Measured diversity**: near-duplicate variants are flagged, and new rounds are told what's already
+  been tried.
 
 ## What a round costs
 

@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { z } from 'zod';
 import { spawnRunner } from './agent';
 import type { CommandRunner } from './agent';
@@ -194,5 +196,77 @@ export function createVariantLinter(
       opts.onSkip?.(node.genome.id, describeError(err));
       return { passed: true, score: 100, violations: [], skipped: true };
     }
+  };
+}
+
+/** Files the tells scan reads: markup, styles, components, and Tailwind / font config. */
+const SCANNABLE = /\.(html?|css|scss|jsx|tsx|vue|svelte|astro|mdx)$|tailwind\.config\.[cm]?[jt]s$/i;
+
+/**
+ * Files a worktree added or modified relative to `base`, INCLUDING uncommitted and untracked work
+ * (so an agent can scan mid-session), filtered to {@link SCANNABLE} sources outside `.claude/`.
+ * Returns repo-relative paths.
+ */
+export async function changedSourceFiles(
+  worktree: string,
+  base: string,
+  runner: CommandRunner,
+): Promise<string[]> {
+  const [diff, untracked] = await Promise.all([
+    runner('git', ['diff', '--name-only', '--diff-filter=AM', base], { cwd: worktree }),
+    runner('git', ['ls-files', '--others', '--exclude-standard'], { cwd: worktree }),
+  ]);
+  const names = [
+    ...(diff.exitCode === 0 ? diff.stdout.split('\n') : []),
+    ...(untracked.exitCode === 0 ? untracked.stdout.split('\n') : []),
+  ];
+  return [
+    ...new Set(
+      names
+        .map((line) => line.trim())
+        .filter((file) => file !== '' && SCANNABLE.test(file) && !file.startsWith('.claude/')),
+    ),
+  ];
+}
+
+export interface VariantScannerOptions {
+  /** The target project root (its HEAD is the fallback base for nodes without `baseCommit`). */
+  cwd: string;
+  runner?: CommandRunner;
+  readFile?: (file: string) => Promise<string>;
+}
+
+/**
+ * Build the per-node `scan` function `runScore` consumes: the contents of every scannable file the
+ * variant changed. Unreadable files are skipped; a node with no resolvable base scans nothing.
+ */
+export function createVariantScanner(
+  opts: VariantScannerOptions,
+): (
+  node: Pick<VariantNode, 'worktree' | 'baseCommit'>,
+) => Promise<{ path: string; content: string }[]> {
+  const runner = opts.runner ?? spawnRunner;
+  const read = opts.readFile ?? ((file: string) => readFile(file, 'utf8'));
+  return async (node) => {
+    let base = node.baseCommit;
+    if (base === undefined) {
+      const head = await runner('git', ['rev-parse', 'HEAD'], { cwd: opts.cwd });
+      const mb =
+        head.exitCode === 0
+          ? await runner('git', ['merge-base', 'HEAD', head.stdout.trim()], { cwd: node.worktree })
+          : undefined;
+      if (mb?.exitCode === 0 && mb.stdout.trim() !== '') base = mb.stdout.trim();
+    }
+    if (base === undefined) return [];
+    const files = await changedSourceFiles(node.worktree, base, runner);
+    const out: { path: string; content: string }[] = [];
+    for (const file of files) {
+      try {
+        out.push({ path: file, content: await read(path.join(node.worktree, file)) });
+      } catch {
+        // deleted or unreadable — skip
+      }
+    }
+    return out;
   };
 }

@@ -32,6 +32,8 @@ export const FitnessSchema = z.strictObject({
     derivedScore: z.number(),
     panel: z.array(z.strictObject({ lens: z.string(), model: z.string(), rationale: z.string() })),
   }),
+  /** The "Claude tells" scan (tells.ts): 0–100 originality score + the tells that fired. */
+  originality: z.strictObject({ score: z.number(), tells: z.array(z.string()) }).optional(),
   composite: z.number(),
 });
 

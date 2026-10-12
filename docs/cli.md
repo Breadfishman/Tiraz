@@ -246,8 +246,12 @@ Defaults to the run's `final` variant (else the most recent). Runs the real agen
 ### `tiraz gen` ✅ (live)
 
 Generate a round of variants (SPEC §7). One short, read-only planning call writes `--count` directions
-tailored to the brief and your design system (inside your brand in integration mode; the built-in
-catalog is the fallback). Then each variant gets its own git worktree with the repo's `node_modules`
+from the brief, `BRAND.md`, your taste notes, reference screenshots, and what earlier rounds already
+tried. Each direction gets a different design-philosophy backbone (Swiss, Rams, Bauhaus,
+information design, …), typefaces from a curated library (or your brand type), and a **signature
+element** drawn from the brand or product. Directions must also differ from the crowd looks of the
+popular AI design skills. In integration mode they stay inside your brand; the built-in catalog is the
+fallback. Then each variant gets its own git worktree with the repo's `node_modules`
 linked, and one Claude Code session builds it. The agent can run your build/typecheck and
 `tiraz shot` to screenshot its own render and fix what it sees before finishing. Tiraz then commits
 the work (never the `node_modules` link or the installed skills) and captures a full-page screenshot.
@@ -274,13 +278,42 @@ Boot a worktree's render surface, capture a full-page screenshot of a target, an
 agents call it mid-session to check their own work; you can run it by hand too:
 `tiraz shot --worktree <dir> --harness <kind> --target <t> --port <n> --out <png>`.
 
+### `tiraz brand init|draft|check|refs` ✅
+
+The brand file, `BRAND.md` at the repo root: the specific material (what only you can say, voice,
+proof, sites you love and hate, what to never look like, assets, brand type) that the planner, every
+build agent, and the judge read so variants belong to **your** company instead of averaging into the
+model's defaults.
+
+- `init`: write a template (never overwrites).
+- `draft`: one read-only agent session reads the existing site and drafts it (real copy, facts,
+  assets), leaving owner-only answers as `TODO(owner)`. Writes `BRAND.draft.md` if `BRAND.md` exists
+  (`--force` overwrites).
+- `check`: which sections are filled in.
+- `refs [--max 3]`: screenshot the "Sites we love" URLs into `.tiraz/refs/`. The planner and agents
+  may read them, and the judge sees them as the bar (not as options). Honours `HTTPS_PROXY`.
+
+### `tiraz tells [node]` ✅
+
+Scan a variant's changed files for the **second-order AI look**: the moves models fall back on once
+told to avoid the generic template. That means an italic accent word in the headline, tracked
+uppercase or small-caps eyebrow labels, "§ 01" / "No. 01" numbering, cream paper with serif type,
+drop caps, glow orbs, a "Scroll" cue, middle-dot meta strings, arrows on every link, hairline rules
+everywhere, and model-default typefaces (brand fonts are exempt). Free and local. Prints a 0–100
+originality score. Build agents run it on their own uncommitted work before finishing. Options:
+`--worktree <dir>`, `--base <sha>`.
+
 ### `tiraz score` ✅ (live)
 
 Score a generation (SPEC §9): the **lint floor** (impeccable's local detector over the files each
 variant changed; advisory unless `fitness.lintFloorRequired`), **DS-adherence** (the variant's used
 colour/spacing literals + components vs the repo's CSS-variable tokens), and the **vision taste
 judge**: ONE call that sees every variant's screenshot and ranks them, with a one-line critique each
-(`agent.judgeModel`, default Sonnet). Writes each node's composite to the manifest.
+(`agent.judgeModel`, default Sonnet). The judge is given `BRAND.md`, your taste notes, and the
+reference screenshots, and grades the signature element and the AI house style explicitly. Each
+variant also gets the **tells** scan: its originality score scales the composite (down by up to
+`fitness.tellPenalty`, default 30%). Pairs of variants sharing a type system and palette are printed
+as near-duplicates. Writes each node's composite to the manifest.
 
 - `-g, --generation <n>`: generation to score (default: the latest).
 - `-j, --judge <kind>`: taste-judge backend: `api` (Anthropic, needs `ANTHROPIC_API_KEY`) or

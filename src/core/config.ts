@@ -49,6 +49,10 @@ export const TirazConfigSchema = z.strictObject({
         dsAdherence: z.number().min(0).max(1),
         taste: z.number().min(0).max(1),
       }),
+      // How hard the "Claude tells" scan (tells.ts) pulls the composite down: the blend is scaled by
+      // `1 - tellPenalty * (1 - tellScore/100)`, so a variant full of AI-default moves loses up to
+      // this fraction. 0 = record tells but ignore them. Field-defaulted for existing configs.
+      tellPenalty: z.number().min(0).max(1).default(0.3),
     })
     .refine((f) => Math.abs(f.weights.dsAdherence + f.weights.taste - 1) < 1e-9, {
       message: 'fitness.weights.dsAdherence + fitness.weights.taste must sum to 1',
@@ -56,7 +60,11 @@ export const TirazConfigSchema = z.strictObject({
     // The lint floor is advisory by default: violations are recorded and shown, but only zero a
     // variant's composite when `lintFloorRequired` is true. Taste leads the blend; DS-adherence is a
     // supporting signal (off-system literals are surfaced either way).
-    .default({ lintFloorRequired: false, weights: { dsAdherence: 0.3, taste: 0.7 } }),
+    .default({
+      lintFloorRequired: false,
+      weights: { dsAdherence: 0.3, taste: 0.7 },
+      tellPenalty: 0.3,
+    }),
 
   sources: z
     .strictObject({

@@ -3,8 +3,10 @@ import type { CommandResult, CommandRunner } from './agent';
 import type { VariantNode } from './manifest';
 import {
   LintError,
+  changedSourceFiles,
   changedUiFiles,
   createVariantLinter,
+  createVariantScanner,
   findingsToViolations,
   lint,
   parseDetectOutput,
@@ -270,5 +272,57 @@ describe('createVariantLinter', () => {
       skipped: true,
     });
     expect(skipped[0]).toContain('g0-n0');
+  });
+});
+
+describe('changedSourceFiles / createVariantScanner', () => {
+  it('includes uncommitted + untracked scannable files, outside .claude/', async () => {
+    const { runner, calls } = scriptedRunner({
+      'git diff': ok('src/Hero.tsx\nsrc/util.ts\nREADME.md\n'),
+      'git ls-files': ok(
+        'src/new.astro\ntailwind.config.ts\n.claude/skills/x/a.css\nsrc/Hero.tsx\n',
+      ),
+    });
+    expect(await changedSourceFiles('/wt', 'abc', runner)).toEqual([
+      'src/Hero.tsx',
+      'src/new.astro',
+      'tailwind.config.ts',
+    ]);
+    expect(calls[0]?.args).toEqual(['diff', '--name-only', '--diff-filter=AM', 'abc']);
+  });
+
+  it('reads each changed file, skipping unreadable ones', async () => {
+    const { runner } = scriptedRunner({
+      'git diff': ok('a.css\nb.css\n'),
+      'git ls-files': ok(''),
+    });
+    const scan = createVariantScanner({
+      cwd: '/repo',
+      runner,
+      readFile: (file) =>
+        file.endsWith('b.css')
+          ? Promise.reject(new Error('gone'))
+          : Promise.resolve(`/* ${file} */`),
+    });
+    expect(await scan({ worktree: '/wt', baseCommit: 'abc' })).toEqual([
+      { path: 'a.css', content: '/* /wt/a.css */' },
+    ]);
+  });
+
+  it('falls back to the merge-base with the repo HEAD, or scans nothing', async () => {
+    const { runner } = scriptedRunner({
+      'git rev-parse': ok('head1\n'),
+      'git merge-base': ok('mb\n'),
+      'git diff': ok('a.css\n'),
+      'git ls-files': ok(''),
+    });
+    const scan = createVariantScanner({
+      cwd: '/repo',
+      runner,
+      readFile: () => Promise.resolve('x'),
+    });
+    expect(await scan({ worktree: '/wt' })).toHaveLength(1);
+    const none = createVariantScanner({ cwd: '/repo', runner: scriptedRunner({}).runner });
+    expect(await none({ worktree: '/wt' })).toEqual([]);
   });
 });

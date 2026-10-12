@@ -20,6 +20,12 @@ const RUBRIC = [
   '  sparse). Deliberate composition beats a templated, defaulted layout.',
   `- Colour: ${paletteRubric()}`,
   `- Originality: ${antiSlopRubric()}`,
+  '- Signature: is there ONE ownable element the design is built around, drawn from the brand or',
+  '  product (a custom illustration system, a typographic device, a visualisation of something real)?',
+  '  Generic devices (stat counters, gradient orbs, marquee logos) and decoration do not count.',
+  '- Not the AI house style: the second-order default — a serif headline with one italic accent word,',
+  '  tiny letter-spaced uppercase labels, "§ 01" numbering, hairline rules, cream paper — reads as',
+  '  machine-made even when polished. Penalise it unless the brand calls for it.',
   '- Execution: nothing broken — no overlapping or clipped content, unstyled sections, missing images',
   '  or blank areas. A broken render loses to a working one regardless of ambition.',
 ].join('\n');
@@ -36,11 +42,24 @@ export interface JudgePrompt {
   prompt: string;
 }
 
+/** Brand, taste, and reference context that make the judge grade against THIS owner, not its own taste. */
+export interface RankContext {
+  brand?: string;
+  taste?: string;
+  /** How many reference screenshots follow the options. */
+  referenceCount?: number;
+}
+
 /**
  * Build the (pure) system + user prompt for ranking `intents.length` options. `intents[i]` is option
- * `i + 1`'s own stated direction (or undefined). The caller supplies the images in the same order.
+ * `i + 1`'s own stated direction (or undefined). The caller supplies the images in the same order,
+ * followed by `context.referenceCount` reference screenshots.
  */
-export function buildRankPrompt(brief: string, intents: (string | undefined)[]): JudgePrompt {
+export function buildRankPrompt(
+  brief: string,
+  intents: (string | undefined)[],
+  context: RankContext = {},
+): JudgePrompt {
   const n = intents.length;
   const lines = [
     `${String(n)} UI screenshots implement the same brief. The images are options 1 to ${String(n)},`,
@@ -60,6 +79,30 @@ export function buildRankPrompt(brief: string, intents: (string | undefined)[]):
     stated.forEach((intent, i) => {
       if (intent !== '') lines.push(`- Option ${String(i + 1)}'s direction: ${intent}`);
     });
+  }
+
+  if (context.brand !== undefined && context.brand.trim() !== '') {
+    lines.push(
+      '',
+      "The company's brand (from its owner). The best option is unmistakably THIS company, not a",
+      'generic site with its colours. Anything the owner hates or rules out loses.',
+      context.brand.trim(),
+    );
+  }
+  if (context.taste !== undefined && context.taste.trim() !== '') {
+    lines.push(
+      '',
+      "The owner's reactions to earlier variants (lean toward what they liked, against what they rejected):",
+      context.taste.trim(),
+    );
+  }
+  const refs = context.referenceCount ?? 0;
+  if (refs > 0) {
+    lines.push(
+      '',
+      `After the options come ${String(refs)} reference screenshot(s) of sites the owner loves. They are`,
+      'the quality bar and the taste the owner is after — NOT options to rank and NOT layouts to copy.',
+    );
   }
 
   lines.push(
@@ -151,6 +194,8 @@ export interface VisionRequest {
   prompt: string;
   /** Screenshot paths in option order — the live impl reads + sends them as image blocks. */
   imagePaths: string[];
+  /** Reference screenshots (sites the owner loves), sent after the options. */
+  referencePaths?: string[];
 }
 
 /** Sends the ranking prompt + every screenshot to a vision model and returns its raw text. */
@@ -165,15 +210,22 @@ export class VisionRankingJudge implements RankingJudge {
   }
 
   async rank(candidates: JudgeCandidate[], ctx: JudgeContext): Promise<RankingVerdict> {
+    const references = ctx.references ?? [];
     const { system, prompt } = buildRankPrompt(
       ctx.brief,
       candidates.map((c) => c.intent),
+      {
+        ...(ctx.brand !== undefined ? { brand: ctx.brand } : {}),
+        ...(ctx.taste !== undefined ? { taste: ctx.taste } : {}),
+        referenceCount: references.length,
+      },
     );
     const text = await this.complete({
       model: ctx.model,
       system,
       prompt,
       imagePaths: candidates.map((c) => c.screenshotPath),
+      ...(references.length > 0 ? { referencePaths: references } : {}),
     });
     return parseRanking(
       text,

@@ -11,6 +11,7 @@ const taste: TasteResult = {
   panel: [{ lens: 'typography', model: 'claude-opus-4-8', rationale: 'strong type' }],
 };
 const weights = { dsAdherence: 0.5, taste: 0.5 };
+const passing: LintResult = { passed: true, score: 95, violations: [] };
 
 describe('composeFitness', () => {
   it('blends ds-adherence and taste by weight when the lint floor passes', () => {
@@ -36,5 +37,27 @@ describe('composeFitness', () => {
     expect(fitness.composite).toBe(0);
     expect(fitness.lintFloor.passed).toBe(false);
     expect(fitness.lintFloor.violations).toEqual(violations);
+  });
+
+  it('scales the composite down by the tells score and records originality', () => {
+    const tells = { score: 50, findings: [{ id: 'drop-cap', label: '', count: 1, files: [] }] };
+    const plain = composeFitness(passing, ds, taste, weights);
+    const penalised = composeFitness(passing, ds, taste, weights, { tells, tellPenalty: 0.4 });
+    expect(penalised.composite).toBeCloseTo(plain.composite * 0.8, 0);
+    expect(penalised.originality).toEqual({ score: 50, tells: ['drop-cap'] });
+    expect(plain.originality).toBeUndefined();
+    // Default penalty is 0.3; a clean scan costs nothing.
+    expect(
+      composeFitness(passing, ds, taste, weights, { tells: { score: 100, findings: [] } })
+        .composite,
+    ).toBe(plain.composite);
+  });
+
+  it('keeps a failed lint advisory when lintGate is false', () => {
+    const failed = { ...passing, passed: false };
+    expect(composeFitness(failed, ds, taste, weights).composite).toBe(0);
+    expect(
+      composeFitness(failed, ds, taste, weights, { lintGate: false }).composite,
+    ).toBeGreaterThan(0);
   });
 });

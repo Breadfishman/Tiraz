@@ -148,19 +148,45 @@ If instead your components are full of raw inline values like `style={{ color: "
 consolidate those into tokens first. This part is real code work; if you are not a developer, this is
 the step to hand off.
 
-### 5. Stage the assets you want to keep
+### 5. Write the brand file (the step that makes it yours)
 
-Put the partner logos and any images you are keeping somewhere stable (for example `public/logos/`).
-Tiraz deliberately will not invent asset URLs (it avoids 404s), so it only uses assets you point it at
-in the brief, by their repo-relative path (`public/logos/...`).
+This is the difference between "a nice site in your colours" and **your** site. Without specific
+material, every model fills the gaps with its own defaults, and you get the polished AI look
+everyone else has. `BRAND.md` (at your repo root) is read by the planner, every build agent, and the
+judge.
+
+```bash
+tiraz brand draft     # a read-only agent drafts BRAND.md from your current site (~20s)
+tiraz brand check     # which sections are still empty
+```
+
+The draft quotes your real copy and lists real facts and assets. It leaves the parts only you can
+answer as `TODO(owner)`. Answer them; they matter most:
+
+- **The one thing only you can say.** A specific fact or belief no competitor shares. "Quality" and
+  "innovation" don't count.
+- **Voice:** three real sentences that sound like you, plus words you'd never use.
+- **Proof:** real numbers, customers, dates. Variants show these instead of invented stats.
+- **Sites you love** (URLs plus what exactly you love), **sites you hate**, and **what to never look
+  like**.
+- **Assets:** repo paths to your logo, real photography, and illustrations. Put them somewhere stable
+  (e.g. `public/brand/`). Tiraz never invents asset URLs.
+- **Brand type:** your typefaces, if you have them (otherwise each direction picks from a curated
+  library and avoids the model defaults).
+
+Then capture the sites you love so the judge (and the agents) can see the bar you're aiming for:
+
+```bash
+tiraz brand refs      # screenshots the "Sites we love" URLs into .tiraz/refs (up to 3)
+```
 
 ### 6. Commit, then write the brief and generate
 
-Commit your config and token changes first, because **variants branch from your current `HEAD`**,
-so uncommitted setup is invisible to them:
+Commit your config, tokens, and `BRAND.md` first, because **variants branch from your current
+`HEAD`**, so uncommitted setup is invisible to them:
 
 ```bash
-git add -A && git commit -m "tiraz setup: config + brand tokens"
+git add -A && git commit -m "tiraz setup: config + brand tokens + BRAND.md"
 ```
 
 The brief is your main steering wheel. Be specific:
@@ -178,6 +204,7 @@ Brief tips:
 - **Name the sections** you want.
 - **Point at the real assets** by repo-relative path.
 - Describe a **vibe/ethos**, not just a structure. Tiraz rewards committing to a look.
+- Leave the brand facts to `BRAND.md`; keep the brief about this page.
 
 **What to expect:** one short call plans 4 distinct directions for your brief (all inside your brand),
 then each variant gets one Claude Code session in its own worktree. The agent runs your build and
@@ -217,12 +244,15 @@ browser) is where you actually decide: flip through variants live, use **Compare
 ### 8. Refine the one you like (use your real ids)
 
 ```bash
-tiraz select g0-n2            # keep one survivor, prune the rest of its generation
+tiraz select g0-n2 --why "the hand-drawn roast logs feel like us"   # keep one, say why
+tiraz cull g0-n1 --why "too corporate, reads like a bank"            # reject one, say why
 tiraz breed g0-n2 --factor 2 -m "bigger product photography, calmer nav"   # say what to improve
 ```
 
-The `-m` note is the strongest steering you have; without it a child only gets a small automatic
-nudge.
+The `-m` note is the strongest steering for a single breed; without it a child only gets a small
+automatic nudge. The `--why` reasons (also a "Why" box in the dashboard's Actions menu) build up in
+`.tiraz/TASTE.md`. Every later plan, build, and judgement reads them, so Tiraz learns your taste
+instead of Claude's. Edit the file by hand whenever you like.
 
 To **blend two** variants instead, do not `select` first (that prunes siblings). Heart both, then:
 
@@ -269,7 +299,12 @@ variants are already edits to your real pages.
 
 ## Tips and best practices
 
-- **Colors as tokens is the whole game.** It is the one step that makes brand-keeping automatic.
+- **BRAND.md is the whole game for uniqueness**, and colour tokens for brand-keeping. Specific facts,
+  real sentences, and real images beat any amount of prompting.
+- **Watch the originality score.** `tiraz score` prints each variant's tells (the AI house style:
+  italic accent words, tracked uppercase labels, "§ 01" numbering, cream paper, default fonts…).
+  `tiraz tells <id>` lists them for one variant.
+- **Cull near-duplicates.** `score` flags variants that share a type system and palette.
 - **Your eye is the judge.** Use the dashboard Compare view; do not just trust the composite score.
 - **Explore wide, then converge.** Leave gen-0 diversity on `diverse` (or `alien`) to see range, then
   breed the look you want. Toggle it in the dashboard Config panel.
@@ -287,6 +322,9 @@ variants are already edits to your real pages.
   capture, but content that only appears after user input won't show. Make the default state visible.
 - **Variants ignore your brand colors:** your colors are not tokens yet (Step 4). Consolidate them
   into CSS variables / the Tailwind theme.
+- **Variants all look like "AI design":** fill in `BRAND.md` (Step 5), especially the one thing only
+  you can say and what to never look like, add reference sites, and give reasons when you heart and
+  cull.
 - **A restricted source's fetch hangs:** only the restricted sources can be toggled off, by name, for
   example `tiraz sources disable aceternity` (the restricted ones are `aceternity` and `skiper-ui`).
   Other sources are configured via the `sources.fetch` list or the dashboard Config panel, or turned

@@ -14,6 +14,9 @@ import { resolveCapabilities } from './capabilities';
 import { collectDesignSystem } from './ds-collect-io';
 import type { Direction } from './directions';
 import { planDirections } from './directions';
+import { brandBrief, brandFonts } from './brand';
+import type { CreativeContext } from './creative-context';
+import { loadCreativeContext } from './creative-context';
 import { seedPrimaries } from './skills-registry';
 import { resolveSources } from './sources';
 import { assignPort } from './worktree';
@@ -48,6 +51,10 @@ interface SeedProfile {
   prior: PriorWeight;
   /** What "excellent" means in THIS direction — held to its own intent, not one house style. */
   excellence: string;
+  /** The ownable element the direction is built around (planned directions only). */
+  signature?: string;
+  philosophy?: string;
+  typography?: string;
 }
 
 /**
@@ -320,6 +327,9 @@ function plannedProfile(direction: Direction): SeedProfile {
     sourceMode: 'all',
     prior: 'full',
     excellence: direction.excellence,
+    ...(direction.signature !== undefined ? { signature: direction.signature } : {}),
+    ...(direction.philosophy !== undefined ? { philosophy: direction.philosophy } : {}),
+    ...(direction.type !== undefined ? { typography: direction.type } : {}),
   };
 }
 
@@ -418,6 +428,9 @@ export function seedGenomes(
       ...(sources.length > 0 ? { sources } : {}),
       ...(wide && ethos !== undefined ? { ethos } : {}),
       ...(excellence !== undefined ? { excellence } : {}),
+      ...(wide && profile?.signature !== undefined ? { signature: profile.signature } : {}),
+      ...(wide && profile?.philosophy !== undefined ? { philosophy: profile.philosophy } : {}),
+      ...(wide && profile?.typography !== undefined ? { typography: profile.typography } : {}),
       ...(homegrown ? { homegrown: true } : {}),
     } satisfies Genome;
   });
@@ -469,6 +482,7 @@ async function materialize(
   const harness = await detectHarness(cwd, harnessKind);
   const capabilities = resolveCapabilities(config.modules).libraries.map((c) => c.name);
   const designSystem = await collectDesignSystem(cwd);
+  const creative = await loadCreativeContext(cwd);
   // Bundled-tier sources (e.g. Magic UI) are fetched alongside each genome's Tier-2 `sources`.
   const bundledSources = resolveSources(config.sources).bundled.map((source) => source.id);
 
@@ -528,6 +542,7 @@ async function materialize(
           bundledSources,
           twentyFirst: config.sources.twentyFirst,
           twentyFirstBudget: config.sources.twentyFirstBudget,
+          creative,
           ...(baseRef !== undefined ? { baseRef } : {}),
           ...(directive !== undefined ? { directive } : {}),
         },
@@ -563,6 +578,18 @@ async function materialize(
 /** Human-readable message for a rejected variant (unknown thrown value → best-effort string). */
 function describeReason(reason: unknown): string {
   return reason instanceof Error ? reason.message : String(reason);
+}
+
+/** Distinct directions already tried in this run (most recent last, capped), for the planner. */
+export function exploredDirections(manifest: Manifest, max = 12): string[] {
+  const seen: string[] = [];
+  for (const ids of manifest.generations) {
+    for (const id of ids) {
+      const ethos = manifest.nodes[id]?.genome.ethos?.trim();
+      if (ethos !== undefined && ethos !== '' && !seen.includes(ethos)) seen.push(ethos);
+    }
+  }
+  return seen.slice(-max);
 }
 
 export interface GenerationOptions {
@@ -624,6 +651,9 @@ export async function generateGeneration(
   }
 
   const wide = config.generation.diversity !== 'conservative';
+  const creative: CreativeContext = await loadCreativeContext(opts.cwd);
+  const brand = brandBrief(creative.brand);
+  const explored = exploredDirections(manifest);
   const directions =
     wide && config.generation.directions === 'planned'
       ? await planDirections({
@@ -635,6 +665,14 @@ export async function generateGeneration(
           model: config.agent.plannerModel,
           designSystem: await collectDesignSystem(opts.cwd),
           ...(opts.target !== undefined ? { target: opts.target } : {}),
+          ...(brand !== '' ? { brand } : {}),
+          ...(creative.taste !== '' ? { taste: creative.taste } : {}),
+          ...(explored.length > 0 ? { explored } : {}),
+          ...(creative.references.length > 0 ? { references: creative.references } : {}),
+          ...(creative.brand !== null && brandFonts(creative.brand).length > 0
+            ? { brandFonts: brandFonts(creative.brand) }
+            : {}),
+          seed: generation,
         })
       : null;
 

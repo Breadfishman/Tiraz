@@ -340,3 +340,9 @@ export function crowdTells(): string[] {
   }
   return out;
 }
+
+/** Look up a philosophy by id (case-insensitive). */
+export function getPhilosophy(id: string): Philosophy | undefined {
+  const key = id.trim().toLowerCase();
+  return PHILOSOPHIES.find((p) => p.id === key);
+}

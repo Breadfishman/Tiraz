@@ -58,6 +58,16 @@ export const GenomeSchema = z.strictObject({
    * the agent (the ethos section) and to the vision judge (each option's intent).
    */
   excellence: z.string().optional(),
+  /**
+   * The one ownable element this variant's design is built around — drawn from the brand or product
+   * (a custom illustration system, a typographic device, a visualisation of something real), never
+   * generic decoration. Planned per direction; the judge checks it exists and carries the design.
+   */
+  signature: z.string().optional(),
+  /** Design-philosophy backbone id from `philosophies.ts` (e.g. `swiss`), chosen per direction. */
+  philosophy: z.string().optional(),
+  /** The typefaces this direction uses (from the curated type library or the brand's own type). */
+  typography: z.string().optional(),
   graft: GraftSpecSchema.optional(),
   /**
    * Multi-page work: the node id whose approved design this variant extends to a new page. Its
