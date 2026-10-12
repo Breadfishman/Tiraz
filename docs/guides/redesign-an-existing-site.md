@@ -8,8 +8,8 @@ command cheat sheet in [running-the-loop.md](./running-the-loop.md) is enough.
 
 > **Heads up: this is a developer tool.** It drives a coding agent over a real codebase from the
 > command line. You do not need to be an expert, but you will be running terminal commands, and a few
-> steps (tokenizing colors, adding a render surface) are genuinely easier with a developer's help. The
-> guide flags those.
+> steps (tokenizing colors, getting your dev server to boot in Tiraz) are genuinely easier with a
+> developer's help. The guide flags those.
 
 ## Two directories are in play
 
@@ -64,16 +64,15 @@ _penalized_ for going off-brand. You do not have to police it.
   or just type the full `node /absolute/path/to/Tiraz/dist/cli.js ...` form. The path only works after
   a successful `npm run build` (rebuild after pulling updates).
 
-- **Claude access** (the agent and the taste judge both need it). Either:
-  - set an API key: `export ANTHROPIC_API_KEY=sk-...` (get one at `console.anthropic.com`), **or**
-  - install Anthropic's **Claude Code** CLI and run `claude login` once; Tiraz falls back to the
-    logged-in `claude` binary, no key needed.
+- **Claude Code**, installed and logged in (`claude login` once). Every variant is built by a
+  `claude` session, and the judge uses one too unless you also set `ANTHROPIC_API_KEY` (then it calls
+  the API directly). Pick models in `tiraz.config.json` (`agent.model`, `agent.judgeModel`).
 
 - **Playwright browsers** for rendering (run in the Tiraz clone):
-  `npx playwright install chromium`.
+  `npx playwright install chromium`. Already have Chrome/Chromium? `export TIRAZ_CHROMIUM_PATH=...`.
 
-- **A render surface in your repo.** Tiraz scores by screenshotting your UI, so it needs a preview it
-  can build and load. Covered in Step 3; it is the single most common first-run blocker.
+- **A site that boots with `npm run dev`.** Tiraz screenshots your real pages by running your dev
+  server inside each variant's worktree (Step 3). If `npm run dev` works in your repo, you're set.
 
 - **Only needed for the final `promote` step:** the **GitHub `gh` CLI**, authenticated
   (`gh auth login`), and a git **remote** on your repo. `promote` opens a pull request through `gh`.
@@ -98,10 +97,10 @@ tiraz adopt                  # run in your repo
 ```
 
 This detects your framework and render harness and writes a `tiraz.config.json` with
-`mode: integration`, and it prints what it found (for example "framework: next, harness: storybook").
-In this mode the primary design skill is forced to `redesign-existing-projects` (built for exactly
-this). If it reports no harness, that is fine, you add one next; just remember to tell `gen` about it
-with `--harness` (Step 6) or re-run `adopt` after Step 3.
+`mode: integration`, and it prints what it found (for example "framework: next, harness: app"). In
+this mode the redesign skill (`redesign-existing-projects`) is always active and every direction stays
+inside your brand. If it reports `harness: scratch`, it found neither a playground nor a `dev` script;
+set one up in Step 3 and re-run `adopt`.
 
 ### 3. Give Tiraz something to render
 

@@ -16,11 +16,11 @@ project instead of fighting it.
 **Live demo:** [tiraz.frf-enterprises.com](https://tiraz.frf-enterprises.com). This landing page was
 itself bred by Tiraz from a single brief, then promoted out to a standalone site.
 
-> **Status: end-to-end working.** All build phases (0-7) plus the live adapters (Playwright renderer,
-> vision taste judge, DS-adherence collectors) are implemented and verified live. The full
-> `gen -> score -> select -> breed -> promote` loop runs against a real repo, with a live `dashboard` to
-> review variants. Output is "getting there but still lacking" (quality is the active focus). See the
-> [CHANGELOG](./CHANGELOG.md) for per-change detail.
+> **Status: end-to-end working, verified live.** The full
+> `gen -> score -> select -> breed -> promote` loop runs against a real repo, rendering either your
+> actual site (the `app` harness) or a Storybook/Ladle/Histoire story, with a live `dashboard` to
+> review variants. The loop was recently slimmed down for current models: a round of 4 variants plus
+> scoring costs **6 Claude sessions** (it used to be ~56). See the [CHANGELOG](./CHANGELOG.md).
 
 ## How it works
 
@@ -74,8 +74,43 @@ The `docs/` describe what is actually implemented today.
 
 - Node.js >= 22
 - git (Tiraz isolates variants in git worktrees)
+- For the agent-driven commands: the [`claude`](https://claude.com/claude-code) CLI, logged in, and a
+  Playwright Chromium (`npx playwright install chromium`, or point `TIRAZ_CHROMIUM_PATH` at an
+  existing Chrome/Chromium). `ANTHROPIC_API_KEY` is optional (the judge then uses the API directly).
+- For `promote` in integration mode: the `gh` CLI, authenticated.
 
-## Quickstart (what runs today)
+## Quickstart: redesign a website
+
+```bash
+npm ci && npm run build && npm link       # in the Tiraz clone; puts `tiraz` on your PATH
+cd ../your-site && npm install            # variants reuse your node_modules
+tiraz adopt                               # detects your stack; no Storybook → renders your dev server
+git add -A && git commit -m "tiraz setup" # variants branch from HEAD
+tiraz gen --brief "Redesign our homepage: ..." --target route:/ --count 4
+tiraz score                               # one judge call ranks all 4
+tiraz dashboard --open                    # compare, heart, breed with notes
+tiraz gen --from g0-n2 --target route:/about --count 2 --brief "About page: ..."
+tiraz promote g0-n2                       # opens a PR
+```
+
+Next.js sites: set `"appCommand": "npx next dev --webpack -p {port}"` in `tiraz.config.json` first
+(Turbopack rejects the symlinked `node_modules` in variant worktrees). The full walkthrough is the
+[redesign guide](./docs/guides/redesign-an-existing-site.md).
+
+## What a round costs
+
+| Step                      | Claude usage                                                          |
+| ------------------------- | --------------------------------------------------------------------- |
+| `gen --count N`           | 1 short planning call + N build sessions (capped by `agent.maxTurns`) |
+| `gen --from <node>`       | N build sessions (no planning)                                        |
+| `breed` / `recombine`     | 1 build session per child                                             |
+| `score`                   | 1 vision call for the whole generation; lint + DS checks are local    |
+| `generation.selfCritique` | +1 resumed session per variant (off by default)                       |
+
+Choose the build model with `agent.model` and the judge/planner models with `agent.judgeModel` /
+`agent.plannerModel` ([configuration](./docs/configuration.md#agent-models-and-session-limits)).
+
+## More commands
 
 > Install with `npm ci` (exact, tested versions). You will see audit warnings about dev build tooling
 > (`esbuild`/`tsup`, Storybook); they are transitive dev dependencies, are not part of the CLI, and
@@ -128,6 +163,7 @@ Going from a promoted variant to a live page is a small pass, not a backend buil
 
 1. `tiraz promote <node>` -> a PR (integration) or merged branch (greenfield).
 2. If the variant was authored against Storybook, move `stories/*` -> `components/` and fix imports.
+   Variants rendered with the `app` harness are already edits to your real pages.
 3. Fill the real destinations in one place: a `config/site.ts` (`siteConfig`) with your `github` /
    `docs` / `features` URLs, and point the bred buttons/labels at it.
 4. Merge (your CI/CD deploys it) or, greenfield, push the repo and connect it to **Vercel** or

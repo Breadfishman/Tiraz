@@ -9,13 +9,13 @@ what is implemented and how the modules fit together.
 ## Layers (SPEC §1)
 
 1. **Taste layer**: a registry of design skills (`SKILL.md` files): two togglable primaries,
-   composable overlays, and single-purpose skills.
-2. **QA / fitness layer**: a three-term fitness function (lint floor + design-system adherence +
-   VLM taste judge). _Phase 2+._
-3. **Component sourcing**: a two-tier menu (bundled vs fetch-on-demand) the agent draws from.
-4. **Interop adapters**: export/handoff to external design tools. _Phase 6._
-5. **Exploration engine**: a beam search over design space (generate → score → select → breed).
-   _Phase 3+._
+   composable overlays, and single-purpose skills. Installed lean by default (base skill only).
+2. **QA / fitness layer**: a three-term fitness function: an advisory lint pass (local, free) +
+   design-system adherence + a single-call vision ranking.
+3. **Component sourcing**: a two-tier menu (bundled vs fetch-on-demand), opt-in.
+4. **Interop adapters**: export/handoff to external design tools.
+5. **Exploration engine**: a beam search over design space (plan → generate → score → select →
+   breed), plus `--from` to extend a winner to new pages.
 
 ## Module map (`src/core/`)
 
@@ -43,7 +43,7 @@ what is implemented and how the modules fit together.
 | `capabilities.ts`        | Capability-library registry (animation / scroll / 3D / video, §10) gated by modules    |
 | `scaffold.ts`            | Greenfield `init` scaffolder: drives Astro/Next + Tailwind + shadcn + module deps      |
 | `export.ts`              | Interop export adapters (§12bis): Stitch DESIGN.md / v0 prompt / Claude Design brief   |
-| `fitness.ts`             | Assembles the three-term `Fitness` composite (lint floor gates, then blend)            |
+| `fitness.ts`             | Assembles the three-term `Fitness` composite (optional lint gate, then blend)          |
 | `taste-judge.ts`         | `runTasteRanking`: one listwise judge call → rank + score per variant (`RankingJudge`) |
 | `vision-judge.ts`        | Live `RankingJudge`: ranking prompt + verdict parsing (pure); vision call injected     |
 | `anthropic-io.ts`        | Real Anthropic vision call (all screenshots in one request) (coverage-excluded glue)   |

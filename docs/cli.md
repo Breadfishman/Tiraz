@@ -14,7 +14,8 @@ Status legend: ✅ implemented · 🚧 partial · 📋 planned (with the phase i
 ### `tiraz adopt` ✅
 
 Attach Tiraz to an existing repo in **integration mode** (SPEC §3). Detects the host framework (from
-`package.json`) and the render harness (Storybook → Ladle → Histoire), then writes a
+`package.json`) and the render harness (Storybook → Ladle → Histoire → your own dev server via the
+`app` harness when there's a `dev` script), then writes a
 `tiraz.config.json` with `mode: integration`: conforming to the existing stack, never imposing one.
 An unrecognized framework leaves the configured default untouched.
 
@@ -132,20 +133,21 @@ single `/api/config` endpoint) and applies to the next gen/breed:
   `redesign-existing-projects` primary; the seed applies to greenfield/diversity).
 - **Design dials**: variance / motion / density sliders (1–10).
 - **Fitness weight**: one taste↔DS slider (sets both weights to sum to 1).
-- **Fetch real components**: toggle install mode (`sources.fetchMode`): on (default), Tiraz installs
-  real components from the permitted sources into each worktree before the agent runs; off falls back
-  to the reimplement-from-signatures behavior.
+- **Fetch real components**: toggle install mode (`sources.fetchMode`). Off by default (no fetching,
+  no per-library prompt text); on, Tiraz installs real components from the permitted sources into each
+  worktree before the agent runs.
 
 A **Score latest** cockpit button runs `tiraz score` on the newest generation as a polled background
 job (`/api/score`), so you can breed → score → review entirely from the page.
 
-Long-running. Ctrl-C stops the dashboard (and any dev servers). Needs a playground harness; the
-variants' worktrees (or cached static builds) to serve.
+Long-running. Ctrl-C stops the dashboard (and any dev servers). Needs a render surface (a playground,
+or the `app` harness, which always uses a live dev server per variant) and the variants' worktrees (or
+cached static builds) to serve.
 
 - `-p, --port <n>`: dashboard port (default `4317`).
 - `--open`: open it in your browser once it's up.
-- `--dev`: use a live dev server per variant instead of static builds (fallback for harnesses with
-  no targetable static build, e.g. Histoire).
+- `--dev`: use a live dev server per variant instead of static builds (automatic for harnesses with
+  no targetable static build, e.g. Histoire and `app`).
 - `--rebuild`: force-rebuild cached static sites (otherwise an existing `.tiraz/static/<id>` is
   reused, so re-launching the dashboard is fast).
 
@@ -225,8 +227,8 @@ Options: `--node <id>` sources the design intent from a manifest variant (else c
 Review a variant's **motion + polish** using Emil Kowalski's skill (SPEC §9). Emil's skill has no
 stated license, so it is **never vendored**: `review` installs it on demand (via the agent-skills
 CLI) into the variant's worktree, then runs the agent there with it active and prints the critique.
-Defaults to the run's `final` variant (else the most recent). Runs the real agent: deferred to an
-environment with `claude` + network.
+Defaults to the run's `final` variant (else the most recent). Runs the real agent (using
+`agent.model` / `agent.maxTurns`); needs `claude` + network.
 
 ### `tiraz gen` ✅ (live)
 
