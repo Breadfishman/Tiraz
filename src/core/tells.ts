@@ -54,10 +54,26 @@ const normalizeFamily = (family: string): string =>
 const countMatches = (text: string, re: RegExp): number => (text.match(re) ?? []).length;
 
 /** Font families a file declares or loads (CSS, Google Fonts URLs, next/font imports, Tailwind). */
-export function declaredFonts(content: string): string[] {
+export function declaredFonts(content: string, opts: { primaryOnly?: boolean } = {}): string[] {
   const out: string[] = [];
+  // In a stack only the first family is the choice; the rest are fallbacks (Georgia, Arial…).
+  const stack = (value: string): string[] => {
+    const parts = value.split(',');
+    return opts.primaryOnly === true ? parts.slice(0, 1) : parts;
+  };
   for (const m of content.matchAll(/font-family\s*:\s*([^;}{]+)/gi)) {
-    out.push(...(m[1] ?? '').split(','));
+    out.push(...stack(m[1] ?? ''));
+  }
+  // Font stacks held in custom properties (`--display: "Young Serif", Georgia, serif;`): a value
+  // ending in a generic family, or a font-ish property name holding a quoted family + fallback.
+  for (const m of content.matchAll(/--([\w-]+)\s*:\s*([^;}{]+)/g)) {
+    const name = m[1] ?? '';
+    const value = m[2] ?? '';
+    const isStack = /,\s*(?:serif|sans-serif|monospace|system-ui|cursive)\s*$/i.test(value.trim());
+    const fontish =
+      /font|family|serif|sans|mono|display|heading|body|text|type/i.test(name) &&
+      /["'][^"']+["']\s*,/.test(value);
+    if (isStack || fontish) out.push(...stack(value));
   }
   for (const m of content.matchAll(/fonts\.googleapis\.com\/css2?\?([^"'\s)]+)/gi)) {
     for (const fam of (m[1] ?? '').matchAll(/family=([^:&]+)/g)) out.push(fam[1] ?? '');
@@ -71,7 +87,10 @@ export function declaredFonts(content: string): string[] {
     out.push((m[1] ?? '').replace(/-/g, ' '));
   }
   for (const m of content.matchAll(/fontFamily\s*:\s*\{([\s\S]*?)\}/g)) {
-    for (const q of (m[1] ?? '').matchAll(/['"]([^'"]+)['"]/g)) out.push(q[1] ?? '');
+    for (const entry of (m[1] ?? '').matchAll(/\[([^\]]*)\]/g)) {
+      const families = [...(entry[1] ?? '').matchAll(/['"]([^'"]+)['"]/g)].map((q) => q[1] ?? '');
+      out.push(...(opts.primaryOnly === true ? families.slice(0, 1) : families));
+    }
   }
   const generic = new Set([
     'serif',
@@ -170,8 +189,9 @@ export const CLAUDE_TELLS: readonly TellRule[] = [
     weight: 15,
     threshold: 1,
     count: (f, ctx) =>
-      declaredFonts(f.content).filter((fam) => !ctx.exemptFonts.has(fam) && ctx.isOverusedFont(fam))
-        .length,
+      declaredFonts(f.content, { primaryOnly: true }).filter(
+        (fam) => !ctx.exemptFonts.has(fam) && ctx.isOverusedFont(fam),
+      ).length,
   },
   {
     id: 'cream-paper',

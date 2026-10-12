@@ -17,6 +17,10 @@ describe('fingerprint', () => {
     expect(print.colors).toHaveLength(3);
     expect(print.tells).toEqual(['drop-cap']);
     expect(fingerprint('x', css('#zzzzzz')).colors).toEqual([]);
+    // Brand tokens are ignored: on-brand variants share them by design.
+    expect(
+      fingerprint('y', css('a { color: #6b3e26; b: #ff3300 }'), undefined, ['#6B3E26']).colors,
+    ).toEqual(['ff3300']);
   });
 });
 

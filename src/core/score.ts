@@ -98,6 +98,9 @@ export async function runScore(
   const dsResults = new Map<string, DsAdherenceResult>();
   const tellResults = new Map<string, TellReport>();
   const prints: ReturnType<typeof fingerprint>[] = [];
+  const brandColors = Object.entries(deps.designSystem.tokens)
+    .filter(([category]) => category === 'color')
+    .flatMap(([, values]) => values);
   await Promise.all(
     nodes.map(async (node) => {
       const [lintResult, used, files] = await Promise.all([
@@ -111,7 +114,8 @@ export async function runScore(
           ...(deps.isOverusedFont !== undefined ? { isOverusedFont: deps.isOverusedFont } : {}),
         });
         tellResults.set(node.genome.id, report);
-        prints.push(fingerprint(node.genome.id, files, report));
+        // Brand colour tokens are shared by design, so they don't count toward similarity.
+        prints.push(fingerprint(node.genome.id, files, report, brandColors));
       }
       lintResults.set(node.genome.id, lintResult);
       dsResults.set(

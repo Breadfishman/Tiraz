@@ -78,6 +78,21 @@ describe('detectTells', () => {
     ]);
   });
 
+  it('judges only the primary family of a stack (fallbacks like Georgia are fine)', () => {
+    const css = [
+      file(
+        ':root { --display: "Young Serif", Georgia, serif; } a { font-family: Inter, sans-serif }',
+        'a.css',
+      ),
+    ];
+    const finding = detectTells(css).findings.find((f) => f.id === 'overused-fonts');
+    expect(finding?.count).toBe(1); // Inter, not Georgia
+    expect(declaredFonts(css[0]!.content, { primaryOnly: true }).sort()).toEqual([
+      'inter',
+      'young serif',
+    ]);
+  });
+
   it('exempts brand fonts and accepts a custom overused list', () => {
     const css = [file('h1 { font-family: "Inter", sans-serif; }', 'a.css')];
     expect(detectTells(css).findings.map((f) => f.id)).toEqual(['overused-fonts']);
@@ -124,6 +139,21 @@ describe('declaredFonts', () => {
         'playfair display',
         'space grotesk',
       ].sort(),
+    );
+  });
+});
+
+describe('declaredFonts — custom properties', () => {
+  it('reads font stacks held in CSS variables, ignoring non-font vars', () => {
+    const content = `:root {
+      --font: "Host Grotesk", "Helvetica Neue", Arial, sans-serif;
+      --display: 'Young Serif', Georgia, serif;
+      --brand: #6b3e26;
+      --label-text: "Fig. 1";
+      --gap: 1rem, 2rem;
+    }`;
+    expect(declaredFonts(content).sort()).toEqual(
+      ['arial', 'georgia', 'helvetica neue', 'host grotesk', 'young serif'].sort(),
     );
   });
 });

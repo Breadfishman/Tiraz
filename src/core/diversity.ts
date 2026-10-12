@@ -35,14 +35,17 @@ export function fingerprint(
   id: string,
   files: readonly SourceFile[],
   tells?: TellReport,
+  /** Colours to ignore — the brand's own tokens, which every on-brand variant should share. */
+  ignoreColors: readonly string[] = [],
 ): Fingerprint {
+  const ignored = new Set(ignoreColors.map(quantizeHex).filter((c): c is string => c !== null));
   const fonts = new Set<string>();
   const colors = new Set<string>();
   for (const file of files) {
     for (const fam of declaredFonts(file.content)) fonts.add(fam);
     for (const m of file.content.matchAll(/#[0-9a-fA-F]{3,8}\b/g)) {
       const q = quantizeHex(m[0]);
-      if (q !== null) colors.add(q);
+      if (q !== null && !ignored.has(q)) colors.add(q);
     }
   }
   return {
