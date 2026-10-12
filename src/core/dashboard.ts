@@ -214,6 +214,10 @@ export function renderDashboardHtml(
       <summary class="vbtn">⚙ Actions ▾</summary>
       <div class="actions" id="actions">
       <div class="arow">
+        <span class="alabel">Why</span>
+        <input id="act-why" class="atext" type="text" maxlength="300" placeholder="why? one line for heart / cull / focus (optional, remembered in .tiraz/TASTE.md)" />
+      </div>
+      <div class="arow">
         <button class="abtn" id="act-heart" title="Favorite this variant (keep it; no siblings pruned)">♥ Heart</button>
         <button class="abtn" id="act-cull" title="Cull this variant (mark pruned)">✕ Cull</button>
         <button class="abtn" id="act-cull-lineage" title="Cull this variant and its whole descendant chain">⊘ Cull lineage</button>
@@ -503,6 +507,7 @@ export function renderDashboardHtml(
     function wireActions() {
       const toast = document.getElementById('toast');
       const directiveEl = document.getElementById('act-directive');
+      const whyEl = document.getElementById('act-why');
       const factorEl = document.getElementById('act-factor');
       const graftEl = document.getElementById('act-graft');
       const combinePanel = document.getElementById('combine-panel');
@@ -519,10 +524,15 @@ export function renderDashboardHtml(
         if (!r.ok) throw new Error(json.error || (r.status + ' ' + r.statusText));
         return json;
       }
+      // Attach the optional one-line reason (taste memory); blank = the body is sent unchanged.
+      function withWhy(body) {
+        const why = whyEl.value.trim();
+        return why ? Object.assign({}, body, { why }) : body;
+      }
       async function quick(label, path, body) {
         if (!cur || window.__busy) return;
         setBusy(true); setToast(label + ' ' + cur + '…', 'work');
-        try { await post(path, body); location.reload(); }
+        try { await post(path, withWhy(body)); whyEl.value = ''; location.reload(); }
         catch (e) { setToast(label + ' failed: ' + e.message, 'bad'); setBusy(false); }
       }
       btns['act-heart'].addEventListener('click', () => quick('Hearting', '/api/favorite', { ids: [cur] }));

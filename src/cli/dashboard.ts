@@ -42,6 +42,7 @@ import {
 import { breedGeneration, recombineVariant } from '../core/search';
 import { listSnapshots, restoreSnapshot, saveSnapshot } from '../core/snapshot';
 import { contentTypeFor, safeAssetPath, safeJoin } from '../core/static-serve';
+import { recordTaste } from '../core/taste-memory';
 import { assignPort } from '../core/worktree';
 import { liveDeps } from './live';
 import { openInBrowser } from './open';
@@ -56,8 +57,12 @@ type JobState =
   | { status: 'done'; message: string }
   | { status: 'error'; error: string };
 
-const IdsBody = z.object({ ids: z.array(z.string()).min(1) });
-const CullBody = z.object({ ids: z.array(z.string()).min(1), cascade: z.boolean().optional() });
+const IdsBody = z.object({ ids: z.array(z.string()).min(1), why: z.string().max(1000).optional() });
+const CullBody = z.object({
+  ids: z.array(z.string()).min(1),
+  cascade: z.boolean().optional(),
+  why: z.string().max(1000).optional(),
+});
 const PromoteBody = z.object({ id: z.string() });
 const BreedBody = z.object({
   ids: z.array(z.string()).min(1),
@@ -348,6 +353,8 @@ async function runDashboard(
           const { manifest: updated } = cull(current, ids, { cascade });
           await saveManifest(cwd, updated);
         }
+        const verdict = url === '/api/cull' ? 'rejected' : 'liked';
+        await recordTaste(cwd, current, ids, verdict, parsed.data.why);
         sendJson(res, 200, { ok: true });
         return;
       }

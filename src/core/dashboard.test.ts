@@ -118,6 +118,8 @@ describe('renderDashboardHtml', () => {
     expect(html).toContain('id="act-cull"');
     expect(html).toContain('id="act-cull-lineage"');
     expect(html).toContain('id="act-focus"');
+    expect(html).toContain('id="act-why"'); // optional taste-memory reason for heart/cull/focus
+    expect(html).toContain('post(path, withWhy(body))');
     expect(html).toContain('id="act-breed"');
     expect(html).toContain('id="act-combine-start"');
     expect(html).toContain('id="act-promote"');

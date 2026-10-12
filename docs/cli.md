@@ -68,6 +68,11 @@ Runnable today.
 
 Mark the given nodes as survivors and prune the rest of their generation. Manifest-only.
 
+- `--why "<text>"`: say _why_ you liked them in one line. Tiraz records a `liked` note per node
+  (with the variant's aesthetic direction, if it had one) in `.tiraz/TASTE.md`, the run's **taste
+  memory**: a plain markdown file, editable by hand, that later planning, build and judge prompts
+  read so future rounds lean toward what you liked.
+
 ### `tiraz cull <nodes...>` ✅
 
 Negative selection: the human's "nip it in the bud". Marks the given nodes `pruned`. With
@@ -75,6 +80,9 @@ Negative selection: the human's "nip it in the bud". Marks the given nodes `prun
 a doomed chain in one move); it is DAG-aware, so a grafted child with another living parent survives.
 Culled variants stay in the manifest (greyed in the dashboard) but are skipped when building/serving
 and never bred: that is the resource save. Manifest-only.
+
+- `--why "<text>"`: one-line reason, recorded as a `rejected` note per named node in
+  `.tiraz/TASTE.md` (see `select`) so future rounds avoid repeating it.
 
 ### `tiraz snapshot save|list|restore` ✅
 
@@ -120,6 +128,11 @@ It's the cockpit for human-steered evolution; the top action bar calls back into
 - **⧉ Combine**: pick a second variant + describe **what to take from each / what to discard** →
   human-directed graft (`tiraz recombine`), run as a polled background job.
 - **⬆ Promote**: greenfield merges to base; integration opens a PR (`tiraz promote`). Confirmed first.
+
+A **Why** box at the top of the Actions menu takes an optional one-line reason for the next ♥ Heart /
+◎ Focus (recorded as `liked`) or ✕ Cull / ⊘ Cull lineage (recorded as `rejected`, for the variant you
+culled). It lands in `.tiraz/TASTE.md`, the same taste memory as `select`/`cull --why`, and steers
+future rounds. Leave it blank to skip; the action then behaves exactly as before.
 
 Selecting a variant also shows the taste judge's **critique** (why it ranked where it did)
 in a detail strip. A collapsible **⚙ Config & resources** panel surfaces the run's component sources
