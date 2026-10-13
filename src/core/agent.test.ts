@@ -281,8 +281,21 @@ describe('composePrompt — brand uniqueness sections', () => {
     expect(composePrompt({ ...base, philosophy: 'nope' }, [])).not.toContain('## Design backbone');
   });
 
-  it('chooses typography: brand fonts > direction type > integration keep > curated library', () => {
+  it('chooses typography: brand fonts (+ direction type) > direction type > integration keep > curated library', () => {
     expect(extras({ brandFonts: ['GT Alpina'] })).toContain('Use the brand typefaces: GT Alpina');
+    expect(
+      composePrompt(
+        { ...base, typography: 'Hanken Grotesk display' },
+        [],
+        [],
+        undefined,
+        undefined,
+        undefined,
+        {
+          brandFonts: ['Manrope'],
+        },
+      ),
+    ).toContain("Brand typefaces: Manrope. This direction's typography: Hanken Grotesk display.");
     expect(composePrompt({ ...base, typography: 'Söhne + Tiempos' }, [])).toContain(
       'Use: Söhne + Tiempos.',
     );

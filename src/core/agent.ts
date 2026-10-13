@@ -132,6 +132,15 @@ function backboneSection(genome: Genome): string[] {
  * sample. A redesign keeps its old typefaces only when BRAND.md lists them as brand type.
  */
 function typographySection(genome: Genome, brandFonts: readonly string[]): string[] {
+  const own = genome.typography?.trim() ?? '';
+  if (brandFonts.length > 0 && own !== '') {
+    return [
+      '## Typography',
+      `Brand typefaces: ${brandFonts.join(', ')}. This direction's typography: ${own}.`,
+      "Follow the direction's choice where it names a face; use the brand typefaces everywhere else.",
+      '',
+    ];
+  }
   if (brandFonts.length > 0) {
     return [
       '## Typography',
