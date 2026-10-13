@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { Agent } from './agent';
-import { composeDirectionsPrompt, parseDirections, planDirections } from './directions';
+import {
+  DirectionsFileError,
+  composeDirectionsPrompt,
+  parseAuthoredDirections,
+  parseDirections,
+  planDirections,
+} from './directions';
 
 const plan = (n: number): string =>
   JSON.stringify({
@@ -167,5 +173,38 @@ describe('planDirections', () => {
     const base = { cwd: '/repo', brief: 'b', count: 2, mode: 'greenfield' as const };
     expect(await planDirections({ ...base, agent: failing })).toBeNull();
     expect(await planDirections({ ...base, agent: throwing })).toBeNull();
+  });
+});
+
+describe('parseAuthoredDirections', () => {
+  it('accepts an array or {directions}, needs only ethos, and defaults dials to 5', () => {
+    const long = 'Growth rings.\n\nA long, multi-paragraph art direction.';
+    const fromArray = parseAuthoredDirections(
+      JSON.stringify([{ ethos: long, signature: 'rings', type: 'Manrope', motion: 12 }]),
+    );
+    expect(fromArray).toEqual([
+      {
+        ethos: long,
+        excellence: '',
+        signature: 'rings',
+        type: 'Manrope',
+        dials: { variance: 5, motion: 10, density: 5 },
+      },
+    ]);
+    const wrapped = parseAuthoredDirections(
+      JSON.stringify({
+        directions: [
+          { ethos: 'A', philosophy: 'SWISS' },
+          { ethos: 'B', philosophy: 'nope' },
+        ],
+      }),
+    );
+    expect(wrapped.map((d) => d.philosophy)).toEqual(['swiss', undefined]);
+  });
+
+  it('throws a readable error on bad JSON, an empty list, or a missing ethos', () => {
+    expect(() => parseAuthoredDirections('{nope')).toThrow(DirectionsFileError);
+    expect(() => parseAuthoredDirections('[]')).toThrow(DirectionsFileError);
+    expect(() => parseAuthoredDirections('[{"signature":"x"}]')).toThrow(/ethos/);
   });
 });

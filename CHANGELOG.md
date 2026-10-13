@@ -5,6 +5,12 @@ SPEC §16. The format loosely follows [Keep a Changelog](https://keepachangelog.
 
 ## [Unreleased]
 
+### Hand-authored directions
+
+- **`tiraz gen --directions <file>`.** Give each variant your own art direction (a JSON list of
+  `{"ethos", "signature"?, "type"?, …}`, where `ethos` can be a long brief) instead of the planner's
+  one-line directions. One variant per entry; no planning call.
+
 ### Ground-up redesigns + capture fixes
 
 - **BRAND.md decides what a redesign keeps.** Integration mode used to tell every agent to keep the

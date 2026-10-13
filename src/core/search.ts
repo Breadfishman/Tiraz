@@ -604,6 +604,11 @@ export interface GenerationOptions {
    * is based on that node's branch and inherits its direction; no new directions are planned.
    */
   from?: string;
+  /**
+   * Hand-authored directions (`--directions <file>`): used as-is instead of the planner, one per
+   * variant (cycled when `count` exceeds them).
+   */
+  directions?: Direction[];
 }
 
 /**
@@ -655,26 +660,28 @@ export async function generateGeneration(
   const brand = brandBrief(creative.brand);
   const explored = exploredDirections(manifest);
   const directions =
-    wide && config.generation.directions === 'planned'
-      ? await planDirections({
-          agent: deps.agent,
-          cwd: opts.cwd,
-          brief: opts.brief,
-          count: opts.count,
-          mode: config.mode,
-          model: config.agent.plannerModel,
-          designSystem: await collectDesignSystem(opts.cwd),
-          ...(opts.target !== undefined ? { target: opts.target } : {}),
-          ...(brand !== '' ? { brand } : {}),
-          ...(creative.taste !== '' ? { taste: creative.taste } : {}),
-          ...(explored.length > 0 ? { explored } : {}),
-          ...(creative.references.length > 0 ? { references: creative.references } : {}),
-          ...(creative.brand !== null && brandFonts(creative.brand).length > 0
-            ? { brandFonts: brandFonts(creative.brand) }
-            : {}),
-          seed: generation,
-        })
-      : null;
+    opts.directions !== undefined && opts.directions.length > 0
+      ? opts.directions
+      : wide && config.generation.directions === 'planned'
+        ? await planDirections({
+            agent: deps.agent,
+            cwd: opts.cwd,
+            brief: opts.brief,
+            count: opts.count,
+            mode: config.mode,
+            model: config.agent.plannerModel,
+            designSystem: await collectDesignSystem(opts.cwd),
+            ...(opts.target !== undefined ? { target: opts.target } : {}),
+            ...(brand !== '' ? { brand } : {}),
+            ...(creative.taste !== '' ? { taste: creative.taste } : {}),
+            ...(explored.length > 0 ? { explored } : {}),
+            ...(creative.references.length > 0 ? { references: creative.references } : {}),
+            ...(creative.brand !== null && brandFonts(creative.brand).length > 0
+              ? { brandFonts: brandFonts(creative.brand) }
+              : {}),
+            seed: generation,
+          })
+        : null;
 
   const genomes = seedGenomes(
     config,

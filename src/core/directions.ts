@@ -195,6 +195,56 @@ export function parseDirections(text: string, count: number): Direction[] | null
   }
 }
 
+const dialOrDefault = dial.optional().default(5);
+
+const AuthoredSchema = z.object({
+  ethos: z.string().min(1),
+  excellence: z.string().optional(),
+  signature: z.string().optional(),
+  philosophy: z.string().optional(),
+  type: z.string().optional(),
+  variance: dialOrDefault,
+  motion: dialOrDefault,
+  density: dialOrDefault,
+});
+
+export class DirectionsFileError extends Error {
+  override readonly name = 'DirectionsFileError';
+}
+
+/**
+ * Parse hand-authored directions (`tiraz gen --directions <file>`): JSON, either an array or
+ * `{"directions": [...]}`. Unlike planner output, only `ethos` is required (it may be a long,
+ * multi-paragraph art direction); dials default to 5. Throws {@link DirectionsFileError} on bad input.
+ */
+export function parseAuthoredDirections(text: string): Direction[] {
+  let data: unknown;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new DirectionsFileError('Directions file is not valid JSON.');
+  }
+  const list = Array.isArray(data) ? data : (data as { directions?: unknown } | null)?.directions;
+  const parsed = z.array(AuthoredSchema).min(1).safeParse(list);
+  if (!parsed.success) {
+    throw new DirectionsFileError(
+      'Directions file needs a non-empty array of {"ethos": "..."} objects (optionally under "directions").',
+    );
+  }
+  return parsed.data.map((d) => ({
+    ethos: d.ethos.trim(),
+    excellence: d.excellence?.trim() ?? '',
+    ...(d.signature !== undefined && d.signature.trim() !== ''
+      ? { signature: d.signature.trim() }
+      : {}),
+    ...(d.philosophy !== undefined && PHILOSOPHY_IDS.has(d.philosophy.trim().toLowerCase())
+      ? { philosophy: d.philosophy.trim().toLowerCase() }
+      : {}),
+    ...(d.type !== undefined && d.type.trim() !== '' ? { type: d.type.trim() } : {}),
+    dials: { variance: d.variance, motion: d.motion, density: d.density },
+  }));
+}
+
 export interface PlanDirectionsOptions extends DirectionsRequest {
   agent: Agent;
   cwd: string;

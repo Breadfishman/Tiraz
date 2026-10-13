@@ -401,6 +401,38 @@ describe('generateGeneration', () => {
     expect(nodes.map((n) => n.genome.ethos)).toEqual(['Ink and paper', 'Neon product']);
   });
 
+  it('uses hand-authored directions as-is and makes no planning call', async () => {
+    const repo = await initRepo();
+    const readOnlyCalls: unknown[] = [];
+    const agent: Agent = {
+      run: (opts) => {
+        if (opts.readOnly === true) readOnlyCalls.push(opts);
+        return Promise.resolve({ ok: true, exitCode: 0, output: 'done' });
+      },
+    };
+    const nodes = await generateGeneration(
+      {
+        cwd: repo,
+        brief: 'A landing page',
+        count: 2,
+        harness: 'storybook',
+        directions: [
+          {
+            ethos: 'Growth rings',
+            excellence: '',
+            signature: 'rings',
+            dials: { variance: 5, motion: 6, density: 4 },
+          },
+          { ethos: 'Ridgeline', excellence: '', dials: { variance: 7, motion: 7, density: 6 } },
+        ],
+      },
+      { ...(await deps()), agent },
+    );
+    expect(readOnlyCalls).toHaveLength(0);
+    expect(nodes.map((n) => n.genome.ethos)).toEqual(['Growth rings', 'Ridgeline']);
+    expect(nodes[0]?.genome.signature).toBe('rings');
+  });
+
   it('gives the planner BRAND.md, taste notes, references, and earlier directions', async () => {
     const repo = await initRepo();
     await writeFile(

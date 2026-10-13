@@ -260,6 +260,10 @@ chromium`, or `TIRAZ_CHROMIUM_PATH`).
 
 - `-b, --brief <text>` (required) · `-c, --count <n>` (default 3) · `-t, --target <scope>` ·
   `--harness <kind>` (`storybook` | `ladle` | `histoire` | `app` | `scratch`).
+- `--directions <file>`: **your art direction instead of the planner's.** A JSON array (or
+  `{"directions": [...]}`) of `{"ethos", "signature"?, "type"?, "excellence"?, "philosophy"?,
+  "variance"?, "motion"?, "density"?}`. Only `ethos` is required, and it can be a long,
+  multi-paragraph brief. One variant per entry unless `--count` says otherwise. No planning call.
 - `--from <node>`: **multi-page.** Extend that node's approved design to a new page (`--target`). Each
   variant starts from the node's branch, inherits its direction, and is told to reuse its tokens,
   type, navigation, and footer. No directions are planned.
